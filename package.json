@@ -1,0 +1,20 @@
+{
+  "name": "end-to-end-project",
+  "version": "1.0.0",
+  "description": "A web-based end-to-end-encrypted messaging service that allows users to communicate to each other through text, images, and files without the server being able to view their unencrypted messages.\" ",
+  "type": "module",
+  "main": "dist/server/bundle.js",
+  "scripts": {
+    "build": "./build.sh",
+    "test": "npm run build && node ./dist/server/index.js"
+  },
+  "author": "Ryan O'Connor",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

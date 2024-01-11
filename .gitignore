@@ -1,0 +1,8 @@
+node_modules/
+dist/
+
+#Custom
+ignored/
+
+# OS-Specific Files
+.DS_Store
