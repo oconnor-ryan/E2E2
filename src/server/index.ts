@@ -23,10 +23,16 @@ app.use(express.json());
 //parse strings that are encoded in URL (example: "%20%" is replaced with " ")
 app.use(express.urlencoded({extended: true}));
 
+app.use("/", (req, res, next) => {
+  console.log("Request Made");
+  next();
+});
 
 app.get("/", (req, res) => {
   res.sendFile("index.html", {root: ROOT});
 })
+
+
 
 app.listen(3000, () => {
   console.log("Server Started!");

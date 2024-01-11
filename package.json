@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "A web-based end-to-end-encrypted messaging service that allows users to communicate to each other through text, images, and files without the server being able to view their unencrypted messages.\" ",
   "type": "module",
-  "main": "dist/server/bundle.js",
+  "main": "test.js",
   "scripts": {
-    "build": "./build.sh",
-    "test": "npm run build && node ./dist/server/index.js"
+    "build": "node build.js",
+    "test": "node test.js"
   },
   "author": "Ryan O'Connor",
   "license": "MIT",
