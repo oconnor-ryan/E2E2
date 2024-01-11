@@ -25,18 +25,47 @@ function clearFolder(dir) {
   }
 }
 
-//remove contents of build folders
-clearFolder("./dist/server");
-clearFolder("./dist/client");
+function main() {
+  let buildClient = false;
+  let buildServer = false;
+  
+  if(!process.argv[2]) {
+    buildClient = true;
+    buildServer = true;
+  }
+  else if(process.argv[2] == "--client") {
+    buildClient = true;
+  } else if(process.argv[2] == "--server") {
+    buildServer = true;
+  } else {
+    console.error(`Invalid command-line argument, only --client and --server are valid options!`);
+    process.exitCode = -1;
+    return;
+  }
+  
+  if(buildClient) {
+    //remove contents of build folders
+    clearFolder("./dist/client");
+  
+    //transpile Typescript to Javascript for client and server
+    execSync("tsc --project ./src/client/tsconfig.json");
+  
+    //copy website static assets to dist folder
+    fs.cpSync("./public", "./dist/client", {recursive: true});
+  }
+  
+  if(buildServer) {
+    //remove contents of build folders
+    clearFolder("./dist/server");
+  
+    //transpile Typescript to Javascript for client and server
+    execSync("tsc --project ./src/server/tsconfig.json");
+  }
+  
+  console.log("Project successfully built!");
+}
 
-//transpile Typescript to Javascript for client and server
-execSync("tsc --project ./src/server/tsconfig.json");
-execSync("tsc --project ./src/client/tsconfig.json");
-
-//copy website static assets to dist folder
-fs.cpSync("./public", "./dist/client", {recursive: true});
-
-console.log("Project successfully built!");
+main();
 
 
 

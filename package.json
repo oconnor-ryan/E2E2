@@ -6,6 +6,8 @@
   "main": "test.js",
   "scripts": {
     "build": "node build.js",
+    "client:build": "node build.js --client",
+    "server:build": "node build.js --server",
     "test": "node test.js"
   },
   "author": "Ryan O'Connor",
