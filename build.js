@@ -20,15 +20,16 @@ tsc --project ./src/client/tsconfig.json
  * 
  * @param {string} dir - the starting directory to search for files to delete
  * @param {string[]} extArr - the array of file extensions that will be deleted from directory
+ * @param {boolean} isRoot - whether or not dir is the root folder being searched
  */
-function recursiveDeleteFilesWithExt(dir, extArr) {
+function recursiveDeleteFilesWithExt(dir, extArr, isRoot = true) {
   let items = fs.readdirSync(dir);
   let numDeleted = 0;
   for(let item of items) {
     let filePath = path.join(dir, item);
     //if filePath is a directory, recursively call this function
     if(fs.statSync(filePath).isDirectory()) {
-      recursiveDeleteFilesWithExt(filePath, ext);
+      recursiveDeleteFilesWithExt(filePath, ext, false);
     } 
     //if the file contains an extension from the list of extensions, delete it
     else if(extArr.find((ext) => filePath.endsWith(ext))){
@@ -38,27 +39,26 @@ function recursiveDeleteFilesWithExt(dir, extArr) {
   }
 
   //if all items were deleted in this directory, delete the directory itself
-  if(numDeleted == items.length) {
+  //unless the directory is the root directory that is being searched
+  if(numDeleted == items.length && !isRoot) {
     fs.rmdirSync(dir);
+  }
+}
+
+function clearFolder(dir) {
+  let items = fs.readdirSync(dir);
+  for(let item of items) {
+    fs.rmSync(path.join(dir, item), {recursive: true});
   }
 }
 
 /**
  * 
- * @param {string} dir - the relative path of the directory we want to clear
- * @param {Array<string> | undefined} ignoreExtArr - a optional list of file extensions that wont be deleted
  */
-function clearFolder(dir, ignoreExtArr) {
-  let items = fs.readdirSync(dir);
-  for(let item of items) {
-    let absPath = path.join(dir, item);
-    if(fs.statSync().isFile()) 
-    
-    if(ignoreExtArr && ignoreExtArr.find((ext) => item.endsWith(ext))) {
-      fs.rmSync(absPath, {recursive: true, });
-    }
-  }
+function clearClientFolder() {
+  recursiveDeleteFilesWithExt("./dist/client", ['.js']);
 }
+
 
 function main() {
   let buildClient = false;
@@ -80,7 +80,7 @@ function main() {
   
   if(buildClient) {
     //remove contents of build folders
-    clearFolder("./dist/client");
+    clearFolder(");
   
     //transpile Typescript to Javascript for client and server
     execSync("tsc --project ./src/client/tsconfig.json");
