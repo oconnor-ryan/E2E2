@@ -64,7 +64,9 @@ Methods for Encrypting Messages:
     - Each encrypted version of the same message must be stored on server for each user.
     - The message size is limited to the modulus used for public key encryption. (Example: For RSA with a modulus of 4096, the maximum message size is 512 bytes, which in UTF-8, is 128 characters per message)
     
-2. 
+2. Symmetric Key + Public Key + Key Agreement
+  - Each user has a public-private key to encrypt their keys and metadata.
+  - A shared secret 
 3. Use Already-Existing persistant messaging protocol, like Signal Protocol.
 
 

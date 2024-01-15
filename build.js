@@ -17,7 +17,7 @@ tsc --project ./src/client/tsconfig.json
 */
 
 /**
- * 
+ * Recursively delete all files from a directory with a certain extension from the extArr parameter
  * @param {string} dir - the starting directory to search for files to delete
  * @param {string[]} extArr - the array of file extensions that will be deleted from directory
  * @param {boolean} isRoot - whether or not dir is the root folder being searched
@@ -29,7 +29,7 @@ function recursiveDeleteFilesWithExt(dir, extArr, isRoot = true) {
     let filePath = path.join(dir, item);
     //if filePath is a directory, recursively call this function
     if(fs.statSync(filePath).isDirectory()) {
-      recursiveDeleteFilesWithExt(filePath, ext, false);
+      recursiveDeleteFilesWithExt(filePath, extArr, false);
     } 
     //if the file contains an extension from the list of extensions, delete it
     else if(extArr.find((ext) => filePath.endsWith(ext))){
@@ -52,14 +52,6 @@ function clearFolder(dir) {
   }
 }
 
-/**
- * 
- */
-function clearClientFolder() {
-  recursiveDeleteFilesWithExt("./dist/client", ['.js']);
-}
-
-
 function main() {
   let buildClient = false;
   let buildServer = false;
@@ -80,13 +72,11 @@ function main() {
   
   if(buildClient) {
     //remove contents of build folders
-    clearFolder(");
+    recursiveDeleteFilesWithExt("./dist/client", ['.js']);
+
   
     //transpile Typescript to Javascript for client and server
     execSync("tsc --project ./src/client/tsconfig.json");
-  
-    //copy website static assets to dist folder
-    fs.cpSync("./public", "./dist/client", {recursive: true});
   }
   
   if(buildServer) {
