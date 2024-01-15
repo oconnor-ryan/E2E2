@@ -1,5 +1,10 @@
 node_modules/
-dist/
+
+# disttribute folder
+dist/server
+
+# only ignore generated JS files
+dist/client/*.js
 
 #Custom
 ignored/

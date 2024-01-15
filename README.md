@@ -96,13 +96,14 @@ Methods For Login:
     - Salting reduces the effectiveness of rainbow tables.
   - Disadvantages
     - If a attacker is able to download the database from a server, they can retrieve the password from a hash and salt if they have the hardware to do so.
+
 2. Store the result of a key derivation function(PBKDF2,scrypt,argon2,etc)
   - When creating account password, derive a key from a given password and store it on the server.
   - When logging in, the given password is run through the KDF and compared to the stored key.
   - Advantages
     - More expensive to calculate for attackers
   - Disadvantages
-    - The only key-derivation function for user passwords in WebCrypto API is PBKDF2, which is weaker than other KDFs (scrypt, argon2, bcrypt)
+    - The only key-derivation function for user passwords in WebCrypto API is PBKDF2, which is more prone to being brute-forced by high-end GPUs compared to other KDFs that allow low-entropy inputs (argon2, scrypt, bcrypt). To combat this, OWASP recommends 600000 iterations for password storage.
   - Note
     - If using Approach 1 in Encryption section:
       - Make sure the password key stored on the database is NOT THE SAME as the one used to decrypt the private key. Use a different salt for the AES key derived from the password so that the password key cannot be used to decrypt the user's private key.

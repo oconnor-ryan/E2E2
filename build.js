@@ -14,14 +14,49 @@ rm -r ./dist/server/*
 tsc --project ./src/server/tsconfig.json 
 tsc --project ./src/client/tsconfig.json
 
-# copy all website assets into dist client folder
-cp -r ./public/* ./dist/client
 */
 
-function clearFolder(dir) {
+/**
+ * 
+ * @param {string} dir - the starting directory to search for files to delete
+ * @param {string[]} extArr - the array of file extensions that will be deleted from directory
+ */
+function recursiveDeleteFilesWithExt(dir, extArr) {
+  let items = fs.readdirSync(dir);
+  let numDeleted = 0;
+  for(let item of items) {
+    let filePath = path.join(dir, item);
+    //if filePath is a directory, recursively call this function
+    if(fs.statSync(filePath).isDirectory()) {
+      recursiveDeleteFilesWithExt(filePath, ext);
+    } 
+    //if the file contains an extension from the list of extensions, delete it
+    else if(extArr.find((ext) => filePath.endsWith(ext))){
+      fs.unlinkSync(filePath);
+      numDeleted++;
+    }
+  }
+
+  //if all items were deleted in this directory, delete the directory itself
+  if(numDeleted == items.length) {
+    fs.rmdirSync(dir);
+  }
+}
+
+/**
+ * 
+ * @param {string} dir - the relative path of the directory we want to clear
+ * @param {Array<string> | undefined} ignoreExtArr - a optional list of file extensions that wont be deleted
+ */
+function clearFolder(dir, ignoreExtArr) {
   let items = fs.readdirSync(dir);
   for(let item of items) {
-    fs.rmSync(path.join(dir, item), {recursive: true});
+    let absPath = path.join(dir, item);
+    if(fs.statSync().isFile()) 
+    
+    if(ignoreExtArr && ignoreExtArr.find((ext) => item.endsWith(ext))) {
+      fs.rmSync(absPath, {recursive: true, });
+    }
   }
 }
 
