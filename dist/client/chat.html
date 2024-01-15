@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>End-To-End-Encrypted Messaging</title>
+
+    <style>
+      body {
+        min-height: 100vh;
+      }
+      #message-input-container {
+        position: fixed;
+        bottom: 0;
+        left: 5%;
+
+        margin: 10px auto;
+      
+        width: 90%;  
+        height: 30px;
+        display: flex;
+        flex-direction: row;
+      }
+
+      #message-input {
+        flex: 75%;
+      }
+
+      #send-message-button {
+        flex: 25%;
+      }
+
+
+    </style>
+  </head>
+  <body>
+    <h1>Chat</h1>
+    <div id="messages">
+
+    </div>
+
+    <div id="message-input-container">
+      <input type="text" id="message-input"/>
+      <button id="send-message-button">Send</button>
+    </div>
+
+    <script src="/chat-test.js"></script>
+  </body>
+</html>
