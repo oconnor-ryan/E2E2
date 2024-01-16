@@ -4,7 +4,7 @@ node_modules/
 dist/server
 
 # only ignore generated JS files
-dist/client/*.js
+dist/client/**/*.js
 
 #Custom
 ignored/

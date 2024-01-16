@@ -1,9 +1,11 @@
 import express from "express";
 import http from 'http';
-import WebSocket, { WebSocketServer } from 'ws';
+import { WebSocketServer } from 'ws';
 
 import path from "path";
 import {fileURLToPath} from "url";
+import { UserList } from "./UserList.js";
+import { parseSocketMessage } from "./socket-parser.js";
 
 //since __dirname is not supported in EJS modules, 
 //set it yourself with the following code.
@@ -18,6 +20,10 @@ const server = new http.Server(app);
 const wss = new WebSocketServer({server});
 
 
+
+const userList = new UserList();
+
+
 //set public folder for getting website assets(HTML, CSS, Images, Javascript)
 app.use(express.static(ROOT));
 
@@ -27,20 +33,22 @@ app.use(express.json());
 //parse strings that are encoded in URL (example: "%20%" is replaced with " ")
 app.use(express.urlencoded({extended: true}));
 
+
+
 //websocket
 wss.on('connection', (ws, req) => {
-  ws.send(JSON.stringify({user: "Server", data: 'WebSocket Connection Successful!'}));
+  ws.send(JSON.stringify({type: "server", user: "Server", data: 'WebSocket Connection Successful!'}));
+
+  //let newly connected user know about all users in chat
+  //before their name is processed
+  ws.send(JSON.stringify({type: "update-users", allUsers: userList.getAllUsers()}));
 
   ws.on('error', console.error);
+
   ws.on('message', (data, isBinary) => {
     console.log(`recieved ${data}`);
-
-    //send message to all connected clients except this server's client
-    wss.clients.forEach((client) => {
-      if(client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(data, {binary: isBinary});
-      }
-    });
+    let parsedData = JSON.parse(data.toString('utf-8'));
+    parseSocketMessage(parsedData, ws, wss, isBinary, userList);
 
   });
 });
@@ -48,6 +56,19 @@ wss.on('connection', (ws, req) => {
 wss.on('error', (error) => {
   console.error("failed to create web socket server!");
   console.error(error);
+});
+
+// authenticate user here for websocket
+server.on('upgrade', (request, socket, head) => {
+  //let user = new URL(request.url!, request.headers.host).searchParams.get('user') as string;
+  /*
+  if(!auth) {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  */
+  //console.log(`User ${user} is upgrading to socket`);
 });
 
 //routes
