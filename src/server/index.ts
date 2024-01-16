@@ -29,7 +29,7 @@ app.use(express.urlencoded({extended: true}));
 
 //websocket
 wss.on('connection', (ws, req) => {
-  ws.send('WebSocket Connection Successful!');
+  ws.send(JSON.stringify({user: "Server", data: 'WebSocket Connection Successful!'}));
 
   ws.on('error', console.error);
   ws.on('message', (data, isBinary) => {
