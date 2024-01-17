@@ -1,0 +1,23 @@
+{
+  "name": "@project/server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "node ./build.js",
+    "start": "npm run build && node ./dist/index.js"
+  },
+  "author": "Ryan O'Connor",
+  "license": "MIT",
+  "dependencies": {
+    "@project/client": "^1.0.0",
+    "express": "^4.18.2",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.3"
+  }
+}

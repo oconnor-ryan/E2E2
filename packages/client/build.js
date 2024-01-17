@@ -52,40 +52,15 @@ function clearFolder(dir) {
   }
 }
 
-function main() {
-  let buildClient = false;
-  let buildServer = false;
-  
-  if(!process.argv[2]) {
-    buildClient = true;
-    buildServer = true;
-  }
-  else if(process.argv[2] == "--client") {
-    buildClient = true;
-  } else if(process.argv[2] == "--server") {
-    buildServer = true;
-  } else {
-    console.error(`Invalid command-line argument, only --client and --server are valid options!`);
-    process.exitCode = -1;
-    return;
-  }
-  
-  if(buildClient) {
-    //remove contents of build folders
-    recursiveDeleteFilesWithExt("./dist/client", ['.js']);
 
+function main() {
   
-    //transpile Typescript to Javascript for client and server
-    execSync("tsc --project ./src/client/tsconfig.json");
-  }
-  
-  if(buildServer) {
-    //remove contents of build folders
-    clearFolder("./dist/server");
-  
-    //transpile Typescript to Javascript for client and server
-    execSync("tsc --project ./src/server/tsconfig.json");
-  }
+ // recursiveDeleteFilesWithExt("./dist", ['.js']);
+ // clearFolder("./types");
+
+
+  //transpile Typescript to Javascript for client and server
+  execSync("tsc");
   
   console.log("Project successfully built!");
 }

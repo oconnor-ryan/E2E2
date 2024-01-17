@@ -2,18 +2,28 @@ import express from "express";
 import http from 'http';
 import { WebSocketServer } from 'ws';
 
+import { createRequire } from "module";
+
 import path from "path";
 import {fileURLToPath} from "url";
 import { UserList } from "./UserList.js";
 import { parseSocketMessage } from "./socket-parser.js";
 
+import * as c from '@project/client';
+
+
+
 //since __dirname is not supported in EJS modules, 
 //set it yourself with the following code.
 //This path is relative to the directory where the server index.js is at.
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+//const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const require = createRequire(import.meta.url);
+const __dirname = path.dirname(require.resolve("@project/client/package.json"));
+
 
 //the website's root folder
-const ROOT = path.join(__dirname, "../client"); 
+const ROOT = path.join(__dirname, "./dist"); 
 
 const app = express();
 const server = new http.Server(app);

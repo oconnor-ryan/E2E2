@@ -1,0 +1,6 @@
+# only ignore generated JS files
+dist/**/*.js
+types/**/*.d.ts
+
+.tsbuildinfo
+

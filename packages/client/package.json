@@ -1,0 +1,16 @@
+{
+  "name": "@project/client",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "./dist/js/index.js",
+  "types": "./types/index.d.ts",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "author": "Ryan O'Connor",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
