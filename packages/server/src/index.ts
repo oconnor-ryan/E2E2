@@ -2,7 +2,6 @@ import express from "express";
 import http from 'http';
 import { WebSocketServer } from 'ws';
 
-import { createRequire } from "module";
 
 import path from "path";
 import {fileURLToPath} from "url";
@@ -18,12 +17,14 @@ import * as c from '@project/client';
 //This path is relative to the directory where the server index.js is at.
 //const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const require = createRequire(import.meta.url);
-const __dirname = path.dirname(require.resolve("@project/client/package.json"));
+
+const __dirname = path.dirname(fileURLToPath(import.meta.resolve("@project/client/package.json")));
+console.log(__dirname);
 
 
 //the website's root folder
 const ROOT = path.join(__dirname, "./dist"); 
+console.log(ROOT);
 
 const app = express();
 const server = new http.Server(app);
