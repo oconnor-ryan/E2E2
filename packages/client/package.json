@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
-  "main": "./dist/js/index.js",
+  "main": "./dist/index.js",
   "types": "./types/index.d.ts",
   "scripts": {
     "build": "node build.js"
