@@ -18,12 +18,8 @@ import * as c from '@project/client';
 //const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 
-const __dirname = path.dirname(fileURLToPath(import.meta.resolve("@project/client/package.json")));
-console.log(__dirname);
-
-
 //the website's root folder
-const ROOT = path.join(__dirname, "./dist"); 
+const ROOT = fileURLToPath(c.getStaticFileRoot());
 console.log(ROOT);
 
 const app = express();
@@ -69,6 +65,7 @@ wss.on('error', (error) => {
   console.error(error);
 });
 
+//Warning!, upgrades via HTTP can only be done via GET requests
 // authenticate user here for websocket
 server.on('upgrade', (request, socket, head) => {
   //let user = new URL(request.url!, request.headers.host).searchParams.get('user') as string;
@@ -79,7 +76,7 @@ server.on('upgrade', (request, socket, head) => {
     return;
   }
   */
-  //console.log(`User ${user} is upgrading to socket`);
+  console.log(`upgrading to socket`);
 });
 
 //routes

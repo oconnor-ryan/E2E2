@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "node ./build.js",
-    "start": "npm run build && node ./dist/index.js"
+    "start": "node ./dist/index.js"
   },
   "author": "Ryan O'Connor",
   "license": "MIT",
