@@ -1,5 +1,17 @@
 # End-To-End-Encrypted(E2EE) Web Application
 
+## Current Objectives
+1. Create version of chat that uses a single shared secret key to encrypt all messages in chat. This key is temporary until all users leave the chat. Use symmetric encryption.
+
+
+
+## Weird Stuff To Look Out For
+* Don't assume UTF-8 characters have a maximum byte size of 4. This character(🤦🏼‍♂️) is 17 bytes because it contains multiple "unicode scalars". For this emoji (🤦🏼‍♂️), there are 5 scalars used: 4 bytes for face palm emoji, 4 bytes for the emoji modifier for the color of the emoji, 3 bytes for a zero-width joiner character, 3 bytes to specify that it is male, and 3 bytes for the variation selector, totalling 17 bytes. Some text editors display 🤦🏼‍♂️ as 🤦🏼\u200d♂️ or 🤦🏼♂️ due to this. If setting a message size limit, be aware of this.
+
+* Check number of bytes of characters in Javascript using new Blob(["♂️"]).size;
+
+* Unicode is a character set (list of characters), while UTF-8, UTF-16, etc are character encodings, which state how the characters in a character set are encoded in binary.
+
 ## Project Requirements
 * This messaging service should allow users to communicate to each other via:
   - Text
