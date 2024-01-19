@@ -10,11 +10,7 @@
   },
   "author": "Ryan O'Connor",
   "license": "MIT",
-  
   "devDependencies": {
     "typescript": "^5.3.3"
-  },
-  "dependencies": {
-    "@project/shared": "^1.0.0"
   }
 }
