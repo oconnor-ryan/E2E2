@@ -1,5 +1,6 @@
 //This is the only NodeJS script, which contains helper functions in order
 //to help serve the static HTML/CSS/Javascript in the src/webroot folder
+import {WebSocketMessages} from "@project/shared";
 
 
 //get the root folder where all website assets are stored

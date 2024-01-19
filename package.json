@@ -12,6 +12,7 @@
   "scripts": {
     "build": "npm run client:build && npm run -w @project/server build",
     "client:build": "npm run -w @project/client build",
+    "shared:build": "npm run -w @project/shared build",
     "start": "npm run -w @project/server start",
     "build-start": "npm run build && npm run start"
 

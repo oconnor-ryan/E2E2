@@ -9,6 +9,7 @@ import { UserList } from "./UserList.js";
 import { parseSocketMessage } from "./socket-parser.js";
 
 import * as c from '@project/client';
+import { WebSocketMessages } from "@project/shared";
 
 
 
