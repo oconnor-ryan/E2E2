@@ -2,10 +2,14 @@
   "name": "@project/server",
   "version": "1.0.0",
   "description": "",
+  "files": [
+    "dist/",
+    "types/"
+  ],
   "main": "./dist/index.js",
   "type": "module",
   "scripts": {
-    "build": "node ./build.js",
+    "build": "tsc --build",
     "start": "node ./dist/index.js"
   },
   "author": "Ryan O'Connor",

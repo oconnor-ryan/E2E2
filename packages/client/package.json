@@ -3,10 +3,15 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
+
+  "files": [
+    "dist/",
+    "types/"
+  ],
   "main": "./dist/index.js",
   "types": "./types/index.d.ts",
   "scripts": {
-    "build": "node build.js"
+    "build": "tsc --build"
   },
   "author": "Ryan O'Connor",
   "license": "MIT",
