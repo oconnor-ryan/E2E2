@@ -60,7 +60,7 @@ function main() {
 
 
   //transpile Typescript to Javascript for client and server
-  execSync("tsc");
+  execSync("tsc --build");
   
   console.log("Project successfully built!");
 }
