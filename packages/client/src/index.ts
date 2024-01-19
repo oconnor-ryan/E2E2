@@ -6,5 +6,3 @@
 export function getStaticFileRoot() {
   return import.meta.resolve("./webroot");
 }
-
-getStaticFileRoot();
