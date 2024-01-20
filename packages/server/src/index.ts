@@ -6,6 +6,10 @@ import { WebSocketServer } from 'ws';
 import {fileURLToPath} from "url";
 
 import * as c from '@project/client';
+
+//should run this in a build script instead of web server script
+//c.putDistFilesInDir(fileURLToPath(import.meta.resolve('../dist/client-dist')));
+
 import { onConnection } from "./socket-handlers/public-key/PublicKeySocketHandler.js";
 
 
