@@ -1,5 +1,12 @@
 # End-To-End-Encrypted(E2EE) Web Application
 
+> Disclaimer: Do not use this project in any production service. 
+> This project's only purpose is to serve as a educational tool on using
+> the WebCrypto API and applying cryptographic primitives to a real-world
+> project.
+> There is no guarantee that this software can protect a user's encrypted
+> messages from malicious actors.
+
 ## Current Objectives
 1. Create version of chat that uses a single shared secret key to encrypt all messages in chat. This key is temporary until all users leave the chat. Use symmetric encryption.
 
@@ -8,9 +15,6 @@
 ## Weird Stuff To Look Out For
 * Don't assume UTF-8 characters have a maximum byte size of 4. This character(🤦🏼‍♂️) is 17 bytes because it contains multiple "unicode scalars". For this emoji (🤦🏼‍♂️), there are 5 scalars used: 4 bytes for face palm emoji, 4 bytes for the emoji modifier for the color of the emoji, 3 bytes for a zero-width joiner character, 3 bytes to specify that it is male, and 3 bytes for the variation selector, totalling 17 bytes. Some text editors display 🤦🏼‍♂️ as 🤦🏼\u200d♂️ or 🤦🏼♂️ due to this. If setting a message size limit, be aware of this.
 
-* Check number of bytes of characters in Javascript using new Blob(["♂️"]).size;
-
-* Unicode is a character set (list of characters), while UTF-8, UTF-16, etc are character encodings, which state how the characters in a character set are encoded in binary.
 
 ## Project Requirements
 * This messaging service should allow users to communicate to each other via:
@@ -34,23 +38,15 @@ store encryption keys. Otherwise, prompt for a password to generate the key
 from a key derivation function.
 
 ### Tools
-- Front-end Framework
-  * React would be good because of personal experience with NextJS
-  * Could write my own Javascript, but that may be more tedious.
+- Front-end Framework?
+  * None. Using standard HTML/CSS/Javascript
+  * As scope of project increases, may switch to React.
 - Encryption
   * Web Crypto API (native to all targeted browsers)
-- Bundler / Minifier
-  * Webpack 
 
-
-### UI and UX
-* The page should not have to reload to view new messages.
-* Single Page App
 
 ### Encryption
 **FOCUS MORE ON THIS**
-
-
 
 Methods for Encrypting Messages:
 1. Use Only Public Key Encryption:
@@ -78,8 +74,8 @@ Methods for Encrypting Messages:
     
 2. Symmetric Key + Public Key + Key Agreement
   - Each user has a public-private key to encrypt their keys and metadata.
-  - A shared secret 
-3. Use Already-Existing persistant messaging protocol, like Signal Protocol.
+  - A shared secret is kept per group chat and distributed to the group's members.
+  - Shared keys must be encrypted before being stored on the server to prevent the server from viewing a group's plaintext messages.
 
 
 ## Server Side
@@ -88,11 +84,13 @@ The server serves 3 primary purposes:
 2. Distribute messages between multiple clients
 3. Store the encrypted messages and files of its clients
   - Clients will not store messages because we want one user to access their messages through multiple devices.
+  - All client keys and shared keys must be ENCRYPTED before being stored on the server. A client can unlock those keys using a key generated from a key derivation function.
 
 ### Tools
 - Back-end Framework
   * NodeJS Runtime
   * ExpressJS to simplify setting up Web API routes
+  * WS NPM package to simplify handling WebSocket server.
   * mysql2 or postgres NPM package for communicating with database
   * express-session NPM package for session handling
 - Database

@@ -6,8 +6,7 @@
   "main": "test.js",
   "workspaces": [
     "packages/client",
-    "packages/server",
-    "packages/shared"
+    "packages/server"
   ],
   "scripts": {
     "build": "npm run client:build && npm run -w @project/server build",
