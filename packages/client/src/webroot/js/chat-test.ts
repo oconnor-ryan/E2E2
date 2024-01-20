@@ -55,8 +55,8 @@ abstract class EncryptTest {
   protected readonly ws: WebSocket;
   protected readonly username: string;
 
-  constructor(username: string) {
-    this.ws = new WebSocket("ws://localhost:3000");
+  constructor(username: string, webSocketUrlParams: string = '') {
+    this.ws = new WebSocket("ws://localhost:3000" + webSocketUrlParams);
 
     //must bind listeners to WebSocket in same scope as 
     //WebSocket constructor, otherwise you
@@ -89,7 +89,7 @@ class PublicKeyTest extends EncryptTest {
   private readonly MY_KEYS: CryptoKeyPair;
 
   constructor(username: string, keys: CryptoKeyPair) {
-    super(username);
+    super(username, "?enc_type=public");
     this.MY_KEYS = keys;
   } 
 
@@ -226,20 +226,3 @@ async function buildTest(user: string, encryptionType: EncryptionType) : Promise
   };
 })();
   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

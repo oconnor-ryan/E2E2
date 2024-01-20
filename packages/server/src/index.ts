@@ -4,10 +4,9 @@ import { WebSocketServer } from 'ws';
 
 
 import {fileURLToPath} from "url";
-import { UserList } from "./UserList.js";
-import { parseSocketMessage } from "./socket-parser.js";
 
 import * as c from '@project/client';
+import { onConnection } from "./socket-handlers/public-key/PublicKeySocketHandler.js";
 
 
 
@@ -27,7 +26,6 @@ const wss = new WebSocketServer({server});
 
 
 
-const userList = new UserList();
 
 
 //set public folder for getting website assets(HTML, CSS, Images, Javascript)
@@ -42,22 +40,27 @@ app.use(express.urlencoded({extended: true}));
 
 
 //websocket
+//Note that req parameter is the request from ws:// protocol, not http:// protocol
 wss.on('connection', (ws, req) => {
-  ws.send(JSON.stringify({type: "server", user: "Server", data: 'WebSocket Connection Successful!'}));
 
-  //let newly connected user know about all users in chat
-  //before their name is processed
-  ws.send(JSON.stringify({type: "update-users", allUsers: userList.getAllUsers()}));
+  //weird way to get query parameters, but that's how the NodeJS docs stated to parse this url.
+  //make sure to change ws:// to wss:// when using SSL certificates
+  let url = new URL(req.url!, "ws://" + req.headers.host);
+  let chatType = url.searchParams.get('enc_type')
 
-  ws.on('error', console.error);
+  switch(chatType) {
+    //shared key
+    case 'shared':
+      throw new Error("Not implemented yet!");
 
-  ws.on('message', (data, isBinary) => {
-    console.log(`recieved ${data}`);
-    let parsedData = JSON.parse(data.toString('utf-8'));
-    parseSocketMessage(parsedData, ws, wss, isBinary, userList);
-
-  });
+    //public key
+    case 'public':
+    default:
+      onConnection(ws, req);
+  }
+  
 });
+
 
 wss.on('error', (error) => {
   console.error("failed to create web socket server!");
