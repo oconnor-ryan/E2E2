@@ -51,7 +51,9 @@ wss.on('connection', (ws, req) => {
   switch(chatType) {
     //shared key
     case 'shared':
-      throw new Error("Not implemented yet!");
+      console.warn("Shared key chat not implemented yet!");
+      ws.send(JSON.stringify({type: "server", user: "server", data: "Shared key chat not implemented yet!"}));
+      break;
 
     //public key
     case 'public':
