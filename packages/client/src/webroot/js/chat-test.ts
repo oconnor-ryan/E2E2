@@ -154,21 +154,58 @@ class PublicKeyTest extends EncryptTest {
 }
 
 class SharedKeyTest extends EncryptTest {
-  protected webSocketOpen(ev: Event): Promise<void> {
-    throw new Error("Method not implemented.");
+
+  constructor(username: string) {
+    super(username, "?enc_type=shared");
   }
-  protected webSocketError(ev: Event): void {
-    throw new Error("Method not implemented.");
-  }
-  protected webSocketMessage(ev: MessageEvent<any>): void {
-    throw new Error("Method not implemented.");
-  }
-  protected webSocketClose(ev: CloseEvent): void {
-    throw new Error("Method not implemented.");
+  
+  protected async webSocketOpen(ev: Event): Promise<void> {
+    console.log("Connected to WebSocket!");
   }
 
-  sendEncryptedMessage(message: string): Promise<void> {
-    throw new Error("Method not implemented.");
+  protected webSocketError(ev: Event): void {
+    console.error("Failed to connect");
+    console.error(ev);
+  }
+
+  //parse messages received from web server
+  protected webSocketMessage(ev: MessageEvent<any>): void {
+    let data = ev.data;
+
+    switch(data.type) {
+      //remote user is asking for shared key
+      case "share-key-request":
+        //get shared key
+
+        //encrypt shared key with remote user's public key
+        let pubKey = data.pubKey;
+
+        //send encrypted key to user
+        this.ws.send(JSON.stringify({type: "share-key-response", userId: data.userId, encSharedKey: null}));
+        break;
+
+      //server is requesting you to generate shared key for chat
+      case "share-key-generate":
+        //generate shared key
+        this.ws.send(JSON.stringify({type: "share-key-generate", encSharedKey: null}));
+        break;
+      
+      //message being received from a user.
+      case "message":
+        //get shared key, decrypt message, render message to screen
+        break;
+    }
+  }
+  protected webSocketClose(ev: CloseEvent): void {
+    window.alert("WebSocket connection closed! No messages will be sent!");
+
+  }
+
+  async sendEncryptedMessage(message: string): Promise<void> {
+    //encrypt message using shared key
+
+    //send message to server
+    this.ws.send(JSON.stringify({type: "message", senderId: null, senderName: null, encMessage: null}));
   }
   
 }
