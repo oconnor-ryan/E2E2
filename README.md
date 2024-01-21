@@ -72,10 +72,12 @@ Methods for Encrypting Messages:
     - Each encrypted version of the same message must be stored on server for each user.
     - The message size is limited to the modulus used for public key encryption. (Example: For RSA with a modulus of 4096, the maximum message size is 512 bytes, which in UTF-8, is 128 characters per message)
     
-2. Symmetric Key + Public Key + Key Agreement
+2. Shared Key
   - Each user has a public-private key to encrypt their keys and metadata.
   - A shared secret is kept per group chat and distributed to the group's members.
   - Shared keys must be encrypted before being stored on the server to prevent the server from viewing a group's plaintext messages.
+  - Each chat member will have a copy of the shared key of the group they're in. This shared key will be encrypted by the user's public key.
+  - Each user's private key is encrypted by an AES key generated from a key-derivation function that takes the user's password, similar to GNU Privacy Guard program.
 
 
 ## Server Side

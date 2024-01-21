@@ -2,6 +2,10 @@
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2017",
-    "module": "ES2022",
+    //useful for reading type information from other packages
+    //without needing to directly import Javascript from those
+    //node package into browser scripts
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
   }
 }
