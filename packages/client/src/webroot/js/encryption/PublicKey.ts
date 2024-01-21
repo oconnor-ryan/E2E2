@@ -19,8 +19,8 @@ export async function getKeyPair() {
   return pair;
 }
 
-export async function exportPublicKey(key: CryptoKey) {
-  return arrayBufferToBase64(await cryptoSubtle.exportKey('spki', key));
+export async function exportPublicKey(key: CryptoKey, urlSafe: boolean = false) {
+  return arrayBufferToBase64(await cryptoSubtle.exportKey('spki', key), urlSafe);
 }
 
 export async function importPublicKey(base64String: string) {

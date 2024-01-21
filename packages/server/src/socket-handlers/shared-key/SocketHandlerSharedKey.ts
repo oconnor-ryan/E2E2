@@ -5,13 +5,17 @@ import {UserList} from './UserList.js';
 
 const userList = new UserList();
 
-export function onConnection(ws: WebSocket, req: http.IncomingMessage) {
+export function onConnection(ws: WebSocket, req: http.IncomingMessage, reqParams: URLSearchParams) {
   ws.send(JSON.stringify({type: "server", message: "Successfully Connected to WebSocket!"}));
+
+  console.log(reqParams);
 
   //tell client to generate a shared key
   if(userList.getNumUsers() == 0) {
     ws.send(JSON.stringify({type: "share-key-generate"}));
-  } 
+  } else {
+   
+  }
 
 
   ws.on('error', console.error);
@@ -64,7 +68,7 @@ function newUserAdded(parsedData: {name: string, pubKey: string}, ws: WebSocket,
 
   //request a shared key from a randomly selected user already in the chat
   if(userList.getNumUsers() > 1) {
-    userList.sendMessageTo(randomUserId, {type: 'share-key-request', id: newUserId, pubKey: parsedData.pubKey}, isBinary);
+    userList.sendMessageTo(randomUserId, {type: 'share-key-request', userId: newUserId, pubKey: parsedData.pubKey}, isBinary);
   }
 
 }

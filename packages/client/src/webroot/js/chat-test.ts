@@ -1,7 +1,8 @@
 "use strict"
 
 import { arrayBufferToBase64, base64ToArrayBuffer } from "./encryption/Base64.js"
-import { getKeyPair, encrypt, decrypt, exportPublicKey, importPublicKey } from "./encryption/PublicKey.js"
+import * as rsa from "./encryption/PublicKey.js"
+import * as aes from "./encryption/AES.js";
 
 
 const messageInput = document.getElementById('message-input') as HTMLInputElement;
@@ -96,7 +97,7 @@ class PublicKeyTest extends EncryptTest {
 
   protected async webSocketOpen(ev: Event): Promise<void> {
     //export public key to serer
-    let exportedKey = await exportPublicKey(this.MY_KEYS.publicKey);
+    let exportedKey = await rsa.exportPublicKey(this.MY_KEYS.publicKey);
     this.ws.send(JSON.stringify({type: "new-user", newUser: this.username, pubKey: exportedKey}));
   }
 
@@ -131,13 +132,13 @@ class PublicKeyTest extends EncryptTest {
     for(let userData of userList) {
       //if user is not already in list of users
       if(!this.otherKeys[userData.user] && userData.user !== this.username) {
-        this.otherKeys[userData.user] = await importPublicKey(userData.pubKey);
+        this.otherKeys[userData.user] = await rsa.importPublicKey(userData.pubKey);
       }
     }
   }
   
   private async receiveMessage(fromUser: string, data: string) {
-    let decrypted = await decrypt(base64ToArrayBuffer(data), this.MY_KEYS.privateKey);
+    let decrypted = await rsa.decrypt(base64ToArrayBuffer(data), this.MY_KEYS.privateKey);
   
     renderOtherMessageToScreen({user: fromUser, data: decrypted});
   }
@@ -145,7 +146,7 @@ class PublicKeyTest extends EncryptTest {
   async sendEncryptedMessage(message: string) {
     let users = Object.keys(this.otherKeys);
     for(let user of users) {
-      let enc = arrayBufferToBase64(await encrypt(message, this.otherKeys[user]));
+      let enc = arrayBufferToBase64(await rsa.encrypt(message, this.otherKeys[user]));
       this.ws.send(JSON.stringify({type: "message", toUser: user, fromUser: this.username, data: enc}));
   
     }
@@ -154,13 +155,19 @@ class PublicKeyTest extends EncryptTest {
 }
 
 class SharedKeyTest extends EncryptTest {
+  private pubKeyPair: CryptoKeyPair;
+  private sharedKey: CryptoKey | undefined;
 
-  constructor(username: string) {
-    super(username, "?enc_type=shared");
+  constructor(username: string, keyPair: CryptoKeyPair) {
+    //super(username, `?enc_type=shared&name=${username}&pubKey=${exportedPubKey}`);
+    super(username, `?enc_type=shared`);
+    this.pubKeyPair = keyPair;
   }
   
   protected async webSocketOpen(ev: Event): Promise<void> {
     console.log("Connected to WebSocket!");
+    let exportedPubKey = await rsa.exportPublicKey(this.pubKeyPair.publicKey);
+    this.ws.send(JSON.stringify({type: 'new-user', name: this.username, pubKey: exportedPubKey}));
   }
 
   protected webSocketError(ev: Event): void {
@@ -169,31 +176,36 @@ class SharedKeyTest extends EncryptTest {
   }
 
   //parse messages received from web server
-  protected webSocketMessage(ev: MessageEvent<any>): void {
-    let data = ev.data;
+  protected async webSocketMessage(ev: MessageEvent<any>): Promise<void> {
+    let data = JSON.parse(ev.data);
+
+    console.log("Message Received: " + data);
 
     switch(data.type) {
+      case "server":
+        receiveServerMessage("Server", data.message);
+        break;
       //remote user is asking for shared key
       case "share-key-request":
-        //get shared key
+        await this.handleShareKeyRequest(data);
+        break;
 
-        //encrypt shared key with remote user's public key
-        let pubKey = data.pubKey;
-
-        //send encrypted key to user
-        this.ws.send(JSON.stringify({type: "share-key-response", userId: data.userId, encSharedKey: null}));
+      case "share-key-response":
+        await this.handleShareKeyResponse(data);
         break;
 
       //server is requesting you to generate shared key for chat
       case "share-key-generate":
         //generate shared key
-        this.ws.send(JSON.stringify({type: "share-key-generate", encSharedKey: null}));
+        await this.handleGenerateKey(data);
         break;
       
       //message being received from a user.
       case "message":
-        //get shared key, decrypt message, render message to screen
+        await this.handleMessage(data);
         break;
+      default: 
+        console.warn(`Message type ${data.type} not supported!`);
     }
   }
   protected webSocketClose(ev: CloseEvent): void {
@@ -202,22 +214,84 @@ class SharedKeyTest extends EncryptTest {
   }
 
   async sendEncryptedMessage(message: string): Promise<void> {
+    if(!this.sharedKey) {
+      renderMyMessageToScreen({user: "Error", data: "You do not have a shared key to encrypt that message!"});
+      console.error("You do not have a shared key to encrypt that message!");
+      return;
+    }
     //encrypt message using shared key
+    let encBase64Message = await aes.encrypt(message, this.sharedKey);
 
     //send message to server
-    this.ws.send(JSON.stringify({type: "message", senderId: null, senderName: null, encMessage: null}));
+    this.ws.send(JSON.stringify({type: "message", senderName: this.username, encMessage: encBase64Message}));
   }
   
+
+  private async handleShareKeyRequest(data: any) {
+    if(!this.sharedKey) {
+      //send null key
+      this.ws.send(JSON.stringify({type: "share-key-response", userId: data.userId, encSharedKey: null}));
+      return;
+    }
+    //encrypt shared key with remote user's public key
+    console.log("Pub Key", data.pubKey)
+    let pubKey = await rsa.importPublicKey(data.pubKey);
+    let exportedKey = await aes.exportKeyAsBase64(this.sharedKey);
+    let encSharedKeyBase64 = arrayBufferToBase64(await rsa.encrypt(exportedKey, pubKey));
+
+    //send encrypted key to user
+    this.ws.send(JSON.stringify({type: "share-key-response", userId: data.userId, encSharedKey: encSharedKeyBase64}));
+  }
+
+  private async handleShareKeyResponse(data: any) {
+    let encSharedKey = data.encSharedKey;
+    if(encSharedKey == null) {
+      console.error("No encrypted shared key was given!");
+      return;
+    }
+
+    let base64SharedKey = await rsa.decrypt(base64ToArrayBuffer(encSharedKey), this.pubKeyPair.privateKey);
+
+    console.log("AES key = ", base64SharedKey);
+
+    this.sharedKey = await aes.importKey(base64SharedKey);
+    console.log(this.sharedKey)
+  }
+
+  private async handleGenerateKey(data: any) {
+    this.sharedKey = await aes.generateAESKey();
+    console.log("AES key = ", await aes.exportKeyAsBase64(this.sharedKey));
+    let exportedPubKey = await rsa.exportPublicKey(this.pubKeyPair.publicKey);
+    console.log("Generating key");
+    this.ws.send(JSON.stringify({type: "share-key-generate", name: this.username, pubKey: exportedPubKey}));
+  }
+
+  private async handleMessage(data: any) {
+    let senderName = data.senderName;
+    if(!this.sharedKey) {
+      let errMessage = `You do not have a shared key to decrypt the message from ${senderName}!`;
+      console.error(errMessage);
+      renderOtherMessageToScreen({user: senderName, data: errMessage});
+      return;
+    }
+
+    //get shared key, decrypt message, render message to screen
+    let decrypted = await aes.decrypt(data.encMessage, this.sharedKey);
+
+    renderOtherMessageToScreen({user: senderName, data: decrypted});
+    
+  }
 }
 
 async function buildTest(user: string, encryptionType: EncryptionType) : Promise<EncryptTest> {
 
   switch (encryptionType) {
     case EncryptionType.PUBLIC_KEY:
-      let keys = await getKeyPair();
-      return new PublicKeyTest(user, keys);
+      return new PublicKeyTest(user, await rsa.getKeyPair());
     case EncryptionType.SHARED_KEY:
-      return new SharedKeyTest(user);
+      let keys = await rsa.getKeyPair();
+      //let exportedPubKey = await rsa.exportPublicKey(keys.publicKey, true);
+      return new SharedKeyTest(user, keys);
     default:
       throw new Error(`Encryption type ${encryptionType} is invalid!`);
   }

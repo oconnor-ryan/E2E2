@@ -11,6 +11,7 @@ import * as c from '@project/client';
 //c.putDistFilesInDir(fileURLToPath(import.meta.resolve('../dist/client-dist')));
 
 import { onConnection } from "./socket-handlers/public-key/PublicKeySocketHandler.js";
+import * as sharedKeySocketHandler from "./socket-handlers/shared-key/SocketHandlerSharedKey.js";
 
 
 
@@ -55,7 +56,7 @@ wss.on('connection', (ws, req) => {
   switch(chatType) {
     //shared key
     case 'shared':
-      ws.close(undefined, "Shared key chat not implemented yet!");
+      sharedKeySocketHandler.onConnection(ws, req, url.searchParams);
       break;
 
     //public key
