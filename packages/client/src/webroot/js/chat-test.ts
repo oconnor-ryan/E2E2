@@ -5,10 +5,6 @@ import * as rsa from "./encryption/PublicKey.js"
 import * as aes from "./encryption/AES.js";
 
 
-const messageInput = document.getElementById('message-input') as HTMLInputElement;
-const messageButton = document.getElementById('send-message-button') as HTMLButtonElement;
-const messagesContainer = document.getElementById('messages') as HTMLDivElement;
-
 interface UserPublicKey {
   [user: string]: CryptoKey
 };
@@ -17,6 +13,24 @@ enum EncryptionType {
   PUBLIC_KEY,
   SHARED_KEY
 };
+
+enum Public_ServerToClientMessageTypes {
+  SERVER = "server",
+  UPDATE_USERS = "update-users",
+  MESSAGE = "message",
+}
+
+enum Public_ClientToServerMessageTypes {
+  MESSAGE = "message",
+  NEW_USER = "new-user"
+}
+
+
+
+const messageInput = document.getElementById('message-input') as HTMLInputElement;
+const messageButton = document.getElementById('send-message-button') as HTMLButtonElement;
+const messagesContainer = document.getElementById('messages') as HTMLDivElement;
+
 
 /**** Functions for Rendering ****/
 
@@ -72,16 +86,24 @@ abstract class EncryptTest {
     this.username = username;
   }
 
+  protected webSocketSendJSON(data: any) : void {
+    this.ws.send(JSON.stringify(data));
+  }
+
+
+  //when sending data to server
   public abstract sendEncryptedMessage(message: string): Promise<void>;
+
 
   protected abstract webSocketOpen(ev: Event): Promise<void>;
   protected abstract webSocketError(ev: Event): void;
 
-  //when receiving messages from server
-  protected abstract webSocketMessage(ev: MessageEvent<any>): void;
+  protected abstract webSocketMessage(ev: MessageEvent<any>) : void | Promise<void>;
 
   //if the WebSocket connection is lost or closed
   protected abstract webSocketClose(ev: CloseEvent): void;
+
+
 
 }
 
@@ -98,35 +120,37 @@ class PublicKeyTest extends EncryptTest {
   protected async webSocketOpen(ev: Event): Promise<void> {
     //export public key to serer
     let exportedKey = await rsa.exportPublicKey(this.MY_KEYS.publicKey);
-    this.ws.send(JSON.stringify({type: "new-user", newUser: this.username, pubKey: exportedKey}));
+    this.webSocketSendJSON({
+      type: Public_ClientToServerMessageTypes.NEW_USER, 
+      newUser: this.username, 
+      pubKey: exportedKey
+    });
   }
 
   protected webSocketError(ev: Event): void {
     console.error("Failed to connect");
     console.error(ev);
   }
-  protected webSocketMessage(ev: MessageEvent<any>): void {
-    let message = JSON.parse(ev.data);
-    this.parseMessage(message);
+  protected async webSocketMessage(ev: MessageEvent<any>) {
+    let jsonData = JSON.parse(ev.data);
+
+    switch(jsonData.type) {
+      case Public_ServerToClientMessageTypes.UPDATE_USERS:
+        await this.updateUserList(jsonData.allUsers);
+        break;
+      case Public_ServerToClientMessageTypes.MESSAGE:
+        await this.receiveMessage(jsonData.fromUser, jsonData.data);
+        break;
+      case Public_ServerToClientMessageTypes.SERVER:
+        receiveServerMessage(jsonData.user, jsonData.data);
+        break;
+    }
   }
   protected webSocketClose(ev: CloseEvent): void {
     window.alert("WebSocket connection closed! No messages will be sent!");
 
   }
 
-  private async parseMessage(data: any) {
-    switch(data.type) {
-      case "update-users":
-        await this.updateUserList(data.allUsers);
-        break;
-      case "message":
-        await this.receiveMessage(data.fromUser, data.data);
-        break;
-      case "server":
-        receiveServerMessage(data.user, data.data);
-        break;
-    }
-  }
   
   private async updateUserList(userList: {user: string, pubKey: string}[]) {
     for(let userData of userList) {
@@ -147,11 +171,16 @@ class PublicKeyTest extends EncryptTest {
     let users = Object.keys(this.otherKeys);
     for(let user of users) {
       let enc = arrayBufferToBase64(await rsa.encrypt(message, this.otherKeys[user]));
-      this.ws.send(JSON.stringify({type: "message", toUser: user, fromUser: this.username, data: enc}));
+
+      this.webSocketSendJSON({
+        type: Public_ClientToServerMessageTypes.MESSAGE, 
+        toUser: user, 
+        fromUser: this.username, 
+        data: enc
+      });
   
     }
   } 
-
 }
 
 class SharedKeyTest extends EncryptTest {
@@ -223,7 +252,7 @@ class SharedKeyTest extends EncryptTest {
     let encBase64Message = await aes.encrypt(message, this.sharedKey);
 
     //send message to server
-    this.ws.send(JSON.stringify({type: "message", senderName: this.username, encMessage: encBase64Message}));
+    this.webSocketSendJSON({type: "message", senderName: this.username, encMessage: encBase64Message});
   }
   
 
@@ -240,7 +269,7 @@ class SharedKeyTest extends EncryptTest {
     let encSharedKeyBase64 = arrayBufferToBase64(await rsa.encrypt(exportedKey, pubKey));
 
     //send encrypted key to user
-    this.ws.send(JSON.stringify({type: "share-key-response", userId: data.userId, encSharedKey: encSharedKeyBase64}));
+    this.webSocketSendJSON({type: "share-key-response", userId: data.userId, encSharedKey: encSharedKeyBase64});
   }
 
   private async handleShareKeyResponse(data: any) {
@@ -263,7 +292,7 @@ class SharedKeyTest extends EncryptTest {
     console.log("AES key = ", await aes.exportKeyAsBase64(this.sharedKey));
     let exportedPubKey = await rsa.exportPublicKey(this.pubKeyPair.publicKey);
     console.log("Generating key");
-    this.ws.send(JSON.stringify({type: "share-key-generate", name: this.username, pubKey: exportedPubKey}));
+    this.webSocketSendJSON({type: "share-key-generate", name: this.username, pubKey: exportedPubKey});
   }
 
   private async handleMessage(data: any) {
