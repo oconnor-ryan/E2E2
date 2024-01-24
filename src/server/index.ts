@@ -5,8 +5,8 @@ import { WebSocketServer } from 'ws';
 
 import {fileURLToPath} from "url";
 
-import * as c from '@project/client';
-console.log(c.JsonValidator.jsonContainsThesePropsWithTypes({a: 4}, {a: "number"}));
+import * as JsonValidator from "../client/shared/JSON-Validator.js"
+console.log(JsonValidator.jsonContainsThesePropsWithTypes({a: 4}, {a: "number"}));
 
 //should run this in a build script instead of web server script
 //c.putDistFilesInDir(fileURLToPath(import.meta.resolve('../dist/client-dist')));
@@ -15,37 +15,34 @@ import { onConnection } from "./socket-handlers/public-key/PublicKeySocketHandle
 import * as sharedKeySocketHandler from "./socket-handlers/shared-key/SocketHandlerSharedKey.js";
 
 
-
-//since __dirname is not supported in EJS modules, 
-//set it yourself with the following code.
-//This path is relative to the directory where the server index.js is at.
-//const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-
 //the website's root folder
-const ROOT = fileURLToPath(c.getStaticFileRoot());
-console.log(ROOT);
+const STATIC_ROOT = fileURLToPath(import.meta.resolve("../../client-assets/public"));
+const HTML_ROOT = fileURLToPath(import.meta.resolve("../../client-assets/html"));
+const JS_ROOT = fileURLToPath(import.meta.resolve("../client"));
+
+console.log(STATIC_ROOT);
+console.log(HTML_ROOT);
+console.log(JS_ROOT);
 
 const app = express();
 const server = new http.Server(app);
 const wss = new WebSocketServer({server});
 
 
-
-
-
-//set public folder for getting website assets(HTML, CSS, Images, Javascript)
-app.use(express.static(ROOT));
+//set public folder for getting website assets(CSS, Images, Javascript)
+app.use("/js", express.static(JS_ROOT));
+app.use("/", express.static(STATIC_ROOT));
 
 //convert request body to JSON automatically
 app.use(express.json());
 
-//parse strings that are encoded in URL (example: "%20%" is replaced with " ")
+//parse strings that are encoded in URL (example: "%20" is replaced with " ")
 app.use(express.urlencoded({extended: true}));
 
 
+//WebSocket server stuff
 
-//websocket
+//websocket server. handle when new websocket connects to server
 //Note that req parameter is the request from ws:// protocol, not http:// protocol
 wss.on('connection', (ws, req) => {
 
@@ -93,25 +90,26 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 //routes
+
 app.use("/", (req, res, next) => {
   console.log("Request Made");
   next();
 });
 
 app.get("/", (req, res) => {
-  res.sendFile("index.html", {root: ROOT});
+  res.sendFile("index.html", {root: HTML_ROOT});
 });
 
 app.get("/test/chat", (req, res) => {
-  res.sendFile("chat.html", {root: ROOT});
+  res.sendFile("chat.html", {root: HTML_ROOT});
 });
 
 app.get("/test/key-derivation", (req, res) => {
-  res.sendFile("PBKDF2.html", {root: ROOT});
+  res.sendFile("PBKDF2.html", {root: HTML_ROOT});
 });
 
 app.get("/test/public-key", (req, res) => {
-  res.sendFile("Public-Key.html", {root: ROOT});
+  res.sendFile("Public-Key.html", {root: HTML_ROOT});
 });
 
 

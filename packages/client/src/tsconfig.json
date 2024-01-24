@@ -1,9 +1,0 @@
-{
-  "extends": "../tsconfig.base.json",
-  "include": ["webroot/js/shared/**/*.ts", "index.ts"],
-  "compilerOptions": {
-    "target": "ES2017",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext"
-  }
-}
