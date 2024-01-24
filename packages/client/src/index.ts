@@ -4,6 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import {fileURLToPath} from 'url';
 
+export * as JsonValidator from "./webroot/js/shared/JSON-Validator.js";
+
 //get the root folder where all website assets are stored
 export function getStaticFileRoot() {
   return import.meta.resolve("./webroot");

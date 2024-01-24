@@ -1,5 +1,6 @@
 {
   "extends": "../../../tsconfig.base.json",
+  "exclude": ["shared/**/*.ts"],
   "compilerOptions": {
     "target": "ES2017",
     //useful for reading type information from other packages

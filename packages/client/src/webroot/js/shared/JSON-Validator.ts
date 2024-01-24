@@ -58,7 +58,7 @@ export function jsonContainsThesePropsWithTypes(json: Object, templateJSON: Obje
         return false;
       }
 
-      let type = typeof currentJSONLevel[key];
+      let type = currentJSONLevel[key];
 
       if(type !== "object") {
         if(typeof obj[key] !== type) {
@@ -79,7 +79,7 @@ export function jsonContainsThesePropsWithTypes(json: Object, templateJSON: Obje
   return true;
 }
 /**
- * Determines if the json parameter q
+ * Determines if the json parameter has the properties specified in the properties parameter.
  * @param json - a JSON object to check
  * @param properties - contains an array of either strings or arrays of strings. 
  * If a property is an array of strings, it represents a nested property that we want to find.
