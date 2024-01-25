@@ -162,6 +162,13 @@ Methods For Login:
     - If using Approach 1 in Encryption section:
       - Make sure the password key stored on the database is NOT THE SAME as the one used to decrypt the private key. Use a different salt for the AES key derived from the password so that the password key cannot be used to decrypt the user's private key.
 
+3. Passwordless Authentification
+  - Options:
+    - Possession factors
+      - Use TOTP Protocol for generating One-Time Passwords (limited per device)
+      - Email / SMS magic links may work, but that requires giving up a email address or phone number, and I don't want to pay for a email / SMS service. Also, we don't know how secure these emails/phone numbers are.
+    - Use private key (certificate). When first creating account, force the user to copy the private key and put it in a safe spot, similar to autogenerating a password. When logging in, the server randomly generates a long string, encrypts it with the user's public key, and sends it back to the user. If the user can decrypt the message and send the message back to the server, the server can confirm that this is indeed the correct user. Session cookie will be used for identify the user after this.
+      - May need to use separate public/private key pair from the one used to encrypt symmetric encryption keys used for messaging.
 
 
 ## Examples Of Similar Projects
@@ -171,6 +178,11 @@ Methods For Login:
 * Discord (users can talk in private chats or on public "servers", user's cannot self-host Discord and messages are not encrypted)
 * Microsoft Teams (similar to Element, but no self-hosting and has options
 to download extensions)
+
+## Other End-to-End-Encrypted Messaging Protocols
+* Signal
+* OLM and MEGOLM from Matrix
+* OpenPGP 
 
 ## Weird Stuff To Look Out For
 * Don't assume UTF-8 characters have a maximum byte size of 4. This character(🤦🏼‍♂️) is 17 bytes because it contains multiple "unicode scalars". For this emoji (🤦🏼‍♂️), there are 5 scalars used: 4 bytes for face palm emoji, 4 bytes for the emoji modifier for the color of the emoji, 3 bytes for a zero-width joiner character, 3 bytes to specify that it is male, and 3 bytes for the variation selector, totalling 17 bytes. Some text editors display 🤦🏼‍♂️ as 🤦🏼\u200d♂️ or 🤦🏼♂️ due to this. If setting a message size limit, be aware of this.
