@@ -2,19 +2,47 @@
 
 > Disclaimer: Do not use this project in any production service. 
 > This project's only purpose is to serve as a educational tool on using
-> the WebCrypto API and applying cryptographic primitives to a real-world
-> project.
+> the WebCrypto API and applying cryptographic primitives in a web application.
 > There is no guarantee that this software can protect a user's encrypted
-> messages from malicious actors.
+> messages.
 
 ## Current Objectives
-1. Create version of chat that uses a single shared secret key to encrypt all messages in chat. This key is temporary until all users leave the chat. Use symmetric encryption.
+1. Create "Rooms" for chat messaging that allow only one group of users
+to talk to each other. 
+  - Each room should user their own shared key. 
+  - No users outside this room can enter and cannot decrypt any messages inside
+outside this room can retrieve the key used to decrypt the messages in the
+group.
+
+2. Message Persistance
+  - Store users and messages securely in a database.
+  - Problems To Solve
+    - How To Login?
+    - If a user's password is stolen, all messages inside the list of chats
+    this user is in will be exposed. How do you protect other clients?
+    - Should I create a different encryption key for each user, each chat,
+    or each message?
 
 
 
-## Weird Stuff To Look Out For
-* Don't assume UTF-8 characters have a maximum byte size of 4. This character(🤦🏼‍♂️) is 17 bytes because it contains multiple "unicode scalars". For this emoji (🤦🏼‍♂️), there are 5 scalars used: 4 bytes for face palm emoji, 4 bytes for the emoji modifier for the color of the emoji, 3 bytes for a zero-width joiner character, 3 bytes to specify that it is male, and 3 bytes for the variation selector, totalling 17 bytes. Some text editors display 🤦🏼‍♂️ as 🤦🏼\u200d♂️ or 🤦🏼♂️ due to this. If setting a message size limit, be aware of this.
+## Project Structure
+- **src/** contains all Typescript files.
+  - **src/client/** contains all browser-side code kept in the website's /js route.
+    - **src/client/shared/** is a special folder that contains code that can be used both server-side and client-side.
+  - **src/server/** contains all server-side code.
 
+- **client-assets/** contains all static website assets (HTML, CSS, Images)
+  - **client-assets/public/** contains non-HTML assets and serves as the website's root folder.
+  - **client-assets/html/** contains all HTML files used in website.
+
+- **dist/** stores the transpiled Javascript from the Typescript inside the src/ folder.
+
+## To Run Project
+In order to build and run the project:
+1. Install NodeJS and NPM (this was tested on Node 20 LTS and NPM 10.3)
+2. Run `npm install` at root of project.
+3. Run `npm run build` to build project.
+4. Run `npm run start` to start web server on port 3000.
 
 ## Project Requirements
 * This messaging service should allow users to communicate to each other via:
@@ -31,22 +59,17 @@
 * This should be a separate project so that users who don't trust
 the server they're connected to can clone the project via Git and build
 the project themselves.
-* Will be a Single Page Application since there is no need for complex SEO
-and the UI will remain mostly the same thoughout the app.
-* Attempt to request use of Persistant Storage (Local Storage, IndexedDB) to
-store encryption keys. Otherwise, prompt for a password to generate the key
-from a key derivation function.
+* Attempt to request use of Persistant Storage (Local Storage, IndexedDB) to store encryption keys. Otherwise, prompt for a password to generate the key from a key derivation function.
 
 ### Tools
-- Front-end Framework?
+- Front-end Framework
   * None. Using standard HTML/CSS/Javascript
-  * As scope of project increases, may switch to React.
 - Encryption
   * Web Crypto API (native to all targeted browsers)
 
 
 ### Encryption
-**FOCUS MORE ON THIS**
+**\*FOCUS MORE ON THIS\***
 
 Methods for Encrypting Messages:
 1. Use Only Public Key Encryption:
@@ -70,7 +93,7 @@ Methods for Encrypting Messages:
     - If someone's private key is stolen, all messages sent to and from the user can be decrypted
       - This could be fixed by creating a new key-pair per user for every group, limiting the amount of decrypted messages to the ones sent to and from the user in the current group.
     - Each encrypted version of the same message must be stored on server for each user.
-    - The message size is limited to the modulus used for public key encryption. (Example: For RSA with a modulus of 4096, the maximum message size is 512 bytes, which in UTF-8, is 128 characters per message)
+    - The message size is limited to the modulus used for public key encryption. (Example: For RSA with a modulus of 4096, the maximum message size is 512 bytes)
     
 2. Shared Key
   - Each user has a public-private key to encrypt their keys and metadata.
@@ -122,9 +145,7 @@ Methods For Login:
     - If using Approach 1 in Encryption section:
       - Make sure the password key stored on the database is NOT THE SAME as the one used to decrypt the private key. Use a different salt for the AES key derived from the password so that the password key cannot be used to decrypt the user's private key.
 
-## Optional Features
-* Audio and Video Calls (similar to Discord)
-*
+
 
 ## Examples Of Similar Projects
 * Signal (simple messaging app with e2ee, has no web client)
@@ -133,3 +154,6 @@ Methods For Login:
 * Discord (users can talk in private chats or on public "servers", user's cannot self-host Discord and messages are not encrypted)
 * Microsoft Teams (similar to Element, but no self-hosting and has options
 to download extensions)
+
+## Weird Stuff To Look Out For
+* Don't assume UTF-8 characters have a maximum byte size of 4. This character(🤦🏼‍♂️) is 17 bytes because it contains multiple "unicode scalars". For this emoji (🤦🏼‍♂️), there are 5 scalars used: 4 bytes for face palm emoji, 4 bytes for the emoji modifier for the color of the emoji, 3 bytes for a zero-width joiner character, 3 bytes to specify that it is male, and 3 bytes for the variation selector, totalling 17 bytes. Some text editors display 🤦🏼‍♂️ as 🤦🏼\u200d♂️ or 🤦🏼♂️ due to this. If setting a message size limit, be aware of this.
