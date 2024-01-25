@@ -17,7 +17,21 @@ to talk to each other.
 outside this room can retrieve the key used to decrypt the messages in the
 group.
 
-2. Message Persistance
+2. Figure out how users setup shared key in case of bad clients
+  - Right now, a client can claim to have generated a shared key without proof, which currently prevents all group members from communicating on that chat until everyone in the chat leaves. 
+  - This acts as a small scale denial-of-service attack and forces other users to create a new chat.
+  - In addition, a client can claim to have accepted a shared key even if it was invalid. It prevents us from assuming that if every recipient of the shared key accepts it, that the key must be correct. If we do assume this and 2 users do this before everyone else joins a group chat, everyone else will be unable to speak in the chat.
+
+  - This can be fixed by:
+    - When a user first connects to the WebSocket Server, a unmodified client should send its encrypted shared key to all other clients connected.
+    - If all of the recipients of the shared key are unable to import the shared key, wait until another client sends their generated shared key.
+    - This repeats until at least 1 client accepts a shared key. However, the sender of that key is told that only 1 client can read their messages.
+    - However, if another client generates a shared key and more clients accept the new shared key, then all users who join will receive this key and the users with the old shared key are asked to import the new shared key to join the conversation with everyone else.
+    - If a client does not accept the most popular shared key, then the next most popular shared key is used.
+
+  - This fixes the problem by allowing all members with unmodified clients to communicate with each other and prevents those with compromised or malicious clients from locking out communication between these unmodified clients.
+
+3. Message Persistance
   - Store users and messages securely in a database.
   - Problems To Solve
     - How To Login?
@@ -160,3 +174,28 @@ to download extensions)
 
 ## Weird Stuff To Look Out For
 * Don't assume UTF-8 characters have a maximum byte size of 4. This character(🤦🏼‍♂️) is 17 bytes because it contains multiple "unicode scalars". For this emoji (🤦🏼‍♂️), there are 5 scalars used: 4 bytes for face palm emoji, 4 bytes for the emoji modifier for the color of the emoji, 3 bytes for a zero-width joiner character, 3 bytes to specify that it is male, and 3 bytes for the variation selector, totalling 17 bytes. Some text editors display 🤦🏼‍♂️ as 🤦🏼\u200d♂️ or 🤦🏼♂️ due to this. If setting a message size limit, be aware of this.
+
+## Glossery (And Other Useful Words)
+- Forward Secrecy (or Perfect Forward Secrecy)
+  - a feature of key-agreement protocols that assures that the session keys generated during key-agreement cannot be compromised even if the long-term secrets used in the key-agreement are compromised.
+  - This protects past messages from being decrypted if a attacker gets the long-term secrets.
+  - Past Messages Safe, future messages compromised
+  - TLS (aka modern HTTPS) achieves forward secrecy through Ephemreal Diffie-Hellman Algorithm
+
+- Future Secrecy (Post-Compromise Secrecy (PCS) or Backward Secrecy)
+  - Opposite of Forward Secrecy
+  - Assures that even if long term secrets are compromised, the protocol can "self-heal" and continue to protect messages after the compromise. 
+  - Future Messages Safe, past messages compromised
+  - Double Ratchet Algorithm achieves this
+
+- Authenticated Encryption
+  - https://en.wikipedia.org/wiki/Authenticated_encryption
+
+- Asyncronous Messaging
+  - Users do not have to be connected to server to receive messages
+
+- Server-Side Fanout
+  - Server receives one encrypted message from a client, and then sends that message to all connected clients
+
+- Client-Side Fanout
+  - Client generates different ciphertext from a message for each connected client and sends each encrypted message to the server for each client.
