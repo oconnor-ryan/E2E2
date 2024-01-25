@@ -1,4 +1,4 @@
-# E2E2 (End-To-End Encrypted Website)
+# E2E2 (End-To-End Encrypted) Website
 
 A instant-messaging web application where users can send encrypted messages
 to each other that cannot be read by the web server.
