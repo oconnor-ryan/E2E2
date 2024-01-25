@@ -1,4 +1,7 @@
-# End-To-End-Encrypted(E2EE) Web Application
+# E2E2 (End-To-End Encrypted Website)
+
+A instant-messaging web application where users can send encrypted messages
+to each other that cannot be read by the web server.
 
 > Disclaimer: Do not use this project in any production service. 
 > This project's only purpose is to serve as a educational tool on using
