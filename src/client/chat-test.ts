@@ -187,9 +187,9 @@ class SharedKeyTest extends EncryptTest {
   private pubKeyPair: CryptoKeyPair;
   private sharedKey: CryptoKey | undefined;
 
-  constructor(username: string, keyPair: CryptoKeyPair) {
+  constructor(username: string, keyPair: CryptoKeyPair, room: string | null) {
     //super(username, `?enc_type=shared&name=${username}&pubKey=${exportedPubKey}`);
-    super(username, `?enc_type=shared`);
+    super(username, `?enc_type=shared&room_id=${room ?? "null"}`);
     this.pubKeyPair = keyPair;
   }
   
@@ -317,10 +317,11 @@ async function buildTest(user: string, encryptionType: EncryptionType) : Promise
   switch (encryptionType) {
     case EncryptionType.PUBLIC_KEY:
       return new PublicKeyTest(user, await rsa.getKeyPair());
+
     case EncryptionType.SHARED_KEY:
       let keys = await rsa.getKeyPair();
-      //let exportedPubKey = await rsa.exportPublicKey(keys.publicKey, true);
-      return new SharedKeyTest(user, keys);
+      let room = window.prompt("What is the room number you want to join?");
+      return new SharedKeyTest(user, keys, room);
     default:
       throw new Error(`Encryption type ${encryptionType} is invalid!`);
   }
