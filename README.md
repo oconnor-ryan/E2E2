@@ -10,14 +10,8 @@ to each other that cannot be read by the web server.
 > messages.
 
 ## Current Objectives
-1. Create "Rooms" for chat messaging that allow only one group of users
-to talk to each other. 
-  - Each room should user their own shared key. 
-  - No users outside this room can enter and cannot decrypt any messages inside
-outside this room can retrieve the key used to decrypt the messages in the
-group.
 
-2. Figure out how users setup shared key in case of bad clients
+1. Figure out how users setup shared key in case of bad clients
   - Right now, a client can claim to have generated a shared key without proof, which currently prevents all group members from communicating on that chat until everyone in the chat leaves. 
   - This acts as a small scale denial-of-service attack and forces other users to create a new chat.
   - In addition, a client can claim to have accepted a shared key even if it was invalid. It prevents us from assuming that if every recipient of the shared key accepts it, that the key must be correct. If we do assume this and 2 users do this before everyone else joins a group chat, everyone else will be unable to speak in the chat.
@@ -31,7 +25,7 @@ group.
 
   - This fixes the problem by allowing all members with unmodified clients to communicate with each other and prevents those with compromised or malicious clients from locking out communication between these unmodified clients.
 
-3. Message Persistance
+2. Message Persistance
   - Store users and messages securely in a database.
   - Problems To Solve
     - How To Login?
@@ -39,6 +33,24 @@ group.
     this user is in will be exposed. How do you protect other clients?
     - Should I create a different encryption key for each user, each chat,
     or each message?
+
+3. How Will Login Work?
+  - Look into passwordless authentification
+    - Use certificates, TOTP, One Time Passcodes, and/or Multi-Factor Auth.
+    - Try to avoid using credentials that can be used to deanonymize a user (emails, phone numbers, hardware information, IP addresses, are all things that point back to a real person. )
+  - Traditional Usernames and Passwords can work in 2 ways:
+    1. The server only checks if the hash and salt match the database
+      - The plaintext password is hashed and salted before being sent to the server. 
+      - To authenticate a user, the salt stored on the server must be sent to the client, then the client sends a 2nd HTTP request with the hashed and salted string created from their password.
+      - The client uses the plaintext password to derive a AES key
+      - The server then sends the user's encrypted private key to the client if the hash matches the one on the database.
+      - The server should temporarily block the IP address after a certain number of failed attempts.
+      - The client can then decrypt the key and start messaging.
+    2. The server stores no password hashes and willingly gives out encrypted data to everyone.
+      - The server is dumb and will give any encrypted data to any user. 
+      - Because this data is encrypted, it can only be decrypted by the user with the correct password.
+      - The user uses their password to derive a AES key that can decrypt their messages.
+      - This may be bad since it allows attackers to receive large portions of data that they can start attempting to decrypt.
 
 
 
