@@ -31,6 +31,8 @@ const messageInput = document.getElementById('message-input') as HTMLInputElemen
 const messageButton = document.getElementById('send-message-button') as HTMLButtonElement;
 const messagesContainer = document.getElementById('messages') as HTMLDivElement;
 
+const chatInfoContainer = document.getElementById('chat-info-box') as HTMLDivElement;
+
 
 /**** Functions for Rendering ****/
 
@@ -60,9 +62,19 @@ function renderOtherMessageToScreen(message: {user: string, data: string}) {
   messagesContainer.appendChild(container);
 }
 
+function renderChatInfo(users: string[]) {
+  chatInfoContainer.innerHTML = "<p>Connected users</p><ul>";
+  for(let user of users) {
+    chatInfoContainer.innerHTML += `<li>${user}</li>`;
+  }
+  chatInfoContainer.innerHTML += `</ul>`;
+}
+
 async function receiveServerMessage(serverName: string, data: string) {
   renderOtherMessageToScreen({user: serverName, data: data});
 }
+
+
 
 
 //classes
@@ -153,6 +165,8 @@ class PublicKeyTest extends EncryptTest {
 
   
   private async updateUserList(userList: {user: string, pubKey: string}[]) {
+    renderChatInfo(userList.map(u => u.user));
+
     for(let userData of userList) {
       //if user is not already in list of users
       if(!this.otherKeys[userData.user] && userData.user !== this.username) {
@@ -213,6 +227,9 @@ class SharedKeyTest extends EncryptTest {
     switch(data.type) {
       case "server":
         receiveServerMessage("Server", data.message);
+        break;
+      case "update-user-list":
+        renderChatInfo(data.names);
         break;
       //remote user is asking for shared key
       case "share-key-request":
@@ -335,7 +352,7 @@ async function buildTest(user: string, encryptionType: EncryptionType) : Promise
     case EncryptionType.SHARED_KEY:
       let keys = await rsa.getKeyPair();
       let room = window.prompt("What is the room number you want to join?");
-      let evil = window.confirm("Are you evil? (Ok for yes, Cancel for no)s");
+      let evil = window.confirm("Are you evil? (Ok for yes, Cancel for no)");
       return evil ? new EvilSharedKeyTest(user, keys, room) : new SharedKeyTest(user, keys, room);
     default:
       throw new Error(`Encryption type ${encryptionType} is invalid!`);

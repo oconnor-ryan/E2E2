@@ -44,6 +44,8 @@ export function onConnection(ws: WebSocket, req: http.IncomingMessage, reqParams
   ws.on('close', (code, reason) => {
     console.log(`WebSocket was closed with code ${code} and reason: ${reason.toString('utf-8')}`);
     userList.removeUser(ws);
+    sendUpdatedUserList(userList, false);
+
   });
 
   ws.on('message', (data, isBinary) => {
@@ -51,6 +53,13 @@ export function onConnection(ws: WebSocket, req: http.IncomingMessage, reqParams
     let parsedData = JSON.parse(data.toString('utf-8'));
     parseSocketMessage(parsedData, ws, userList, isBinary);
 
+  });
+}
+
+function sendUpdatedUserList(userList: UserList, isBinary: boolean) {
+  let allUsers = userList.getAllUsersClientExcept();
+  allUsers.forEach(u => {
+    userList.sendMessageTo(u.id, {type: "update-user-list", names: allUsers.map(user => user.name)}, isBinary);
   });
 }
 
@@ -85,6 +94,9 @@ function parseSocketMessage(parsedData: any, ws: WebSocket, userList: UserList, 
 function newUserAdded(parsedData: {name: string, pubKey: string}, ws: WebSocket, userList: UserList, isBinary: boolean) {
   let randomUserId = userList.getRandomUserId();
   let newUserId = userList.addUser(parsedData.name, ws, parsedData.pubKey);
+
+  //tell all other users that another user has connected
+  sendUpdatedUserList(userList, isBinary);
 
   //request a shared key from a randomly selected user already in the chat
   if(userList.getNumUsers() > 1) {
