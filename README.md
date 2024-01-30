@@ -52,7 +52,15 @@ to each other that cannot be read by the web server.
       - The user uses their password to derive a AES key that can decrypt their messages.
       - This may be bad since it allows attackers to receive large portions of data that they can start attempting to decrypt.
 
-
+4. How are messages sent and stored
+  - Syncronous chats
+    - Good for forward secrecy if using ephemeral Diffe-Hellman key exchange
+    - Client has choice of deleting messages or storing them on their client via IndexedDB.
+  - Async chats that temporarily stores messages on server until the receiver client connects.
+    - Also good for forward secrecy if using protocol similar to Signal Protocol
+  - Async chats that permanently store messages on the server
+    - Good for viewing past messages on multiple devices 
+    - Clients don't need to use Persistant Storage.
 
 ## Project Structure
 - **src/** contains all Typescript files.
