@@ -184,8 +184,8 @@ class PublicKeyTest extends EncryptTest {
 }
 
 class SharedKeyTest extends EncryptTest {
-  private pubKeyPair: CryptoKeyPair;
-  private sharedKey: CryptoKey | undefined;
+  protected pubKeyPair: CryptoKeyPair;
+  protected sharedKey: CryptoKey | undefined;
 
   constructor(username: string, keyPair: CryptoKeyPair, room: string | null) {
     //super(username, `?enc_type=shared&name=${username}&pubKey=${exportedPubKey}`);
@@ -256,7 +256,7 @@ class SharedKeyTest extends EncryptTest {
   }
   
 
-  private async handleShareKeyRequest(data: any) {
+  protected async handleShareKeyRequest(data: any) {
     if(!this.sharedKey) {
       //send null key
       this.ws.send(JSON.stringify({type: "share-key-response", userId: data.userId, encSharedKey: null}));
@@ -272,7 +272,7 @@ class SharedKeyTest extends EncryptTest {
     this.webSocketSendJSON({type: "share-key-response", userId: data.userId, encSharedKey: encSharedKeyBase64});
   }
 
-  private async handleShareKeyResponse(data: any) {
+  protected async handleShareKeyResponse(data: any) {
     let encSharedKey = data.encSharedKey;
     if(encSharedKey == null) {
       console.error("No encrypted shared key was given!");
@@ -287,7 +287,7 @@ class SharedKeyTest extends EncryptTest {
     console.log(this.sharedKey)
   }
 
-  private async handleGenerateKey(data: any) {
+  protected async handleGenerateKey(data: any) {
     this.sharedKey = await aes.generateAESKey();
     console.log("AES key = ", await aes.exportKeyAsBase64(this.sharedKey));
     let exportedPubKey = await rsa.exportPublicKey(this.pubKeyPair.publicKey);
@@ -295,7 +295,7 @@ class SharedKeyTest extends EncryptTest {
     this.webSocketSendJSON({type: "share-key-generate", name: this.username, pubKey: exportedPubKey});
   }
 
-  private async handleMessage(data: any) {
+  protected async handleMessage(data: any) {
     let senderName = data.senderName;
     if(!this.sharedKey) {
       let errMessage = `You do not have a shared key to decrypt the message from ${senderName}!`;
@@ -312,6 +312,20 @@ class SharedKeyTest extends EncryptTest {
   }
 }
 
+//this class is used for malicious clients who modified
+//their JS in order to lock clients out of chat,
+//attack the server, etc
+class EvilSharedKeyTest extends SharedKeyTest {
+
+  //always send null shared key to other clients
+  protected async handleShareKeyRequest(data: any) {
+    let temp = this.sharedKey;
+    this.sharedKey = undefined;
+    await super.handleShareKeyRequest(data);
+    this.sharedKey = temp;
+  }
+}
+
 async function buildTest(user: string, encryptionType: EncryptionType) : Promise<EncryptTest> {
 
   switch (encryptionType) {
@@ -321,7 +335,8 @@ async function buildTest(user: string, encryptionType: EncryptionType) : Promise
     case EncryptionType.SHARED_KEY:
       let keys = await rsa.getKeyPair();
       let room = window.prompt("What is the room number you want to join?");
-      return new SharedKeyTest(user, keys, room);
+      let evil = window.confirm("Are you evil? (Ok for yes, Cancel for no)s");
+      return evil ? new EvilSharedKeyTest(user, keys, room) : new SharedKeyTest(user, keys, room);
     default:
       throw new Error(`Encryption type ${encryptionType} is invalid!`);
   }
