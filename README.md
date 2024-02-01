@@ -1,7 +1,6 @@
 # E2E2 (End-To-End Encrypted) Website
 
-A instant-messaging web application where users can send encrypted messages
-to each other that cannot be read by the web server.
+A instant-messaging web application where users can send encrypted messages to each other that cannot be read by the web server.
 
 > Disclaimer: Do not use this project in any production service. 
 > This project's only purpose is to serve as a educational tool on using
@@ -25,42 +24,6 @@ to each other that cannot be read by the web server.
 
   - This fixes the problem by allowing all members with unmodified clients to communicate with each other and prevents those with compromised or malicious clients from locking out communication between these unmodified clients.
 
-2. Message Persistance
-  - Store users and messages securely in a database.
-  - Problems To Solve
-    - How To Login?
-    - If a user's password is stolen, all messages inside the list of chats
-    this user is in will be exposed. How do you protect other clients?
-    - Should I create a different encryption key for each user, each chat,
-    or each message?
-
-3. How Will Login Work?
-  - Look into passwordless authentification
-    - Use certificates, TOTP, One Time Passcodes, and/or Multi-Factor Auth.
-    - Try to avoid using credentials that can be used to deanonymize a user (emails, phone numbers, hardware information, IP addresses, are all things that point back to a real person. )
-  - Traditional Usernames and Passwords can work in 2 ways:
-    1. The server only checks if the hash and salt match the database
-      - The plaintext password is hashed and salted before being sent to the server. 
-      - To authenticate a user, the salt stored on the server must be sent to the client, then the client sends a 2nd HTTP request with the hashed and salted string created from their password.
-      - The client uses the plaintext password to derive a AES key
-      - The server then sends the user's encrypted private key to the client if the hash matches the one on the database.
-      - The server should temporarily block the IP address after a certain number of failed attempts.
-      - The client can then decrypt the key and start messaging.
-    2. The server stores no password hashes and willingly gives out encrypted data to everyone.
-      - The server is dumb and will give any encrypted data to any user. 
-      - Because this data is encrypted, it can only be decrypted by the user with the correct password.
-      - The user uses their password to derive a AES key that can decrypt their messages.
-      - This may be bad since it allows attackers to receive large portions of data that they can start attempting to decrypt.
-
-4. How are messages sent and stored
-  - Syncronous chats
-    - Good for forward secrecy if using ephemeral Diffe-Hellman key exchange
-    - Client has choice of deleting messages or storing them on their client via IndexedDB.
-  - Async chats that temporarily stores messages on server until the receiver client connects.
-    - Also good for forward secrecy if using protocol similar to Signal Protocol
-  - Async chats that permanently store messages on the server
-    - Good for viewing past messages on multiple devices 
-    - Clients don't need to use Persistant Storage.
 
 ## Project Structure
 - **src/** contains all Typescript files.
@@ -86,126 +49,109 @@ In order to build and run the project:
   - Text
   - Images
   - Files
+* ALL messages are end-to-end encrypted, meaning the server should not be capable of decrypting messages.
 * Users can form group chats
 * Users can invite each other to certain group chats
 * Group chats can be organized by topics or channels (simlar to Discord Servers/Channels or Element's Matrix Spaces/Rooms)
-* Users can self-host the server for their own private use.
+* Chats can be asyncronous (a user can send a message to an offline user and the offline user will receive the message once they connect to server).
 
+- Accounts and Login
+  - All users must register their device when first creating an account.
+  - All cryptography keys used to log in must be persisted on browser.
+  - Only one primary device per account.
+    - Signal and Whatsapp use phone number, so the phone is the main device, though you can link other computers to your account via your phone.
+    - (Optional) Consider adding option to link up to 2 other devices. Your main device must be used to link both.
+  - Users can transfer accounts from one device to another if needed
+  - If device is lost:
+    - Have user request that they want to backup their device. The client generates a second keypair and sends the public key to the server. The private key is then stored as a file on the client, and the user is responsible for putting it in a safe spot (maybe allow encrypted via PBKDF2). When the user registers from another device, they have the option to recover their account using this file. If this succeeds, then the user gets access to their account, a new keypair is generated for that device for messaging, and the user loses their old messages. 
+  - If another person steals your credentials and puts it in their browser:
+    - The original owner should delete their account, preventing the malicous user from receiving or sending any more messages.
 
 ## Client Side
-* This should be a separate project so that users who don't trust
-the server they're connected to can clone the project via Git and build
-the project themselves.
-* Attempt to request use of Persistant Storage (Local Storage, IndexedDB) to store encryption keys. Otherwise, prompt for a password to generate the key from a key derivation function.
+* Uses Persistant Storage (IndexedDB) to store encryption keys and received messages.
+* Crypto Keys cannot be deleted, but messages can.
 
 ### Tools
 - Front-end Framework
   * None. Using standard HTML/CSS/Javascript
-- Encryption
+- Encryption Library
   * Web Crypto API (native to all targeted browsers)
+- Supported Browsers: 
+  - Safari (desktop and mobile)
+  - Chrome (desktop and mobile)
+  - Firefox (desktop and mobile)
+  - Edge (desktop and mobile)
+  - Any other browser that supports Persistant Storage, WebCrypto API, and WebSockets.
 
 
 ### Encryption
 **\*FOCUS MORE ON THIS\***
 
 Methods for Encrypting Messages:
-1. Use Only Public Key Encryption:
-  - Each user has a public-private keypair
-  - When sending a message:
-      1. Take the message and encrypt it with the respective public key for each user in the group.
-      2. Send those encrypted messages from the client to the server, who will distribute the correct encrypted messages to each user.
-      3. When a user receives a message, they use their private key to decrypt the message.
-  - Generating Keys
-    - When creating an account, a key pair will be generated client-side
-    - The private key will be encrypted using an AES key derived from the PBKDF2 function, which takes in the user's password and outputs the AES key.
-  - Storing keys
-    - The private key is stored client-side unencrypted. 
-    - The private key is also stored server-side, encrypted by AES key from key derivation function.
-    - The public key is stored server-side.
-  - Advantages
-    - Easier to implement
-    - Public key encryption is very difficult to break.
-  - Disadvantages
-    - Computationally expensive on client, especially for larger groups
-    - If someone's private key is stolen, all messages sent to and from the user can be decrypted
-      - This could be fixed by creating a new key-pair per user for every group, limiting the amount of decrypted messages to the ones sent to and from the user in the current group.
-    - Each encrypted version of the same message must be stored on server for each user.
-    - The message size is limited to the modulus used for public key encryption. (Example: For RSA with a modulus of 4096, the maximum message size is 512 bytes)
-    
-2. Shared Key
-  - Each user has a public-private key to encrypt their keys and metadata.
-  - A shared secret is kept per group chat and distributed to the group's members.
-  - Shared keys must be encrypted before being stored on the server to prevent the server from viewing a group's plaintext messages.
-  - Each chat member will have a copy of the shared key of the group they're in. This shared key will be encrypted by the user's public key.
-  - Each user's private key is encrypted by an AES key generated from a key-derivation function that takes the user's password, similar to GNU Privacy Guard program.
+1. Shared Key
+  - One of the clients in a group chat creates an AES key, encrypts it with each chat member's public key, and sends the encrypted key to each client.
+  - This single key is used by each client to encrypt messages they send and decrypt messages they receive.
+  - Will need a way to allow clients to talk even if shared key generated by one client is rejected by other clients.
+2. Use 3-Party Diffe-Hellman Key Exchange.
 
 
 ## Server Side
 The server serves 3 primary purposes:
-1. Allow clients to create accounts 
-2. Distribute messages between multiple clients
-3. Store the encrypted messages and files of its clients
-  - Clients will not store messages because we want one user to access their messages through multiple devices.
-  - All client keys and shared keys must be ENCRYPTED before being stored on the server. A client can unlock those keys using a key generated from a key derivation function.
+1. Allow clients to create accounts and login
+2. Distribute encrypted messages between multiple clients
+3. Store the encrypted messages and files of its clients until every device owned by those clients receives the message.
 
 ### Tools
 - Back-end Framework
   * NodeJS Runtime
-  * ExpressJS to simplify setting up Web API routes
-  * WS NPM package to simplify handling WebSocket server.
-  * mysql2 or postgres NPM package for communicating with database
-  * express-session NPM package for session handling
+  * ExpressJS to simplify setting up Web API routes (MIT)
+  * WS NPM package to simplify handling WebSocket server. (MIT)
+  * postgres NPM package for communicating with database (Unlicense)
+  * express-session NPM package for session handling (MIT)
 - Database
-  * MariaDB or PostgreSQL
+  * PostgreSQL 
 
 ### Login
-Methods For Login:
-1. Use hashing (SHA-256 or SHA-512) and salting
-  - When creating account password, hash and salt the password, then
-  send this to the server.
-  - When a user logs in, if the hash generated from the given password and salt are the same, then the password is correct.
-
-  - Advantages
-    - Easy to implement
-    - Salting reduces the effectiveness of rainbow tables.
-  - Disadvantages
-    - If a attacker is able to download the database from a server, they can retrieve the password from a hash and salt if they have the hardware to do so.
-
-2. Store the result of a key derivation function(PBKDF2,scrypt,argon2,etc)
-  - When creating account password, derive a key from a given password and store it on the server.
-  - When logging in, the given password is run through the KDF and compared to the stored key.
-  - Advantages
-    - More expensive to calculate for attackers
-  - Disadvantages
-    - The only key-derivation function for user passwords in WebCrypto API is PBKDF2, which is more prone to being brute-forced by high-end GPUs compared to other KDFs that allow low-entropy inputs (argon2, scrypt, bcrypt). To combat this, OWASP recommends 600000 iterations for password storage.
-  - Note
-    - If using Approach 1 in Encryption section:
-      - Make sure the password key stored on the database is NOT THE SAME as the one used to decrypt the private key. Use a different salt for the AES key derived from the password so that the password key cannot be used to decrypt the user's private key.
-
-3. Passwordless Authentification
-  - Options:
-    - Possession factors
-      - Use TOTP Protocol for generating One-Time Passwords (limited per device)
-      - Email / SMS magic links may work, but that requires giving up a email address or phone number, and I don't want to pay for a email / SMS service. Also, we don't know how secure these emails/phone numbers are.
-    - Use private key (certificate). When first creating account, force the user to copy the private key and put it in a safe spot, similar to autogenerating a password. When logging in, the server randomly generates a long string, encrypts it with the user's public key, and sends it back to the user. If the user can decrypt the message and send the message back to the server, the server can confirm that this is indeed the correct user. Session cookie will be used for identify the user after this.
-      - May need to use separate public/private key pair from the one used to encrypt symmetric encryption keys used for messaging.
-
+- When creating an account, a keypair is generated and the server keeps the public key.
+- When logging in, the server generates a long, random string, encrypts it via the user's public key, and sends it to the client. If the client can decrypt the message and send it in plaintext to the server, then the user is logged in.
+- When receiving session cookie, ensure that cookie property HttpOnly is set to true to prevent Javascript on browser from accessing it.
 
 ## Examples Of Similar Projects
 * Signal (simple messaging app with e2ee, has no web client)
-* Element (more complex messaging app, allowing the client to connect to multiple servers and spaces using Matrix protocol. Users can self-host the page using Synapse or another server implementation of the Matrix protocol)
-* WhatsApp (similar to Signal, but has web client)
-* Discord (users can talk in private chats or on public "servers", user's cannot self-host Discord and messages are not encrypted)
-* Microsoft Teams (similar to Element, but no self-hosting and has options
-to download extensions)
+  - End-to-End-Encrypted messages
+  - Must use phone number and phone to create account.
+  - Can link up to 5 computers (NOT PHONES) to same account, but unlinks after 30 days.
+  - Uses Signal Protocol
+  - Centralized
+  - No web client
+* Element 
+  - more complex messaging app 
+  - allows the client to connect to multiple servers and spaces using Matrix protocol.
+  - Users can self-host the page using Synapse or another server implementation of the Matrix protocol
+  - End-to-end encryption is optional
+  - Decentralized, meaning messages can be sent across multiple servers, even self-hosted ones.
 
-## Other End-to-End-Encrypted Messaging Protocols
+* WhatsApp 
+  - Very similar to Signal
+    - Must use phone to register
+    - Uses Signal Protocol
+    - Asyncronous Messaging
+  - Can link up to 4 devices (including phones) using primary phone temporarily
+  - Has Web Client
+
+* Discord 
+  - users can talk in private chats or on public "servers"
+  - Centralized Server
+  - messages are not encrypted and are persistant
+  - Asyncronous chats
+
+
+## Other End-to-End-Encrypted Instant Messaging Protocols
 * Signal
-* OLM and MEGOLM from Matrix
-* OpenPGP 
+* OMEMO (extension of XMPP Protocol)
+* OLM and MEGOLM (extension of Matrix Protocol)
+* OpenPGP (not necessary a instant messaging protocol, but may be useful)
 
-## Weird Stuff To Look Out For
-* Don't assume UTF-8 characters have a maximum byte size of 4. This character(🤦🏼‍♂️) is 17 bytes because it contains multiple "unicode scalars". For this emoji (🤦🏼‍♂️), there are 5 scalars used: 4 bytes for face palm emoji, 4 bytes for the emoji modifier for the color of the emoji, 3 bytes for a zero-width joiner character, 3 bytes to specify that it is male, and 3 bytes for the variation selector, totalling 17 bytes. Some text editors display 🤦🏼‍♂️ as 🤦🏼\u200d♂️ or 🤦🏼♂️ due to this. If setting a message size limit, be aware of this.
 
 ## Glossery (And Other Useful Words)
 - Forward Secrecy (or Perfect Forward Secrecy)
