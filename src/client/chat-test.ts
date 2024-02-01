@@ -291,17 +291,28 @@ class SharedKeyTest extends EncryptTest {
 
   protected async handleShareKeyResponse(data: any) {
     let encSharedKey = data.encSharedKey;
+    let senderId = data.userId;
+
     if(encSharedKey == null) {
       console.error("No encrypted shared key was given!");
+      this.webSocketSendJSON({type: "share-key-received", gotKey: false, originalKeyOwner: senderId});
       return;
     }
 
-    let base64SharedKey = await rsa.decrypt(base64ToArrayBuffer(encSharedKey), this.pubKeyPair.privateKey);
+    try {
+      let base64SharedKey = await rsa.decrypt(base64ToArrayBuffer(encSharedKey), this.pubKeyPair.privateKey);
+  
+      console.log("AES key = ", base64SharedKey);
 
-    console.log("AES key = ", base64SharedKey);
+      this.sharedKey = await aes.importKey(base64SharedKey);
+      console.log(this.sharedKey);
+      this.webSocketSendJSON({type: "share-key-received", gotKey: true, originalKeyOwner: senderId});
 
-    this.sharedKey = await aes.importKey(base64SharedKey);
-    console.log(this.sharedKey)
+    } catch(e) {
+      this.webSocketSendJSON({type: "share-key-received", gotKey: false, originalKeyOwner: senderId});
+    }
+
+    
   }
 
   protected async handleGenerateKey(data: any) {

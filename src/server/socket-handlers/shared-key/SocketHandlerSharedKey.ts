@@ -82,6 +82,9 @@ function parseSocketMessage(parsedData: any, ws: WebSocket, userList: UserList, 
     case "share-key-response":
       shareKey(parsedData, userList, isBinary);
       break;
+    case "share-key-received":
+      shareKeyReceivedByUser(parsedData, ws, userList, isBinary);
+      break;
     case "message":
       sendMessage(parsedData, ws, userList, isBinary);
       break;
@@ -89,6 +92,15 @@ function parseSocketMessage(parsedData: any, ws: WebSocket, userList: UserList, 
       ws.send(JSON.stringify({type: "server", message: `Socket message of type ${parsedData.type} is not supported!`}));
     
   }
+}
+
+function shareKeyReceivedByUser(parsedData: {gotKey: boolean, originalKeySender: string}, ws: WebSocket, userList: UserList, isBinary: boolean) {
+  //no problems, dont do anything
+  if(parsedData.gotKey) {
+    return;
+  }
+
+
 }
 
 function newUserAdded(parsedData: {name: string, pubKey: string}, ws: WebSocket, userList: UserList, isBinary: boolean) {
