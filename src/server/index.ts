@@ -1,6 +1,7 @@
 import express from "express";
 import http from 'http';
 import { WebSocketServer } from 'ws';
+import cookieParser from 'cookie-parser';
 
 import {fileURLToPath} from "url";
 
@@ -26,6 +27,8 @@ const app = express();
 const server = new http.Server(app);
 const wss = new WebSocketServer({server});
 
+//used to parse cookies into JSON format
+app.use(cookieParser());
 
 //set public folder for getting website assets(CSS, Images, Javascript)
 app.use("/js", express.static(JS_ROOT));
