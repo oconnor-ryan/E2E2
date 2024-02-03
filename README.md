@@ -106,10 +106,10 @@ The server serves 3 primary purposes:
 ### Tools
 - Back-end Framework
   * NodeJS Runtime
-  * ExpressJS to simplify setting up Web API routes (MIT)
+  * ExpressJS to simplify setting up API routes (MIT)
   * WS NPM package to simplify handling WebSocket server. (MIT)
   * postgres NPM package for communicating with database (Unlicense)
-  * express-session NPM package for session handling (MIT)
+  * jsonwebtoken NPM package for handling user session after login via JWT (MIT)
 - Database
   * PostgreSQL 
 
