@@ -1,9 +1,11 @@
 node_modules/
 
 dist/
+.env
 
 #Custom
 ignored/
+
 
 # OS-Specific Files
 .DS_Store

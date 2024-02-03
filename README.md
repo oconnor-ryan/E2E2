@@ -33,7 +33,7 @@ A instant-messaging web application where users can send encrypted messages to e
   - **src/server/** contains all server-side code.
 
 - **client-assets/** contains all static website assets (HTML, CSS, Images)
-  - **client-assets/public/** contains non-HTML assets and serves as the website's root folder.
+  - **client-assets/static-root/** contains non-HTML assets and are served via the /static route of the website. Note that all assets inserted here are public.
   - **client-assets/html/** contains all HTML files used in website.
 
 - **dist/** stores the transpiled Javascript from the Typescript inside the src/ folder.

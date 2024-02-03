@@ -2,27 +2,25 @@ import express from "express";
 import http from 'http';
 import { WebSocketServer } from 'ws';
 
-
 import {fileURLToPath} from "url";
 
-import * as JsonValidator from "../client/shared/JSON-Validator.js"
-console.log(JsonValidator.jsonContainsThesePropsWithTypes({a: 4}, {a: "number"}));
-
-//should run this in a build script instead of web server script
-//c.putDistFilesInDir(fileURLToPath(import.meta.resolve('../dist/client-dist')));
+import apiRoute from './routes/api.js';
 
 import { onConnection } from "./socket-handlers/public-key/PublicKeySocketHandler.js";
 import * as sharedKeySocketHandler from "./socket-handlers/shared-key/SocketHandlerSharedKey.js";
 
 
 //the website's root folder
-const STATIC_ROOT = fileURLToPath(import.meta.resolve("../../client-assets/public"));
+const STATIC_ROOT = fileURLToPath(import.meta.resolve("../../client-assets/static-root"));
 const HTML_ROOT = fileURLToPath(import.meta.resolve("../../client-assets/html"));
 const JS_ROOT = fileURLToPath(import.meta.resolve("../client"));
 
 console.log(STATIC_ROOT);
 console.log(HTML_ROOT);
 console.log(JS_ROOT);
+
+//load .env file
+import 'dotenv/config';
 
 const app = express();
 const server = new http.Server(app);
@@ -31,7 +29,7 @@ const wss = new WebSocketServer({server});
 
 //set public folder for getting website assets(CSS, Images, Javascript)
 app.use("/js", express.static(JS_ROOT));
-app.use("/", express.static(STATIC_ROOT));
+app.use("/static", express.static(STATIC_ROOT));
 
 //convert request body to JSON automatically
 app.use(express.json());
@@ -90,10 +88,16 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 //routes
+app.use("/api", apiRoute);
+
 
 app.use("/", (req, res, next) => {
   console.log("Request Made");
   next();
+});
+
+app.get("/favicon.ico", (req, res) => {
+  res.sendFile("favicon.ico", {root: STATIC_ROOT});
 });
 
 app.get("/", (req, res) => {
