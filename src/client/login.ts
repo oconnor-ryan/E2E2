@@ -3,7 +3,7 @@ import * as storage from './StorageHandler.js';
 
 const accountForm = document.getElementById('create-account-form') as HTMLFormElement;
 const loginForm = document.getElementById('login-form') as HTMLFormElement;
-
+const messageElement = document.getElementById('result-message') as HTMLParagraphElement;
 
 accountForm.onsubmit = async (e) => {
   e.preventDefault(); //dont allow post request to go through
@@ -38,7 +38,8 @@ accountForm.onsubmit = async (e) => {
     }
   );
 
-  console.log(await response.json());
+  let jsonRes = await response.json();
+  messageElement.innerHTML = `Create Account Result: ${JSON.stringify(jsonRes)}`;
 }
 
 loginForm.onsubmit = async (e) => {
@@ -74,5 +75,6 @@ loginForm.onsubmit = async (e) => {
     }
   );
 
-  console.log(await response.json());
+  let jsonRes = await response.json();
+  messageElement.innerHTML = `Login Result: ${JSON.stringify(jsonRes)}`;
 }

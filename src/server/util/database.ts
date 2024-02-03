@@ -10,7 +10,11 @@ const db = postgres({
 });
 
 export async function createAccount(username: string, auth_key_base64: string): Promise<boolean> {
-  
+  //dont allow empty strings, maybe enforce this in database via CHECK
+  if(username === "") {
+    return false;
+  }
+
   try {
     //check to see if signing key provided is valid
     await importSignKey(auth_key_base64);
