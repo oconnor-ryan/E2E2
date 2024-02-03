@@ -2,6 +2,8 @@ import express from "express";
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import cookieParser from 'cookie-parser';
+import 'dotenv/config';
+
 
 import {fileURLToPath} from "url";
 
@@ -21,7 +23,6 @@ console.log(HTML_ROOT);
 console.log(JS_ROOT);
 
 //load .env file
-import 'dotenv/config';
 
 const app = express();
 const server = new http.Server(app);
@@ -117,6 +118,10 @@ app.get("/test/key-derivation", (req, res) => {
 
 app.get("/test/public-key", (req, res) => {
   res.sendFile("Public-Key.html", {root: HTML_ROOT});
+});
+
+app.get("/test/login", (req, res) => {
+  res.sendFile("login.html", {root: HTML_ROOT});
 });
 
 

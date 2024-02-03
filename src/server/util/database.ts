@@ -1,4 +1,5 @@
 import postgres from 'postgres';
+import { importSignKey } from './webcrypto/ecdsa.js';
 
 const db = postgres({
   host: process.env.DB_HOST,
@@ -9,7 +10,12 @@ const db = postgres({
 });
 
 export async function createAccount(username: string, auth_key_base64: string): Promise<boolean> {
+  
   try {
+    //check to see if signing key provided is valid
+    await importSignKey(auth_key_base64);
+
+    //insert account into database
     //note that postgres package automatically escapes all variables used in template string to 
     //prevent SQL injection
     await db`insert into account (id, auth_key_base64) VALUES (${username}, ${auth_key_base64})`;

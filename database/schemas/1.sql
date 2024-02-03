@@ -21,19 +21,17 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: account; Type: TABLE; Schema: public; Owner: ryan
+-- Name: account; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.account (
     id character varying(30) NOT NULL,
-    auth_key_base64 character varying(100) NOT NULL
+    auth_key_base64 character varying NOT NULL
 );
 
 
-ALTER TABLE public.account OWNER TO ryan;
-
 --
--- Name: chat; Type: TABLE; Schema: public; Owner: ryan
+-- Name: chat; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.chat (
@@ -42,10 +40,8 @@ CREATE TABLE public.chat (
 );
 
 
-ALTER TABLE public.chat OWNER TO ryan;
-
 --
--- Name: chat_id_seq; Type: SEQUENCE; Schema: public; Owner: ryan
+-- Name: chat_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.chat_id_seq
@@ -57,17 +53,15 @@ CREATE SEQUENCE public.chat_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.chat_id_seq OWNER TO ryan;
-
 --
--- Name: chat_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: ryan
+-- Name: chat_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.chat_id_seq OWNED BY public.chat.id;
 
 
 --
--- Name: chat_member; Type: TABLE; Schema: public; Owner: ryan
+-- Name: chat_member; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.chat_member (
@@ -79,10 +73,8 @@ CREATE TABLE public.chat_member (
 );
 
 
-ALTER TABLE public.chat_member OWNER TO ryan;
-
 --
--- Name: message; Type: TABLE; Schema: public; Owner: ryan
+-- Name: message; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.message (
@@ -93,10 +85,8 @@ CREATE TABLE public.message (
 );
 
 
-ALTER TABLE public.message OWNER TO ryan;
-
 --
--- Name: message_id_seq; Type: SEQUENCE; Schema: public; Owner: ryan
+-- Name: message_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.message_id_seq
@@ -107,17 +97,15 @@ CREATE SEQUENCE public.message_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.message_id_seq OWNER TO ryan;
-
 --
--- Name: message_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: ryan
+-- Name: message_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.message_id_seq OWNED BY public.message.id;
 
 
 --
--- Name: pending_chat_invite; Type: TABLE; Schema: public; Owner: ryan
+-- Name: pending_chat_invite; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.pending_chat_invite (
@@ -127,24 +115,22 @@ CREATE TABLE public.pending_chat_invite (
 );
 
 
-ALTER TABLE public.pending_chat_invite OWNER TO ryan;
-
 --
--- Name: chat id; Type: DEFAULT; Schema: public; Owner: ryan
+-- Name: chat id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.chat ALTER COLUMN id SET DEFAULT nextval('public.chat_id_seq'::regclass);
 
 
 --
--- Name: message id; Type: DEFAULT; Schema: public; Owner: ryan
+-- Name: message id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.message ALTER COLUMN id SET DEFAULT nextval('public.message_id_seq'::regclass);
 
 
 --
--- Name: account account_auth_key_base64_key; Type: CONSTRAINT; Schema: public; Owner: ryan
+-- Name: account account_auth_key_base64_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.account
@@ -152,7 +138,7 @@ ALTER TABLE ONLY public.account
 
 
 --
--- Name: account account_pkey; Type: CONSTRAINT; Schema: public; Owner: ryan
+-- Name: account account_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.account
@@ -160,7 +146,7 @@ ALTER TABLE ONLY public.account
 
 
 --
--- Name: chat_member chat_member_nick_name_chat_id_key; Type: CONSTRAINT; Schema: public; Owner: ryan
+-- Name: chat_member chat_member_nick_name_chat_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.chat_member
@@ -168,7 +154,7 @@ ALTER TABLE ONLY public.chat_member
 
 
 --
--- Name: chat_member chat_member_pkey; Type: CONSTRAINT; Schema: public; Owner: ryan
+-- Name: chat_member chat_member_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.chat_member
@@ -176,7 +162,7 @@ ALTER TABLE ONLY public.chat_member
 
 
 --
--- Name: chat chat_pkey; Type: CONSTRAINT; Schema: public; Owner: ryan
+-- Name: chat chat_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.chat
@@ -184,7 +170,7 @@ ALTER TABLE ONLY public.chat
 
 
 --
--- Name: message message_pkey; Type: CONSTRAINT; Schema: public; Owner: ryan
+-- Name: message message_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.message
@@ -192,7 +178,7 @@ ALTER TABLE ONLY public.message
 
 
 --
--- Name: pending_chat_invite pending_chat_invite_pkey; Type: CONSTRAINT; Schema: public; Owner: ryan
+-- Name: pending_chat_invite pending_chat_invite_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.pending_chat_invite
@@ -200,7 +186,7 @@ ALTER TABLE ONLY public.pending_chat_invite
 
 
 --
--- Name: chat_member chat_member_acct_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: ryan
+-- Name: chat_member chat_member_acct_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.chat_member
@@ -208,7 +194,7 @@ ALTER TABLE ONLY public.chat_member
 
 
 --
--- Name: chat_member chat_member_chat_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: ryan
+-- Name: chat_member chat_member_chat_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.chat_member
@@ -216,7 +202,7 @@ ALTER TABLE ONLY public.chat_member
 
 
 --
--- Name: message message_chat_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: ryan
+-- Name: message message_chat_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.message
@@ -224,7 +210,7 @@ ALTER TABLE ONLY public.message
 
 
 --
--- Name: message message_sender_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: ryan
+-- Name: message message_sender_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.message
@@ -232,7 +218,7 @@ ALTER TABLE ONLY public.message
 
 
 --
--- Name: pending_chat_invite pending_chat_invite_chat_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: ryan
+-- Name: pending_chat_invite pending_chat_invite_chat_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.pending_chat_invite
@@ -240,7 +226,7 @@ ALTER TABLE ONLY public.pending_chat_invite
 
 
 --
--- Name: pending_chat_invite pending_chat_invite_invited_acct_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: ryan
+-- Name: pending_chat_invite pending_chat_invite_invited_acct_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.pending_chat_invite
@@ -248,7 +234,7 @@ ALTER TABLE ONLY public.pending_chat_invite
 
 
 --
--- Name: pending_chat_invite pending_chat_invite_invitor_acct_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: ryan
+-- Name: pending_chat_invite pending_chat_invite_invitor_acct_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.pending_chat_invite
