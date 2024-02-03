@@ -1,11 +1,9 @@
 import { createKeyPair, exportPublicKey, sign } from "./encryption/ECDSA.js";
+import * as storage from './StorageHandler.js';
 
 const accountForm = document.getElementById('create-account-form') as HTMLFormElement;
 const loginForm = document.getElementById('login-form') as HTMLFormElement;
 
-let keyPair: CryptoKeyPair | undefined;
-let signature: string | undefined;
-let exportedPubKey: string | undefined;
 
 accountForm.onsubmit = async (e) => {
   e.preventDefault(); //dont allow post request to go through
@@ -15,9 +13,11 @@ accountForm.onsubmit = async (e) => {
 
   console.log(username);
 
-  keyPair = await createKeyPair();
-  signature = await sign("", keyPair.privateKey);
-  exportedPubKey = await exportPublicKey(keyPair.publicKey);
+  let keyPair = await createKeyPair();
+  let signature = await sign("", keyPair.privateKey);
+  let exportedPubKey = await exportPublicKey(keyPair.publicKey);
+
+  storage.addKey("auth_key_pair", keyPair);
 
   console.log("exported key = ", exportedPubKey);
   console.log("signature = ", signature);
@@ -43,8 +43,10 @@ accountForm.onsubmit = async (e) => {
 
 loginForm.onsubmit = async (e) => {
   e.preventDefault(); //dont allow post request to go through
+
+  let keyPair = await storage.getKey("auth_key_pair") as CryptoKeyPair;
+  console.log(keyPair)
   if(!keyPair) {
-    console.error("You forgot to create account!");
     return;
   }
 
@@ -53,7 +55,7 @@ loginForm.onsubmit = async (e) => {
 
   console.log(username);
 
-  signature = await sign("", keyPair.privateKey);
+  let signature = await sign("", keyPair.privateKey);
 
   console.log("signature = ", signature);
 
