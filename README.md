@@ -9,7 +9,8 @@ A instant-messaging web application where users can send encrypted messages to e
 > messages.
 
 ## Current Objectives
-
+1. Setup account creation and login
+## Future Objectives
 1. Figure out how users setup shared key in case of bad clients
   - Right now, a client can claim to have generated a shared key without proof, which currently prevents all group members from communicating on that chat until everyone in the chat leaves. 
   - This acts as a small scale denial-of-service attack and forces other users to create a new chat.
@@ -53,6 +54,7 @@ In order to build and run the project:
 * Users can form group chats
 * Users can invite each other to certain group chats
 * Group chats can be organized by topics or channels (simlar to Discord Servers/Channels or Element's Matrix Spaces/Rooms)
+* If users are removed from a chat, all encryption keys are regenerated if needed
 * Chats can be asyncronous (a user can send a message to an offline user and the offline user will receive the message once they connect to server).
 
 - Accounts and Login
@@ -121,6 +123,7 @@ The server serves 3 primary purposes:
   - End-to-End-Encrypted messages
   - Must use phone number and phone to create account.
   - Can link up to 5 computers (NOT PHONES) to same account, but unlinks after 30 days.
+  - Linked devices do not sync conversation history since each device generates its own keypair.
   - Uses Signal Protocol
   - Centralized
   - No web client
@@ -137,8 +140,13 @@ The server serves 3 primary purposes:
     - Uses Signal Protocol
     - Asyncronous Messaging
   - Can link up to 4 devices (including phones) using primary phone temporarily
+  - Message History does sync message history, but requires your phone to have the Whatsapp app open and is slow on web client. Primary phone has the greatest priority
   - Has Web Client
-
+* Wire
+ - Uses Proteus protocol, an implementation of Signal protocol
+ - Allows up to 8 devices to be linked, but does not sync conversation history between devices since each device generates its own keypair
+ - 1 temporary device can be used to login on a public computer to view and send new messages. This device deletes all messages locally on logout and has limited permissions.
+ 
 * Discord 
   - users can talk in private chats or on public "servers"
   - Centralized Server
