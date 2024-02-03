@@ -5,6 +5,9 @@ const KEY_STORE = "key_store";
 
 let db: IDBDatabase | undefined;
 
+const localStorage = window.localStorage;
+
+let persistData = false;
 
 //this allows you to make sure that data in IndexedDB is only deleted
 //if the user explicitly does so. 
@@ -15,6 +18,7 @@ let db: IDBDatabase | undefined;
 //When first creating an account, make sure to tell user that if they delete
 //site data when closing browser, leave this website as an exception.
 navigator.storage.persist().then((persistant) => {
+  persistData = persistant;
   console.log("Allow persistance: " + persistant);
   if(!persistant) {
     throw new Error("You must allow persistance for this app to work correctly!");
@@ -25,6 +29,25 @@ navigator.storage.persist().then((persistant) => {
 }).catch(e => {
   console.error(e);
 });
+
+export function updateUsername(username: string) : boolean {
+  if(!persistData) {
+    return false;
+  }
+
+  localStorage.setItem("username", username);
+  return true;
+
+}
+
+
+export function getUsername() {
+  if(!persistData) {
+    return null;
+  }
+
+  return localStorage.getItem("username");
+}
 
 
 function initDB() {

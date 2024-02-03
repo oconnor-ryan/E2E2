@@ -1,8 +1,9 @@
 import { createKeyPair, exportPublicKey, sign } from "./encryption/ECDSA.js";
 import * as storage from './StorageHandler.js';
+import { login } from "./util/EasyFetch.js";
 
 const accountForm = document.getElementById('create-account-form') as HTMLFormElement;
-const loginForm = document.getElementById('login-form') as HTMLFormElement;
+const loginStatusButton = document.getElementById('login-button') as HTMLButtonElement;
 const messageElement = document.getElementById('result-message') as HTMLParagraphElement;
 
 accountForm.onsubmit = async (e) => {
@@ -17,7 +18,7 @@ accountForm.onsubmit = async (e) => {
   let signature = await sign("", keyPair.privateKey);
   let exportedPubKey = await exportPublicKey(keyPair.publicKey);
 
-  storage.addKey("auth_key_pair", keyPair);
+  
 
   console.log("exported key = ", exportedPubKey);
   console.log("signature = ", signature);
@@ -39,42 +40,23 @@ accountForm.onsubmit = async (e) => {
   );
 
   let jsonRes = await response.json();
+
+  if(!jsonRes.error) {
+    storage.addKey("auth_key_pair", keyPair);
+    storage.updateUsername(username);
+
+  }
+
   messageElement.innerHTML = `Create Account Result: ${JSON.stringify(jsonRes)}`;
 }
 
-loginForm.onsubmit = async (e) => {
-  e.preventDefault(); //dont allow post request to go through
+loginStatusButton.onclick = async (e) => {
+  try {
+    let jsonRes = await login();
+    messageElement.innerHTML = `Login Result: true`;
 
-  let keyPair = await storage.getKey("auth_key_pair") as CryptoKeyPair;
-  console.log(keyPair)
-  if(!keyPair) {
-    return;
+  } catch(e: any) {
+    console.error(e);
+    messageElement.innerHTML = e.message
   }
-
-  //@ts-ignore
-  let username: string = loginForm.elements["username"].value;
-
-  console.log(username);
-
-  let signature = await sign("", keyPair.privateKey);
-
-  console.log("signature = ", signature);
-
-
-  let response = await fetch(
-    "/api/login", 
-    {
-      method: "POST",
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: username,
-        signature_base64: signature
-      })
-    }
-  );
-
-  let jsonRes = await response.json();
-  messageElement.innerHTML = `Login Result: ${JSON.stringify(jsonRes)}`;
 }

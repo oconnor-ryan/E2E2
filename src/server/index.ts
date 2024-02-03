@@ -120,8 +120,8 @@ app.get("/test/public-key", (req, res) => {
   res.sendFile("Public-Key.html", {root: HTML_ROOT});
 });
 
-app.get("/test/login", (req, res) => {
-  res.sendFile("login.html", {root: HTML_ROOT});
+app.get("/test/account", (req, res) => {
+  res.sendFile("account.html", {root: HTML_ROOT});
 });
 
 
