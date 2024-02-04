@@ -1,7 +1,7 @@
 const cryptoSubtle = window.crypto.subtle;
 
 
-export async function getKey(password: string, salt: BufferSource) {
+export async function getKey(password: string, salt: BufferSource, extractable: boolean = false) {
   let enc = new TextEncoder();
   let keyMaterial = await cryptoSubtle.importKey(
     "raw",
@@ -20,15 +20,15 @@ export async function getKey(password: string, salt: BufferSource) {
     },
     keyMaterial,
     {"name": "AES-GCM", "length": 256},
-    true,
+    extractable,
     ["encrypt", "decrypt"]
   );
 
 }
 
-export async function encrypt(message: string, password: string, salt: Uint8Array, iv: Uint8Array) {
+export async function encrypt(message: string, password: string, salt: Uint8Array, iv: Uint8Array, extractable: boolean = false) {
   let encMessage = new TextEncoder().encode(message);
-  let key = await getKey(password, salt);
+  let key = await getKey(password, salt, extractable);
 
   return await cryptoSubtle.encrypt(
     {

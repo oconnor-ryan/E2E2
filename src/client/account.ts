@@ -1,5 +1,5 @@
 import { createKeyPair, exportPublicKey, sign } from "./encryption/ECDSA.js";
-import * as storage from './StorageHandler.js';
+import * as storage from './util/StorageHandler.js';
 import { login } from "./util/EasyFetch.js";
 
 const accountForm = document.getElementById('create-account-form') as HTMLFormElement;

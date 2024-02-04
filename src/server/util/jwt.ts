@@ -10,7 +10,7 @@ export function getToken(payload: Payload) {
     process.env.JWT_SECRET!, 
     {
       algorithm: 'HS256',
-      expiresIn: '2d' //2 days
+      expiresIn: '1h' //1 hour
     }
   )
 }

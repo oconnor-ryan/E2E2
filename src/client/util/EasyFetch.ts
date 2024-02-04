@@ -1,4 +1,4 @@
-import * as storage from '../StorageHandler.js'
+import * as storage from './StorageHandler.js'
 import { sign } from '../encryption/ECDSA.js';
 
 

@@ -1,3 +1,9 @@
+/*
+WARNING:
+  Don't assume that IndexedDB is permanently persistant. 
+  A user can easily delete the contents of IndexedDB when clearing cookies and cache
+  even if they tell the browser that this website's data should persist.
+*/
 
 
 const DB_NAME = "e2e2";

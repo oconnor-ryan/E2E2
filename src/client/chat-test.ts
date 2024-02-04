@@ -316,7 +316,7 @@ class SharedKeyTest extends EncryptTest {
   }
 
   protected async handleGenerateKey(data: any) {
-    this.sharedKey = await aes.generateAESKey();
+    this.sharedKey = await aes.generateAESKey(true);
     console.log("AES key = ", await aes.exportKeyAsBase64(this.sharedKey));
     let exportedPubKey = await rsa.exportPublicKey(this.pubKeyPair.publicKey);
     console.log("Generating key");
