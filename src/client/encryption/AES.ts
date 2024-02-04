@@ -3,13 +3,15 @@ const cryptoSubtle = window.crypto.subtle;
 
 const IV_LEN_BYTES = 50;
 
-export async function generateAESKey() {
+//if extractable is true, the key material can be exported into the Javascript
+//runtime environment via exportKey
+export async function generateAESKey(extractable: boolean = false) {
   return await cryptoSubtle.generateKey(
     {
       name: "AES-GCM",
       length: 256
     },
-    true,
+    extractable,
     ["encrypt", "decrypt"]
   );
 }

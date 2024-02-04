@@ -12,7 +12,7 @@ export async function getKeyPair() {
       publicExponent: new Uint8Array([1, 0, 1]),
       hash: "SHA-512",
     },
-    true,
+    false,
     ["encrypt", "decrypt"]
   );
 
@@ -32,7 +32,7 @@ export async function importPublicKey(base64String: string) {
       name: "RSA-OAEP",
       hash: "SHA-512",
     },
-    true,
+    false,
     ["encrypt"]
   );
 }

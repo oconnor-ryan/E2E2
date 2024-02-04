@@ -9,7 +9,7 @@ export async function createKeyPair() {
       name: "ECDSA",
       namedCurve: "P-521"
     },
-    true,
+    false, //note that public key can be exported even if extractable is false, but private key is not
     ['sign']
   );
 }

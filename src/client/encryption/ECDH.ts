@@ -9,7 +9,7 @@ export async function createKeyPair() {
       name: "ECDH",
       namedCurve: "P-521"
     },
-    true,
+    false,
     ['deriveKey']
   );
 }
