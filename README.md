@@ -198,3 +198,25 @@ The server serves 3 primary purposes:
 
 - Client-Side Fanout
   - Client generates different ciphertext from a message for each connected client and sends each encrypted message to the server for each client.
+
+- Authentication Factors
+  - a category of evidence that proves whether if the user is indeed who they claim to be.
+  - There are 3 types of factors
+    1. Knowledge Factor
+      - The user knows information that only the user they claim to be knows.
+      - Examples
+        - Password
+        - Security Questions
+    2. Possession Factor
+      - The user possesses something that only the user they claim to be has.
+      - Examples
+        - SMS verification via magic link or one time passcode (possesses phone)
+        - Email verification via magic link (possesses email account)
+        - Authenticator app using one time passcodes (possesses phone)
+        - Has FIDO2 Security Key (possesses key)
+    3. Inherence Factor
+      - The user has physical features that only the user they claim to be has
+      - Examples
+        - Fingerprints
+        - Face recognition
+        - voice recognition
