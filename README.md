@@ -14,7 +14,17 @@ A instant-messaging web application where users can send encrypted messages to e
 3. Have users accept or deny invites
 
 ## Future Objectives
-1. Figure out how users setup shared key in case of bad clients
+1. Add method to backup account in case they accidentally clear their browser.
+  - Do this by generating another ECDSA keypair as backup.
+  - Put backup public key on server
+  - Generate a password via crypto.getRandomValues() with over 80 bits of entropy (Note that Entropy = log2 ((number of unique symbols) ^ (length of password)))
+  - Encrypt the backup private key via AES key derived from PBKDF2, with the password and a randomly-generated salt used as input. 
+  - Concatenate the password and salt and display this to the user, telling them to store it in a trusted password manager or file.
+  - Once the user accepts this password, the encrypted backup key is written into a file and put into the downloads folder.
+  - When the user begins to recover an account, they must drop the encrypted file and the password-salt combination into the Recover Account form to retrieve their backup private key, authenticate with server, and login.
+  - A new backup keypair is generated using the above steps after logging in.
+
+2. Figure out how users setup shared key in case of bad clients
   - Right now, a client can claim to have generated a shared key without proof, which currently prevents all group members from communicating on that chat until everyone in the chat leaves. 
   - This acts as a small scale denial-of-service attack and forces other users to create a new chat.
   - In addition, a client can claim to have accepted a shared key even if it was invalid. It prevents us from assuming that if every recipient of the shared key accepts it, that the key must be correct. If we do assume this and 2 users do this before everyone else joins a group chat, everyone else will be unable to speak in the chat.
