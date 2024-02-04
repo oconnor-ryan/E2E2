@@ -9,7 +9,10 @@ A instant-messaging web application where users can send encrypted messages to e
 > messages.
 
 ## Current Objectives
-1. Setup account creation and login
+1. Have accounts create chats
+2. Have users invite other users to chat
+3. Have users accept or deny invites
+
 ## Future Objectives
 1. Figure out how users setup shared key in case of bad clients
   - Right now, a client can claim to have generated a shared key without proof, which currently prevents all group members from communicating on that chat until everyone in the chat leaves. 
