@@ -2,8 +2,9 @@ import express, { Request, Response } from 'express';
 
 //local files
 import { getExpDate, getToken, verifyToken } from '../util/jwt.js';
-import { createAccount } from '../util/database.js';
+import { createAccount, searchUsers } from '../util/database.js';
 import { login } from '../util/login.js';
+import { NOT_LOGGED_IN_ERROR } from '../../client/shared/Constants.js';
 
 const router = express.Router();
 
@@ -72,20 +73,33 @@ router.post("/login", async (req, res) => {
 router.use("/", (req, res, next) => {
   let sessionCookie = req.cookies[SESSION_COOKIE];
   if(sessionCookie === undefined) {
-    res.json({error: "You are not logged in!"});
-    res.send(403);
+    res.status(403).json({error: NOT_LOGGED_IN_ERROR});
     return;
   }
 
-  let username = verifyToken(sessionCookie);
-  if(!username) {
-    res.json({error: "You login session has expired!"});
-    res.send(403);
+  let jwtPayload = verifyToken(sessionCookie);
+  if(!jwtPayload) {
+    res.status(403).json({error: NOT_LOGGED_IN_ERROR});
+    return;
   }
+
+  //res.locals can be used to pass parameters down from this middleware
+  //to the next one. This variable will remain alive until a response is sent
+  res.locals.username = jwtPayload.username;
 
   //now that JWT was checked to be valid,
   //move on to next middleware below this route handler
   next();
+});
+
+router.post("/searchusers", async (req, res) => {
+  let currentUser = res.locals.username as string;
+
+  console.log(currentUser);
+
+  let searchResults = await searchUsers(req.body.search, 10, currentUser);
+
+  res.json({error: null, users: searchResults});
 });
 
 

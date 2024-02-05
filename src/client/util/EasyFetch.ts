@@ -1,5 +1,6 @@
 import * as storage from './StorageHandler.js'
 import { sign } from '../encryption/ECDSA.js';
+import { NOT_LOGGED_IN_ERROR } from '../shared/Constants.js';
 
 
 export async function login() {
@@ -26,9 +27,23 @@ export async function login() {
   }
 }
 
+/**
+ * A helper function that sends JSONs to endpoints and parses responses to JSON.
+ * 
+ * If the user's original URL responds with an 'error' property , another request is 
+ * sent to the server to automatically refresh the user's session cookie. 
+ * If the JWT is refreshed, the original request is sent again.
+ * 
+ * @param url - the URL we want to query
+ * @param json - the JSON data we will pass in
+ * @param method - 
+ * @returns 
+ * @throws Error - Error can be caused from bad network, being unable to log in, 
+ * or being unable to parse the response to a JSON.
+ */
 export async function ezFetch(url: string, json: any, method: string = "POST") {
   let mainFetch = async () => {
-    return await (await fetch(
+    let res = await (await fetch(
       url,
       {
         method: method,
@@ -38,6 +53,13 @@ export async function ezFetch(url: string, json: any, method: string = "POST") {
         body: JSON.stringify(json)
       }
     )).json();
+
+    //only throw error if error matches the error name for the server
+    if(res.error && res.error === NOT_LOGGED_IN_ERROR) {
+      throw new Error(res.error);
+    }
+
+    return res;
   };
 
 
@@ -46,10 +68,8 @@ export async function ezFetch(url: string, json: any, method: string = "POST") {
   } catch(e) {
 
     //login has expired, so get new JWT by logging in
-    try {await login();} 
+    await login();
     
-    //login failed, throw error from login attempt
-    catch(e) {throw e;}
   }
 
   //try main fetch request again once logged in

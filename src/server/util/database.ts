@@ -40,3 +40,13 @@ export async function getUserAuthKey(username: string) : Promise<string | null> 
   }
 }
 
+export async function searchUsers(searchString: string, limit: number = 10, ...excludeUsers: string[]) : Promise<string[]> {
+  try {
+    let res = await db`select id from account where id ILIKE ${searchString + "%"} AND id NOT IN ${db(excludeUsers)} ORDER BY id LIMIT ${limit}`;
+    return res.map(e => e.id);
+
+  } catch(e) {
+    return [];
+  }
+}
+

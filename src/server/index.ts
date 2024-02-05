@@ -18,10 +18,6 @@ const STATIC_ROOT = fileURLToPath(import.meta.resolve("../../client-assets/stati
 const HTML_ROOT = fileURLToPath(import.meta.resolve("../../client-assets/html"));
 const JS_ROOT = fileURLToPath(import.meta.resolve("../client"));
 
-console.log(STATIC_ROOT);
-console.log(HTML_ROOT);
-console.log(JS_ROOT);
-
 //load .env file
 
 const app = express();
@@ -122,6 +118,10 @@ app.get("/test/public-key", (req, res) => {
 
 app.get("/test/account", (req, res) => {
   res.sendFile("account.html", {root: HTML_ROOT});
+});
+
+app.get("/test/chatlist", (req, res) => {
+  res.sendFile("chat-list.html", {root: HTML_ROOT});
 });
 
 

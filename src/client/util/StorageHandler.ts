@@ -23,14 +23,48 @@ let persistData = false;
 //
 //When first creating an account, make sure to tell user that if they delete
 //site data when closing browser, leave this website as an exception.
-navigator.storage.persist().then((persistant) => {
+//
+//WARNING: Chromium-based browsers will not prompt users for using Persistant
+//storage and will always return false, unless one of the following things 
+//are true (https://chromestatus.com/feature/4931497563783168):
+// 1. Website is bookmarked and user has 5 or less total bookmarks
+// 2. Website is added to homescreen
+// 3. Website is granted push notification permissions
+// 4. Website has "high sight engagement"
+//
+// A popup does appear for requesting for push notifications, so 
+// you can request for push notification permission to allow persistant
+// storage.
+//
+navigator.storage.persist().then(async (persistant) => { //top-level async-await not allowed in ES2017
   persistData = persistant;
   console.log("Allow persistance: " + persistant);
-  if(!persistant) {
-    throw new Error("You must allow persistance for this app to work correctly!");
+
+  if(persistData) {
+    initDB();
+    return;
   }
 
-  initDB();
+    
+  //@ts-ignore
+  //this works to detect chromium-based browsers.
+  //https://stackoverflow.com/questions/57660234/how-can-i-check-if-a-browser-is-chromium-based
+  //
+  //If browser is Chromium-based, by requesting Notification permission popup to appear, the 
+  //user can allow Persistant Storage to work.
+  if(window.chrome) {
+    //value can be 'denied', 'granted', or 'default'
+    let notePermission = await Notification.requestPermission();
+
+    //persistance will only be true after next page reload,
+    //but database will still work
+    if(notePermission === 'granted') {
+      initDB();
+      return;
+    }
+  } 
+
+  throw new Error("You must allow persistance for this app to work correctly!");
 
 }).catch(e => {
   console.error(e);
