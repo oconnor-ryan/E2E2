@@ -4,6 +4,8 @@ import { NOT_LOGGED_IN_ERROR } from '../shared/Constants.js';
 
 
 export async function login() {
+  await storage.waitToOpenIndexedDB();
+
   let keyPair = await storage.getKey('auth_key_pair') as CryptoKeyPair | undefined;
   if(!keyPair) {
     throw new Error("No auth key found!");
@@ -41,7 +43,8 @@ export async function login() {
  * @throws Error - Error can be caused from bad network, being unable to log in, 
  * or being unable to parse the response to a JSON.
  */
-export async function ezFetch(url: string, json: any, method: string = "POST") {
+export async function ezFetch(url: string, json?: any, method: string = "POST") {
+  
   let mainFetch = async () => {
     let res = await (await fetch(
       url,

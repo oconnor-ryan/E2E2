@@ -36,16 +36,21 @@ let persistData = false;
 // you can request for push notification permission to allow persistant
 // storage.
 //
-navigator.storage.persist().then(async (persistant) => { //top-level async-await not allowed in ES2017
-  persistData = persistant;
-  console.log("Allow persistance: " + persistant);
 
+export async function waitToOpenIndexedDB() {
   if(persistData) {
-    initDB();
     return;
   }
 
-    
+  persistData = await navigator.storage.persist();
+  console.log("Allow persistance: " + persistData);
+
+  if(persistData) {
+    await initDB();
+    return;
+  }
+  
+      
   //@ts-ignore
   //this works to detect chromium-based browsers.
   //https://stackoverflow.com/questions/57660234/how-can-i-check-if-a-browser-is-chromium-based
@@ -59,16 +64,14 @@ navigator.storage.persist().then(async (persistant) => { //top-level async-await
     //persistance will only be true after next page reload,
     //but database will still work
     if(notePermission === 'granted') {
-      initDB();
+      await initDB();
       return;
     }
   } 
 
   throw new Error("You must allow persistance for this app to work correctly!");
+}
 
-}).catch(e => {
-  console.error(e);
-});
 
 export function updateUsername(username: string) : boolean {
   if(!persistData) {
@@ -90,7 +93,7 @@ export function getUsername() {
 }
 
 
-function initDB() {
+async function initDB() {
   let DBOpenRequest = window.indexedDB.open(DB_NAME, 1);
 
   
@@ -125,15 +128,19 @@ function initDB() {
   };
   
   
+  return new Promise<void>((resolve, reject) => {
+    DBOpenRequest.onerror = (event) => {
+      console.error("Failed to open database", DBOpenRequest.error);
+      reject(DBOpenRequest.error);
+    };
+    
+    DBOpenRequest.onsuccess = (event) => {
+      db = DBOpenRequest.result;
+      console.log("Open Success");  
+      resolve();
+    };  
+  });
   
-  DBOpenRequest.onerror = (event) => {
-    console.error("Failed to open database", DBOpenRequest.error);
-  };
-  
-  DBOpenRequest.onsuccess = (event) => {
-    db = DBOpenRequest.result;
-    console.log("Open Success");  
-  };  
 }
 
 

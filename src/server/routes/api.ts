@@ -2,9 +2,11 @@ import express, { Request, Response } from 'express';
 
 //local files
 import { getExpDate, getToken, verifyToken } from '../util/jwt.js';
-import { createAccount, searchUsers } from '../util/database.js';
+import { createAccount, createChat, getChatRoomsWithTheseMembers, getChatRoomsWithTheseMembersOnly, getInvitesForUser, inviteUserToChat, searchUsers } from '../util/database.js';
 import { login } from '../util/login.js';
-import { NOT_LOGGED_IN_ERROR } from '../../client/shared/Constants.js';
+import { NOT_LOGGED_IN_ERROR, NO_USER_EXISTS_ERROR } from '../../client/shared/Constants.js';
+
+import testRoute from './tests.js';
 
 const router = express.Router();
 
@@ -27,6 +29,23 @@ function setJWTAsCookie(res: Response, username: string) {
 }
 
 //routes
+
+router.use("/test", testRoute)
+
+//test routes
+router.post("/testgetchatonlymembers", async (req, res) => {
+  let users = ['bob', 'alice'];
+
+  console.log("HERE");
+  let chats1 = await getChatRoomsWithTheseMembers(...users);
+
+  console.log("HERE2");
+  let chats = await getChatRoomsWithTheseMembersOnly(...users);
+
+  console.log(chats);
+  res.json({error: null});
+
+});
 
 //these route handlers do not require a JWT since users not logged in
 //must be able to create accounts and/or log in.
@@ -101,6 +120,52 @@ router.post("/searchusers", async (req, res) => {
 
   res.json({error: null, users: searchResults});
 });
+
+router.post("/getinvites", async (req, res) => {
+  let currentUser = res.locals.username as string;
+
+  let result = await getInvitesForUser(currentUser);
+
+  res.json({error: null, invites: result});
+});
+
+router.post("/invite", async (req, res) => {
+  let currentUser = res.locals.username as string;
+
+  let {user, chatId} : {user?: string, chatId?: number}  = req.body;
+
+  if(!user) {
+    return res.json({error: NO_USER_EXISTS_ERROR});
+  }
+
+  //if no chatId was supplied, create a new chat only if
+  //there does not exist another chat that only consists of the sender
+  //and user as members.
+  if(!chatId) {
+    let chats = await getChatRoomsWithTheseMembersOnly(currentUser, user);
+    if(chats.length > 0) {
+      return res.json({error: `You already have a one-on-one chat with this user at id=${chats[0]}`});
+    } 
+
+  }
+
+  chatId = await createChat(currentUser);
+
+  if(!chatId) {
+    return res.json({error: "Failed to invite user"});
+  }
+
+  let inviteSuccess = await inviteUserToChat(currentUser, user, chatId);
+
+  if(!inviteSuccess) {
+    return res.json({error: "Failed to invite user"});
+  }
+
+  return res.json({error: null});
+
+});
+
+
 
 
 export default router;
