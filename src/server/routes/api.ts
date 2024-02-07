@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 
 //local files
 import { getExpDate, getToken, verifyToken } from '../util/jwt.js';
-import { createAccount, createChat, getChatRoomsWithTheseMembers, getChatRoomsWithTheseMembersOnly, getInvitesForUser, inviteUserToChat, searchUsers } from '../util/database.js';
+import { acceptInvite, createAccount, createChat, getChatRoomsWithTheseMembers, getChatRoomsWithTheseMembersOnly, getChatsOfUser, getInvitesForUser, inviteUserToChat, searchUsers } from '../util/database.js';
 import { login } from '../util/login.js';
 import { NOT_LOGGED_IN_ERROR, NO_USER_EXISTS_ERROR } from '../../client/shared/Constants.js';
 
@@ -121,6 +121,34 @@ router.post("/searchusers", async (req, res) => {
   res.json({error: null, users: searchResults});
 });
 
+router.post("/createchat", async (req, res) => {
+  let currentUser = res.locals.username as string;
+
+  let {invitees} = req.body;
+
+  let chatId = await createChat(currentUser, invitees);
+
+  if(!chatId) {
+    return res.json({error: "Failed to create chat room!"});
+  }
+
+  return res.json({error: null, chat: {id: chatId, invitedUsers: invitees}});
+});
+
+router.post("/getchats", async (req, res) => {
+  let currentUser = res.locals.username as string;
+
+  let result = await getChatsOfUser(currentUser);
+
+  if(result === null) {
+    return res.json({error: "Unable to retrieve list of chats for you!"});
+  }
+
+  return res.json({error: null, chats: result});
+});
+
+
+
 router.post("/getinvites", async (req, res) => {
   let currentUser = res.locals.username as string;
 
@@ -142,17 +170,7 @@ router.post("/invite", async (req, res) => {
   //there does not exist another chat that only consists of the sender
   //and user as members.
   if(!chatId) {
-    let chats = await getChatRoomsWithTheseMembersOnly(currentUser, user);
-    if(chats.length > 0) {
-      return res.json({error: `You already have a one-on-one chat with this user at id=${chats[0]}`});
-    } 
-
-  }
-
-  chatId = await createChat(currentUser);
-
-  if(!chatId) {
-    return res.json({error: "Failed to invite user"});
+    return res.json({error: "You must create a chat room first to invite people."});
   }
 
   let inviteSuccess = await inviteUserToChat(currentUser, user, chatId);
@@ -165,7 +183,23 @@ router.post("/invite", async (req, res) => {
 
 });
 
+router.post("/acceptinvite", async (req, res) => {
+  let currentUser = res.locals.username as string;
 
+  let {chatId} = req.body;
+
+  if(!chatId) {
+    return res.json({error: "The chatId parameter is required to accept an invite!"});
+  }
+
+  let isMember = await acceptInvite(currentUser, chatId);
+
+  if(!isMember) {
+    return res.json({error: "Failed to accept invite!"});
+  }
+
+  return res.json({error: null});
+});
 
 
 export default router;

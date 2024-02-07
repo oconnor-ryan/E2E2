@@ -3,7 +3,7 @@ import { sign } from '../encryption/ECDSA.js';
 import { NOT_LOGGED_IN_ERROR } from '../shared/Constants.js';
 
 
-export async function login() {
+async function login() {
   await storage.waitToOpenIndexedDB();
 
   let keyPair = await storage.getKey('auth_key_pair') as CryptoKeyPair | undefined;
@@ -77,4 +77,17 @@ export async function ezFetch(url: string, json?: any, method: string = "POST") 
 
   //try main fetch request again once logged in
   return await mainFetch();
+}
+
+//you can put typed functions that use ezFetch so that you know exactly what
+//responses you receive
+
+export async function searchUsers(data: {search: string}) : Promise<string[]> {
+  let res = await ezFetch("/api/searchusers", data);
+  if(res.error) {
+    throw new Error(res.error);
+  }
+
+  //you can also check to see if the json is properly formatted here using JSONValidator
+  return res.users;
 }

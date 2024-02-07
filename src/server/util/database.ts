@@ -52,7 +52,7 @@ export async function searchUsers(searchString: string, limit: number = 10, ...e
   }
 }
 
-export async function createChat(owner: string, ...members: string[]) {
+export async function createChat(owner: string, ...invitees: string[]) {
   try {
     let chatId = await db.begin(async db => {
       //if either function throws an error, the transaction is rolled back
@@ -64,11 +64,11 @@ export async function createChat(owner: string, ...members: string[]) {
         values (${owner}, ${owner}, ${chatId}, true, true)
       `;
 
-      for(let member of members) {
-        await db`
-        insert into chat_member (acct_id, nick_name, chat_id, is_admin, can_invite)
-        values (${member}, ${member}, ${chatId}, false, false)
-      `;
+      for(let member of invitees) {
+        if(!(await inviteUserToChat(owner, member, chatId))) {
+          throw new Error(`Unable to invite this user: ${member}`);
+        }
+        
       }
 
       return chatId;
@@ -79,6 +79,30 @@ export async function createChat(owner: string, ...members: string[]) {
   } catch(e) {
     console.error(e);
     return undefined;
+  }
+}
+
+export async function getChatsOfUser(user: string) {
+  try {
+    let res = await db`
+      select chat_id, acct_id from chat_member
+      where chat_id IN (select chat_id from chat_member where acct_id=${user})
+    `;
+
+    let rtn: {[chat: number]: string[]} = {};
+    for(let row of res) {
+      if(!rtn.hasOwnProperty(row.chat_id)) {
+        rtn[row.chat_id] = [];
+      }
+
+      rtn[row.chat_id].push(row.acct_id);
+    }
+    
+    return rtn;
+    
+  } catch(e) {
+    console.error(e);
+    return null;
   }
 }
 
@@ -106,6 +130,43 @@ export async function getInvitesForUser(receiver: string) : Promise<{sender: str
     console.error(e);
     return [];
   }
+}
+
+export async function checkIfAlreadyInvitedUser(sender: string, receiver: string, chatId?: number) : Promise<{sender: string, chat_id: number}[]>{
+  try {
+    let invites = await db`
+      select invitor_acct_id, chat_id from pending_chat_invite 
+      where invited_acct_id=${receiver}
+    `;
+    return invites.map(r => {return {sender: r.invitor_acct_id, chat_id: r.chat_id}});
+  } catch (e) {
+    console.error(e);
+    return [];
+  }
+}
+
+export async function acceptInvite(receiver: string, chatId: number, permissions?: {isAdmin?: boolean, canInvite?: boolean}) {
+  if(!permissions) {
+    permissions = {canInvite: false, isAdmin: false};
+  }
+
+  try {
+    await db.begin(async (db) => {
+
+      await db`delete from pending_chat_invite WHERE chat_id=${chatId} AND invited_acct_id=${receiver}`;
+      await db`
+        insert into chat_member (acct_id, nick_name, chat_id, is_admin, can_invite)
+        values (${receiver}, ${receiver}, ${chatId}, ${permissions?.isAdmin ?? false}, ${permissions?.canInvite ?? false})
+      `;
+    });
+    return true;
+  } catch(e) {
+    console.error(e);
+    return false;
+  }
+  
+  
+        
 }
 
 /**
