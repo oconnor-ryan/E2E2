@@ -37,16 +37,21 @@
     </style>
   </head>
   <body>
-    <h1>Chat</h1>
+    <h1 id="chatroom-name"></h1>
     <a href="/">Back to Home</a>
-    <div>
-      <p>Send an invite!</p>
+
+    <div id="invite-container">
+      <h2>Send an invite!</h2>
       <input type="text" id="user-search-input" list="autocomplete-results"/>
       <datalist id="autocomplete-results"></datalist>
       <button id="invite-button">Invite User</button>
     </div>
 
-    <div id="chat-info-box"></div>
+    <h2>Members</h2>
+    <ul id="member-list"></ul>
+
+
+    <h2>Messages</h2>
     <div id="messages">
 
     </div>

@@ -106,6 +106,26 @@ export async function getChatsOfUser(user: string) {
   }
 }
 
+export async function getChatInfo(chatId: number) {
+  try {
+    let res = await db`
+      select acct_id, is_admin, can_invite from chat_member
+      where chat_id=${chatId}
+    `;
+
+    let rtn: {members: {id: string, canInvite: boolean, isAdmin: boolean}[]} = {members: []};
+    for(let row of res) {
+      rtn.members.push({id: row.acct_id, canInvite: row.can_invite, isAdmin: row.is_admin});
+    }
+    
+    return rtn;
+    
+  } catch(e) {
+    console.error(e);
+    return null;
+  }
+}
+
 export async function inviteUserToChat(sender: string, receiver: string, chatId: number) {
   try {
     await db`

@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 
 //local files
 import { getExpDate, getToken, verifyToken } from '../util/jwt.js';
-import { acceptInvite, createAccount, createChat, getChatRoomsWithTheseMembers, getChatRoomsWithTheseMembersOnly, getChatsOfUser, getInvitesForUser, inviteUserToChat, searchUsers } from '../util/database.js';
+import { acceptInvite, createAccount, createChat, getChatInfo, getChatRoomsWithTheseMembers, getChatRoomsWithTheseMembersOnly, getChatsOfUser, getInvitesForUser, inviteUserToChat, searchUsers } from '../util/database.js';
 import { login } from '../util/login.js';
 import { NOT_LOGGED_IN_ERROR, NO_USER_EXISTS_ERROR } from '../../client/shared/Constants.js';
 
@@ -32,20 +32,6 @@ function setJWTAsCookie(res: Response, username: string) {
 
 router.use("/test", testRoute)
 
-//test routes
-router.post("/testgetchatonlymembers", async (req, res) => {
-  let users = ['bob', 'alice'];
-
-  console.log("HERE");
-  let chats1 = await getChatRoomsWithTheseMembers(...users);
-
-  console.log("HERE2");
-  let chats = await getChatRoomsWithTheseMembersOnly(...users);
-
-  console.log(chats);
-  res.json({error: null});
-
-});
 
 //these route handlers do not require a JWT since users not logged in
 //must be able to create accounts and/or log in.
@@ -199,6 +185,29 @@ router.post("/acceptinvite", async (req, res) => {
   }
 
   return res.json({error: null});
+});
+
+router.post("/getchatinfo", async (req, res) => {
+  let currentUser = res.locals.username as string;
+
+  let {chatId} = req.body;
+  if(!chatId) {
+    return res.json({error: "The chatId parameter is required!"});
+  }
+
+  let result = await getChatInfo(chatId);
+  if(!result) {
+    return res.json({error: "Unable to retrieve chat info!"});
+  }
+
+  let members = result.members;
+
+  if(!members.find((m) => m.id === currentUser)) {
+    return res.json({error: "You are not part of this chat and cannot view information about it!"});
+  }
+
+
+  return res.json({error: null, chatInfo: result})
 });
 
 
