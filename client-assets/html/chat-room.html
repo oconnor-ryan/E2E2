@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>End-To-End-Encrypted Messaging</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+
+
+    <style>
+      body {
+        min-height: 100vh;
+      }
+      #chat-info-box {
+        min-height: 100px;
+      }
+      #message-input-container {
+        position: fixed;
+        bottom: 0;
+        left: 5%;
+
+        margin: 10px auto;
+      
+        width: 90%;  
+        height: 30px;
+        display: flex;
+        flex-direction: row;
+      }
+
+      #message-input {
+        flex: 75%;
+      }
+
+      #send-message-button {
+        flex: 25%;
+      }
+
+
+    </style>
+  </head>
+  <body>
+    <h1>Chat</h1>
+    <a href="/">Back to Home</a>
+    <div>
+      <p>Send an invite!</p>
+      <input type="text" id="user-search-input" list="autocomplete-results"/>
+      <datalist id="autocomplete-results"></datalist>
+      <button id="invite-button">Invite User</button>
+    </div>
+
+    <div id="chat-info-box"></div>
+    <div id="messages">
+
+    </div>
+
+    <div id="message-input-container">
+      <input type="text" id="message-input"/>
+      <button id="send-message-button">Send</button>
+    </div>
+
+    <script type="module" src="/js/ChatRoom.js"></script>
+  </body>
+</html>

@@ -3,7 +3,7 @@ import { sign } from '../encryption/ECDSA.js';
 import { NOT_LOGGED_IN_ERROR } from '../shared/Constants.js';
 
 
-async function login() {
+export async function login() {
   await storage.waitToOpenIndexedDB();
 
   let keyPair = await storage.getKey('auth_key_pair') as CryptoKeyPair | undefined;

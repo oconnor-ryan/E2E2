@@ -45,7 +45,7 @@ app.use(express.urlencoded({extended: true}));
 wss.on('connection', (ws, req) => {
 
   //weird way to get query parameters, but that's how the NodeJS docs stated to parse this url.
-  //make sure to change ws:// to wss:// when using SSL certificates
+  //the protocol can be any value (http:// ws:// etc) since we only care about the search parametes in the URL
   let url = new URL(req.url!, "ws://" + req.headers.host);
   let chatType = url.searchParams.get('enc_type')
 
@@ -122,6 +122,10 @@ app.get("/test/account", (req, res) => {
 
 app.get("/test/chatlist", (req, res) => {
   res.sendFile("chat-list.html", {root: HTML_ROOT});
+});
+
+app.get("/test/chatroom", (req, res) => {
+  res.sendFile("chat-room.html", {root: HTML_ROOT});
 });
 
 
