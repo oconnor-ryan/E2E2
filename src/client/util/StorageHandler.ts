@@ -8,6 +8,27 @@ WARNING:
 
 const DB_NAME = "e2e2";
 const KEY_STORE = "key_store";
+const CHAT_STORE = "chat_store1";
+const MESSAGE_STORE = "message_store1";
+
+interface MessageEntry {
+  message: string,
+  messageId: number,
+  chatId: number,
+  sender: string,
+  date: Date
+}
+
+interface ChatEntry {
+  chatId: number, 
+  members: {id: string, senderKey: CryptoKey}[],
+  senderKey: CryptoKey
+}
+
+interface KeyEntry {
+  keyType: string,
+  key: CryptoKey | CryptoKeyPair
+}
 
 let db: IDBDatabase | undefined;
 
@@ -94,7 +115,7 @@ export function getUsername() {
 
 
 async function initDB() {
-  let DBOpenRequest = window.indexedDB.open(DB_NAME, 1);
+  let DBOpenRequest = window.indexedDB.open(DB_NAME, 2);
 
   
   // This event handles the event whereby a new version of the database needs to be created
@@ -115,13 +136,28 @@ async function initDB() {
   
     console.log(db.objectStoreNames);
 
-    if(db.objectStoreNames.length == 0) {
+    if(!db.objectStoreNames.contains(KEY_STORE)) {
       //note that KeyPath is equivalent to PRIMARy KEY in relational databases
       let objectStore = db.createObjectStore(KEY_STORE, {
         keyPath: "keyType",
       });
+    }
 
-     //objectStore.createIndex("Key", "Key", {unique: true});
+    if(!db.objectStoreNames.contains(CHAT_STORE)) {
+      let objectStore = db.createObjectStore(CHAT_STORE, {
+        keyPath: "chatId",
+      });
+    }
+
+    if(!db.objectStoreNames.contains(MESSAGE_STORE)) {
+      let objectStore = db.createObjectStore(CHAT_STORE, {
+        keyPath: "messageId",
+        autoIncrement: true
+      });
+
+      objectStore.createIndex('chatId', 'chatId', {unique: false});
+      objectStore.createIndex('senderId', 'senderId', {unique: false});
+
 
     }
   
@@ -146,7 +182,7 @@ async function initDB() {
 
 //Standard CRUD operations below
 
-export function addKey(keyType: string, value: CryptoKey | CryptoKeyPair) {
+export function addKey(entry: KeyEntry) {
   if(!db) {
     throw new Error("Database was never initialized!");
   }
@@ -165,7 +201,7 @@ export function addKey(keyType: string, value: CryptoKey | CryptoKeyPair) {
 
   //for all data inserted, if the ObjectStore has an explicit KeyPath,
   //then you must include it in the value JSON.
-  const request = objectStore.add({keyType: keyType, key: value});
+  const request = objectStore.add(entry);
 
   request.onsuccess = (event) => {
     
@@ -198,7 +234,7 @@ export function removeKey(keyType: string) {
 
 }
 
-export function updateKey(keyType: string, value: CryptoKey | CryptoKeyPair) {
+export function updateKey(entry: KeyEntry) {
   if(!db) {
     throw new Error("Database was never initialized!");
   }
@@ -218,45 +254,145 @@ export function updateKey(keyType: string, value: CryptoKey | CryptoKeyPair) {
   //note that if key does not exist, "put" will automatically add this item
   //for all data inserted, if the ObjectStore has an explicit KeyPath,
   //then you must include it in the value JSON.
-  objectStore.put({keyType: keyType, key: value});
+  objectStore.put(entry);
 
 }
 
-export async function getKey(keyType: string) : Promise<CryptoKey | CryptoKeyPair | undefined> {
+export async function addChat(entry: ChatEntry) : Promise<void> {
   if(!db) {
     throw new Error("Database was never initialized!");
   }
 
-  const transaction = db.transaction(KEY_STORE, "readonly");
-
-  transaction.oncomplete = (event) => {
-    console.log("Got item from database");
-  };
-
-  transaction.onerror = (event) => {
-    console.error("Item cannot be retrieved from database!", transaction.error);
-  };
-
-  const objectStore = transaction.objectStore(KEY_STORE);
+  const transaction = db.transaction(CHAT_STORE, "readonly");
+  const objectStore = transaction.objectStore(CHAT_STORE);
 
   //note that if key does not exist, "put" will automatically add this item
-  let request = objectStore.get(keyType);
-
+  let request = objectStore.add(entry);
 
   return new Promise((resolve, reject) => {
     request.onsuccess = (event) => {
-      let record = request.result;
-      resolve(record.key);
+      resolve();
     };
     request.onerror = (event) => {
       reject(request.error);
     };
   })
-  
-
 }
 
-export function printDBContents() {
+export async function getChat(chatId: string) : Promise<ChatEntry> {
+  if(!db) {
+    throw new Error("Database was never initialized!");
+  }
+
+  const transaction = db.transaction(CHAT_STORE, "readonly");
+  const objectStore = transaction.objectStore(CHAT_STORE);
+
+  //note that if key does not exist, "put" will automatically add this item
+  let request = objectStore.get(chatId);
+
+  return new Promise((resolve, reject) => {
+    request.onsuccess = (event) => {
+      resolve(request.result);
+    };
+    request.onerror = (event) => {
+      reject(request.error);
+    };
+  })
+}
+
+
+export async function addMessage(entry: MessageEntry) {
+  if(!db) {
+    throw new Error("Database was never initialized!");
+  }
+
+  const transaction = db.transaction(MESSAGE_STORE, "readwrite");
+  const objectStore = transaction.objectStore(MESSAGE_STORE);
+
+  let request = objectStore.add(entry);
+
+  return new Promise<void>((resolve, reject) => {
+    request.onsuccess = () => {
+      resolve();
+    };
+
+    request.onerror = (ev) => {
+      reject(request.error);
+    }
+  });
+}
+
+
+/**
+ * Returns the messages from this chat, sorted from newest to oldest.
+ * 
+ * @param chatId - the chat to get the messages from
+ * @param numMessages - the number of messages to retrieve
+ * @returns 
+ */
+export async function getMessages(chatId: number, numMessages?: number) {
+  if(!db) {
+    throw new Error("Database was never initialized!");
+  }
+
+  const transaction = db.transaction(MESSAGE_STORE, "readonly");
+  const objectStore = transaction.objectStore(MESSAGE_STORE);
+
+  //get index for message store
+  let chatIndex = objectStore.index('chatId');
+
+  //prev means that entries are sorted in decreasing order (5,4,3,2,1)
+  let request = chatIndex.openCursor(IDBKeyRange.only(chatId), 'prev');
+
+  return new Promise((resolve, reject) => {
+    let rtn: MessageEntry[] = [];
+    let messageIndex = 0;
+
+    request.onsuccess = (event) => {
+      //@ts-ignore
+      const cursor: IDBCursorWithValue | null = event.target.result;
+
+      if(!cursor || (numMessages && messageIndex >= numMessages)) {
+        resolve(rtn);
+        return;
+      }
+
+      rtn.push(cursor.value);
+      messageIndex++;
+
+      cursor.continue();
+    };
+
+    request.onerror = (ev) => {
+      reject(request.error);
+    }
+  });
+ 
+}
+
+export async function deleteMessage(messageId: number) {
+  if(!db) {
+    throw new Error("Database was never initialized!");
+  }
+
+  const transaction = db.transaction(MESSAGE_STORE, "readwrite");
+  const objectStore = transaction.objectStore(MESSAGE_STORE);
+
+  let request = objectStore.delete(messageId);
+
+  return new Promise<void>((resolve, reject) => {
+    request.onsuccess = () => {
+      resolve();
+    };
+
+    request.onerror = (ev) => {
+      reject(request.error);
+    }
+  });
+}
+
+
+function printDBContents() {
   if(!db) {
     throw new Error("Database was never initialized!");
   }
