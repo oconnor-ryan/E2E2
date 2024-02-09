@@ -279,6 +279,27 @@ export async function addChat(entry: ChatEntry) : Promise<void> {
   })
 }
 
+export async function updateChat(entry: ChatEntry) : Promise<void> {
+  if(!db) {
+    throw new Error("Database was never initialized!");
+  }
+
+  const transaction = db.transaction(CHAT_STORE, "readonly");
+  const objectStore = transaction.objectStore(CHAT_STORE);
+
+  //note that if key does not exist, "put" will automatically add this item
+  let request = objectStore.put(entry);
+
+  return new Promise((resolve, reject) => {
+    request.onsuccess = (event) => {
+      resolve();
+    };
+    request.onerror = (event) => {
+      reject(request.error);
+    };
+  })
+}
+
 export async function getChat(chatId: string) : Promise<ChatEntry> {
   if(!db) {
     throw new Error("Database was never initialized!");
@@ -298,6 +319,25 @@ export async function getChat(chatId: string) : Promise<ChatEntry> {
       reject(request.error);
     };
   })
+}
+
+export async function addMemberToChat(chatId: string, memberId: string, senderKey: CryptoKey) {
+  let chatEntry = await getChat(chatId);
+  chatEntry.members.push({id: memberId, senderKey: senderKey});
+  await updateChat(chatEntry);
+}
+
+export async function removeMemberFromChat(chatId: string, memberId: string) {
+  let chatEntry = await getChat(chatId);
+
+  let selectedUserIndex = chatEntry.members.findIndex(e => e.id === memberId);
+
+  if(selectedUserIndex === -1) {
+    return;
+  }
+
+  chatEntry.members.splice(selectedUserIndex, 1);
+  await updateChat(chatEntry);
 }
 
 
