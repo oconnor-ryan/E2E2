@@ -9,9 +9,7 @@ A instant-messaging web application where users can send encrypted messages to e
 > messages.
 
 ## Current Objectives
-1. Have accounts create chats
-2. Have users invite other users to chat
-3. Have users accept or deny invites
+1. Allow asyncronous encrypted messages to be sent between users.
 
 ## Future Objectives
 1. Add method to backup account in case they accidentally clear their browser.

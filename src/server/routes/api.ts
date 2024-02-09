@@ -1,10 +1,10 @@
-import express, { Request, Response } from 'express';
+import express, { Response } from 'express';
 
 //local files
-import { getExpDate, getToken, verifyToken } from '../util/jwt.js';
-import { acceptInvite, createAccount, createChat, getChatInfo, getChatRoomsWithTheseMembers, getChatRoomsWithTheseMembersOnly, getChatsOfUser, getInvitesForUser, inviteUserToChat, searchUsers } from '../util/database.js';
+import { getToken, verifyToken } from '../util/jwt.js';
+import { acceptInvite, createAccount, createChat, getChatInfo, getChatsOfUser, getInvitesForUser, inviteUserToChat, searchUsers } from '../util/database.js';
 import { login } from '../util/login.js';
-import { NOT_LOGGED_IN_ERROR, NO_USER_EXISTS_ERROR } from '../../client/shared/Constants.js';
+import { ErrorCode } from '../../client/shared/Constants.js';
 
 import testRoute from './tests.js';
 
@@ -42,14 +42,14 @@ router.post("/create-account", async (req, res) => {
 
   //if unable to create account
   if(!(await createAccount(username, auth_pub_key_base64))) {
-    return res.json({error: "Failed to create account!"});
+    return res.json({error: ErrorCode.ACCOUNT_CREATION_FAILED});
   }
 
   //if unable to login with newly generated signing key.
   //consider using SQL rollback to delete account if login does not work
   //or have user regenerate signing key pair and try logging in again
   if(!(await login(username, signature_base64))) {
-    return res.json({error: "Created account, but could not log you in!"});
+    return res.json({error: ErrorCode.LOGIN_FAILED});
   }
 
   setJWTAsCookie(res, username);
@@ -64,7 +64,7 @@ router.post("/login", async (req, res) => {
 
   //if user cannot log in
   if(!(await login(username, signature_base64))) {
-    return res.json({error: "Created account, but could not log you in!"});
+    return res.json({error: ErrorCode.LOGIN_FAILED});
   }
 
   //append JWT to session cookie
@@ -78,13 +78,13 @@ router.post("/login", async (req, res) => {
 router.use("/", (req, res, next) => {
   let sessionCookie = req.cookies[SESSION_COOKIE];
   if(sessionCookie === undefined) {
-    res.status(403).json({error: NOT_LOGGED_IN_ERROR});
+    res.status(403).json({error: ErrorCode.NOT_LOGGED_IN});
     return;
   }
 
   let jwtPayload = verifyToken(sessionCookie);
   if(!jwtPayload) {
-    res.status(403).json({error: NOT_LOGGED_IN_ERROR});
+    res.status(403).json({error: ErrorCode.NOT_LOGGED_IN});
     return;
   }
 
@@ -115,7 +115,7 @@ router.post("/createchat", async (req, res) => {
   let chatId = await createChat(currentUser, invitees);
 
   if(!chatId) {
-    return res.json({error: "Failed to create chat room!"});
+    return res.json({error: ErrorCode.CHAT_CREATION_FAILED});
   }
 
   return res.json({error: null, chat: {id: chatId, invitedUsers: invitees}});
@@ -127,7 +127,7 @@ router.post("/getchats", async (req, res) => {
   let result = await getChatsOfUser(currentUser);
 
   if(result === null) {
-    return res.json({error: "Unable to retrieve list of chats for you!"});
+    return res.json({error: ErrorCode.CHAT_LIST_RETRIEVE_FAILED});
   }
 
   return res.json({error: null, chats: result});
@@ -149,20 +149,18 @@ router.post("/invite", async (req, res) => {
   let {user, chatId} : {user?: string, chatId?: number}  = req.body;
 
   if(!user) {
-    return res.json({error: NO_USER_EXISTS_ERROR});
+    return res.json({error: ErrorCode.NO_USER_EXISTS});
   }
 
-  //if no chatId was supplied, create a new chat only if
-  //there does not exist another chat that only consists of the sender
-  //and user as members.
+
   if(!chatId) {
-    return res.json({error: "You must create a chat room first to invite people."});
+    return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
   }
 
   let inviteSuccess = await inviteUserToChat(currentUser, user, chatId);
 
   if(!inviteSuccess) {
-    return res.json({error: "Failed to invite user"});
+    return res.json({error: ErrorCode.CHAT_INVITE_FAILED});
   }
 
   return res.json({error: null});
@@ -175,13 +173,13 @@ router.post("/acceptinvite", async (req, res) => {
   let {chatId} = req.body;
 
   if(!chatId) {
-    return res.json({error: "The chatId parameter is required to accept an invite!"});
+    return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
   }
 
   let isMember = await acceptInvite(currentUser, chatId);
 
   if(!isMember) {
-    return res.json({error: "Failed to accept invite!"});
+    return res.json({error: ErrorCode.CHAT_ACCEPT_INVITE_FAILED});
   }
 
   return res.json({error: null});
@@ -192,18 +190,18 @@ router.post("/getchatinfo", async (req, res) => {
 
   let {chatId} = req.body;
   if(!chatId) {
-    return res.json({error: "The chatId parameter is required!"});
+    return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
   }
 
   let result = await getChatInfo(chatId);
   if(!result) {
-    return res.json({error: "Unable to retrieve chat info!"});
+    return res.json({error: ErrorCode.CHAT_RETRIEVE_FAILED});
   }
 
   let members = result.members;
 
   if(!members.find((m) => m.id === currentUser)) {
-    return res.json({error: "You are not part of this chat and cannot view information about it!"});
+    return res.json({error: ErrorCode.NOT_MEMBER_OF_CHAT});
   }
 
 
