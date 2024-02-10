@@ -258,6 +258,41 @@ export function updateKey(entry: KeyEntry) {
 
 }
 
+export async function getKey(keyType: string) : Promise<CryptoKey | CryptoKeyPair | undefined> {
+  if(!db) {
+    throw new Error("Database was never initialized!");
+  }
+
+  const transaction = db.transaction(KEY_STORE, "readonly");
+
+  transaction.oncomplete = (event) => {
+    console.log("Got item from database");
+  };
+
+  transaction.onerror = (event) => {
+    console.error("Item cannot be retrieved from database!", transaction.error);
+  };
+
+  const objectStore = transaction.objectStore(KEY_STORE);
+
+  //note that if key does not exist, "put" will automatically add this item
+  let request = objectStore.get(keyType);
+
+
+  return new Promise((resolve, reject) => {
+    request.onsuccess = (event) => {
+      let record = request.result;
+      resolve(record.key);
+    };
+    request.onerror = (event) => {
+      reject(request.error);
+    };
+  })
+  
+
+}
+
+
 export async function addChat(entry: ChatEntry) : Promise<void> {
   if(!db) {
     throw new Error("Database was never initialized!");

@@ -45,7 +45,7 @@ async function main() {
     let jsonRes = await response.json();
   
     if(!jsonRes.error) {
-      storage.addKey("auth_key_pair", keyPair);
+      storage.addKey({keyType: "auth_key_pair", key: keyPair});
       storage.updateUsername(username);
   
     }
