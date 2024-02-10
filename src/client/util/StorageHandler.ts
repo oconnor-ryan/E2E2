@@ -150,7 +150,7 @@ async function initDB() {
     }
 
     if(!db.objectStoreNames.contains(MESSAGE_STORE)) {
-      let objectStore = db.createObjectStore(CHAT_STORE, {
+      let objectStore = db.createObjectStore(MESSAGE_STORE, {
         keyPath: "messageId",
         autoIncrement: true
       });

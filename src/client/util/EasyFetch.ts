@@ -58,7 +58,7 @@ export async function ezFetch(url: string, json?: any, method: string = "POST") 
     )).json();
 
     //only throw error if error matches the login failed error name from the server
-    if(res.error && res.error === ErrorCode.LOGIN_FAILED) {
+    if(res.error && res.error === ErrorCode.NOT_LOGGED_IN) {
       throw new Error(res.error);
     }
 

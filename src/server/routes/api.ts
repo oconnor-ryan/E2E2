@@ -112,7 +112,11 @@ router.post("/createchat", async (req, res) => {
 
   let {invitees} = req.body;
 
-  let chatId = await createChat(currentUser, invitees);
+  if(!invitees || !Array.isArray(invitees)) {
+    invitees = [];
+  }
+
+  let chatId = await createChat(currentUser, ...invitees);
 
   if(!chatId) {
     return res.json({error: ErrorCode.CHAT_CREATION_FAILED});

@@ -3,6 +3,11 @@ import { ezFetch } from "./util/EasyFetch.js";
 
 const chatlistContainer = document.getElementById("chat-list") as HTMLUListElement;
 const invitationContainer = document.getElementById("invitations") as HTMLDivElement;
+const createChatButton = document.getElementById("create-chat-button") as HTMLButtonElement;
+
+createChatButton.onclick = (e) => {
+  createChat();
+};
 
 async function fetchAndRenderInvites() {
   let res = await ezFetch('/api/getinvites');
@@ -53,6 +58,15 @@ async function fetchAndRenderChats() {
   for(let chatId of Object.keys(chatListResult.chats)) {
     makeChatElement(Number(chatId));
   }
+}
+
+async function createChat() {
+  let res = await ezFetch("/api/createchat");
+  if(res.error) {
+    throw new Error(res.error);
+  }
+
+  makeChatElement(res.chat.id);
 }
 
 async function main() {
