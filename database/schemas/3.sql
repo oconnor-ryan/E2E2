@@ -28,7 +28,9 @@ CREATE TABLE public.account (
     id character varying(30) NOT NULL,
     identity_key_base64 character varying NOT NULL,
     exchange_key_base64 character varying NOT NULL,
-    signature_base64 character varying NOT NULL,
+    exchange_key_signature_base64 character varying NOT NULL,
+    exchange_prekey_base64 character varying NOT NULL,
+    exchange_prekey_signature_base64 character varying NOT NULL,
     CONSTRAINT account_id_check CHECK (((id)::text <> ''::text))
 );
 
@@ -179,7 +181,7 @@ ALTER TABLE ONLY public.account
 --
 
 ALTER TABLE ONLY public.account
-    ADD CONSTRAINT account_signature_base64_key UNIQUE (signature_base64);
+    ADD CONSTRAINT account_signature_base64_key UNIQUE (exchange_key_signature_base64);
 
 
 --
