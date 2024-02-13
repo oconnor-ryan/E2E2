@@ -1,9 +1,9 @@
-import { createKeyPair, exportPublicKey, sign } from "./encryption/ECDSA.js";
+import * as ecdsa from "./encryption/ECDSA.js";
+import * as ecdh from "@client/encryption/ECDH.js";
+
 import * as storage from './util/StorageHandler.js';
-import { login } from "./util/EasyFetch.js";
 
 const accountForm = document.getElementById('create-account-form') as HTMLFormElement;
-const loginStatusButton = document.getElementById('login-button') as HTMLButtonElement;
 const messageElement = document.getElementById('result-message') as HTMLParagraphElement;
 
 async function main() {
@@ -17,15 +17,18 @@ async function main() {
   
     console.log(username);
   
-    let keyPair = await createKeyPair();
-    let signature = await sign("", keyPair.privateKey);
-    let exportedPubKey = await exportPublicKey(keyPair.publicKey);
+    let idKeyPair = await ecdsa.createKeyPair();
+    let exportedIdPubKey = await ecdsa.exportPublicKey(idKeyPair.publicKey);
   
-    
-  
-    console.log("exported key = ", exportedPubKey);
-    console.log("signature = ", signature);
-  
+    let exchangeKeyPair = await ecdh.createKeyPair();
+    let exportedExchangePubKey = await ecdh.exportPublicKey(exchangeKeyPair.publicKey);
+
+    let preKey = await ecdh.createKeyPair();
+    let exportedPrePubKey = await ecdh.exportPublicKey(preKey.publicKey);
+
+    let exchangeKeySignature = await ecdsa.sign(exportedExchangePubKey, idKeyPair.privateKey);
+    let preKeySignature = await ecdsa.sign(exportedPrePubKey, idKeyPair.privateKey);
+
   
     let response = await fetch(
       "/api/create-account", 
@@ -36,8 +39,11 @@ async function main() {
         },
         body: JSON.stringify({
           username: username,
-          auth_pub_key_base64: exportedPubKey,
-          signature_base64: signature
+          id_pubkey_base64: exportedIdPubKey,
+          exchange_pubkey_base64: exportedExchangePubKey,
+          exchange_pubkey_sig_base64: exchangeKeySignature,
+          exchange_prekey_pubkey_base64: exportedPrePubKey,
+          exchange_prekey_pubkey_sig_base64: preKeySignature
         })
       }
     );
@@ -45,24 +51,17 @@ async function main() {
     let jsonRes = await response.json();
   
     if(!jsonRes.error) {
-      storageHandler.addKey({keyType: "auth_key_pair", key: keyPair});
+      storageHandler.addKey({keyType: "id_keypair", key: idKeyPair});
+      storageHandler.addKey({keyType: "exchange_keypair", key: exchangeKeyPair});
+      storageHandler.addKey({keyType: "exchange_prekey_keypair", key: idKeyPair});
+
       storageHandler.updateUsername(username);
   
     }
   
     messageElement.innerHTML = `Create Account Result: ${JSON.stringify(jsonRes)}`;
   }
-  
-  loginStatusButton.onclick = async (e) => {
-    try {
-      let jsonRes = await login();
-      messageElement.innerHTML = `Login Result: true`;
-  
-    } catch(e: any) {
-      console.error(e);
-      messageElement.innerHTML = e.message
-    }
-  }  
+
 }
 
 main();

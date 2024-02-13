@@ -1,6 +1,10 @@
 export enum ErrorCode {
   NOT_LOGGED_IN = "NotLoggedIn",
   NO_USER_EXISTS = "NoUserExists",
+  NO_USER_PROVIDED = "NoUserProvided",
+  INVALID_SIGNATURE = "InvalidSignature",
+  SIGNATURE_DOES_NOT_MATCH_USER = "SignatureDoesNotMatchUser",
+  MISSING_HTTP_SIGNATURE = "MissingHttpSignature",
   LOGIN_FAILED = "LoginFailed",
   INVALID_CHAT_ID = "InvalidChatId",
   ACCOUNT_CREATION_FAILED = "AccountCreationFailed",

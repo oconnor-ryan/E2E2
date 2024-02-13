@@ -1,83 +1,50 @@
 import * as storage from './StorageHandler.js'
 import { sign } from '../encryption/ECDSA.js';
-import { ErrorCode } from '../shared/Constants.js';
+import { ErrorCode } from '@shared/Constants.js';
 
-
-export async function login() {
-  let storageHandler = await storage.getDatabase();
-
-  let keyPair = await storageHandler.getKey('auth_key_pair') as CryptoKeyPair | undefined;
-  if(!keyPair) {
-    throw new Error("No auth key found!");
-  }
-
-  let signature = await sign("", keyPair.privateKey);
-
-  let res = await (await fetch(
-    '/api/login',
-    {
-      method: "POST",
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({username: storageHandler.getUsername() ?? "", signature_base64: signature})
-    }
-  )).json();
-
-  if(res.error) {
-    throw new Error(res.error);
-  }
-}
 
 /**
- * A helper function that sends JSONs to endpoints and parses responses to JSON.
- * 
- * If the user's original URL responds with an 'error' property , another request is 
- * sent to the server to automatically refresh the user's session cookie. 
- * If the JWT is refreshed, the original request is sent again.
- * 
- * @param url - the URL we want to query
- * @param json - the JSON data we will pass in
- * @param method - 
+ * A easier way to fetch JSON data from a URL, using a JSON payload as the request body.
+ * This function also automatically signs the HTTP Request body using a logged in user's signature.
+ * @param url - 
+ * @param jsonData 
+ * @param method 
  * @returns 
- * @throws Error - Error can be caused from bad network, being unable to log in, 
- * or being unable to parse the response to a JSON.
  */
-export async function ezFetch(url: string, json?: any, method: string = "POST") {
-  
-  let mainFetch = async () => {
-    let res = await (await fetch(
-      url,
-      {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(json)
-      }
-    )).json();
-
-    //only throw error if error matches the login failed error name from the server
-    if(res.error && res.error === ErrorCode.NOT_LOGGED_IN) {
-      throw new Error(res.error);
-    }
-
-    return res;
-  };
-
-
-  try {
-    return await mainFetch();
-  } catch(e) {
-
-    //login has expired, so get new JWT by logging in
-    await login();
-    
+export async function ezFetch(url: string, jsonData?: any, method: string = "POST") {
+  if(!jsonData) {
+    jsonData = "";
   }
 
-  //try main fetch request again once logged in
-  return await mainFetch();
+  let storageHandler = await storage.getDatabase();
+  let keyPair = await storageHandler.getKey('id_keypair') as CryptoKeyPair | undefined;
+  if(!keyPair) {
+    throw new Error("No signing key found! Might want to restore to a backup account!");
+  }
+
+  let jsonStr = JSON.stringify(jsonData);
+  let res = await fetch(
+    url, 
+    {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+        'E2E2-Body-Signature': await sign(jsonStr, keyPair.privateKey),
+        'E2E2-User-Id': storageHandler.getUsername() ?? ""
+      },
+      body: jsonStr
+    }
+    
+  )
+
+  let jsonRes = await res.json();
+  if(jsonRes.error && jsonRes.error === ErrorCode.NOT_LOGGED_IN) {
+    throw new Error("Unable to authenticate you!");
+  }
+
+  return jsonRes;
 }
+
 
 //you can put typed functions that use ezFetch so that you know exactly what
 //responses you receive
@@ -91,3 +58,4 @@ export async function searchUsers(data: {search: string}) : Promise<string[]> {
   //you can also check to see if the json is properly formatted here using JSONValidator
   return res.users;
 }
+

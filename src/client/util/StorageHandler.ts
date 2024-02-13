@@ -151,7 +151,7 @@ async function initDB() {
         keyPath: "id",
       });
 
-      objectStore.createIndex("signingPublicKey", "signingPublicKey", {unique: true});
+      objectStore.createIndex("id_key", "id_key", {unique: true});
     }
 
     if(!db.objectStoreNames.contains(CHAT_STORE)) {
