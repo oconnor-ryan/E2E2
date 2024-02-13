@@ -9,6 +9,8 @@ WARNING:
 const DB_NAME = "e2e2";
 const KEY_STORE = "key_store";
 const CHAT_STORE = "chat_store1";
+const USER_STORE = "user_store";
+
 const MESSAGE_STORE = "message_store1";
 
 
@@ -22,8 +24,13 @@ interface MessageEntry {
 
 interface ChatEntry {
   chatId: number, 
-  members: {id: string, senderKey: CryptoKey}[],
-  senderKey: CryptoKey
+  members: {id: string}[],
+  secretKey: CryptoKey
+}
+
+interface KnownUser {
+  id: string,
+  signingPublicKey: CryptoKey
 }
 
 interface KeyEntry {
@@ -60,6 +67,7 @@ export const getDatabase = (() => {
   // storage.
   //
   return async () => {
+    //
     if(storageHandler) {
       return storageHandler;
     }
@@ -102,8 +110,20 @@ export const getDatabase = (() => {
 })();
 
 
+async function deleteDB() {
+  let request = window.indexedDB.deleteDatabase(DB_NAME);
+
+  return new Promise<void>((resolve, reject) => {
+    request.onsuccess = (e) => resolve();
+    request.onerror = (e) => reject(request.error);
+  });
+}
 
 async function initDB() {
+  //MAKE SURE TO UNCOMMENT THIS TO PERSIST DB AFTER TESTING!!!!
+  await deleteDB();
+
+
   let DBOpenRequest = window.indexedDB.open(DB_NAME, 1);
 
   
@@ -123,6 +143,15 @@ async function initDB() {
       let objectStore = db.createObjectStore(KEY_STORE, {
         keyPath: "keyType",
       });
+    }
+
+    if(!db.objectStoreNames.contains(USER_STORE)) {
+      //note that KeyPath is equivalent to PRIMARy KEY in relational databases
+      let objectStore = db.createObjectStore(USER_STORE, {
+        keyPath: "id",
+      });
+
+      objectStore.createIndex("signingPublicKey", "signingPublicKey", {unique: true});
     }
 
     if(!db.objectStoreNames.contains(CHAT_STORE)) {
@@ -187,8 +216,56 @@ class _StorageHandler {
   getUsername() {
     return this.localStorage.getItem("username");
   }
+
+  addUser(entry: KnownUser) {
+    const transaction = this.db.transaction(USER_STORE, "readwrite");
+
+    const request = transaction.objectStore(USER_STORE).add(entry);
+
+    return new Promise<void>((resolve, reject) => {
+      request.onsuccess = (e) => resolve();
+      request.onerror = (e) => reject(request.error);
+
+    });
+  }
+
+  removeUser(id: string) {
+    const transaction = this.db.transaction(USER_STORE, "readwrite");
+
+    const request = transaction.objectStore(USER_STORE).delete(id);
+
+    return new Promise<void>((resolve, reject) => {
+      request.onsuccess = (e) => resolve();
+      request.onerror = (e) => reject(request.error);
+
+    });
+  }
+
+
+  updateUser(entry: KnownUser) {
+    const transaction = this.db.transaction(USER_STORE, "readwrite");
+
+    const request = transaction.objectStore(USER_STORE).put(entry);
+
+    return new Promise<void>((resolve, reject) => {
+      request.onsuccess = (e) => resolve();
+      request.onerror = (e) => reject(request.error);
+
+    })
+  }
+
+  getUser(id: string) {
+    const transaction = this.db.transaction(USER_STORE, "readonly");
+
+    const request = transaction.objectStore(USER_STORE).get(id);
+
+    return new Promise<KnownUser>((resolve, reject) => {
+      request.onsuccess = (e) => resolve(request.result);
+      request.onerror = (e) => reject(request.error);
+
+    })
+  }
   
-  //Standard CRUD operations below
   
   addKey(entry: KeyEntry) {
     const transaction = this.db.transaction(KEY_STORE, "readwrite");
@@ -322,9 +399,9 @@ class _StorageHandler {
     })
   }
   
-  async addMemberToChat(chatId: string, memberId: string, senderKey: CryptoKey) {
+  async addMemberToChat(chatId: string, memberId: string) {
     let chatEntry = await this.getChat(chatId);
-    chatEntry.members.push({id: memberId, senderKey: senderKey});
+    chatEntry.members.push({id: memberId});
     await this.updateChat(chatEntry);
   }
   
