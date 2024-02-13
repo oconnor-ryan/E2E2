@@ -1,5 +1,5 @@
 import { ezFetch } from "./util/EasyFetch.js";
-import { waitToOpenIndexedDB, getUsername } from "./util/StorageHandler.js";
+import { StorageHandler, getDatabase } from "./util/StorageHandler.js";
 
 const chatHeader = document.getElementById('chatroom-name') as HTMLHeadingElement;
 
@@ -46,13 +46,13 @@ inviteButton.onclick = async (e) => {
   window.alert("Successfully invited user!");
 }
 
-function renderMembers(members: {id: string, canInvite: boolean, isAdmin: boolean}[]) {
+function renderMembers(storageHandler: StorageHandler, members: {id: string, canInvite: boolean, isAdmin: boolean}[]) {
   for(let member of members) {
     let listItem = document.createElement('li');
     listItem.textContent = member.id + " (Offline)";
     memberListElement.appendChild(listItem);
 
-    if(member.id === getUsername() && !member.canInvite) {
+    if(member.id === storageHandler.getUsername() && !member.canInvite) {
       inviteContainer.remove(); //prevent this user from inviting other people
     }
   }
@@ -64,7 +64,7 @@ async function main() {
     return;
   }
 
-  await waitToOpenIndexedDB();
+  let storageHandler = await getDatabase();
 
   let chatInfoResult = await ezFetch("/api/getchatinfo", {chatId: CHAT_ID});
 
@@ -74,7 +74,7 @@ async function main() {
 
   let chatInfo = chatInfoResult.chatInfo;
 
-  renderMembers(chatInfo.members);
+  renderMembers(storageHandler, chatInfo.members);
   
 
 

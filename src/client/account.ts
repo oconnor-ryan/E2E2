@@ -7,7 +7,7 @@ const loginStatusButton = document.getElementById('login-button') as HTMLButtonE
 const messageElement = document.getElementById('result-message') as HTMLParagraphElement;
 
 async function main() {
-  await storage.waitToOpenIndexedDB();
+  let storageHandler = await storage.getDatabase();
 
   accountForm.onsubmit = async (e) => {
     e.preventDefault(); //dont allow post request to go through
@@ -45,8 +45,8 @@ async function main() {
     let jsonRes = await response.json();
   
     if(!jsonRes.error) {
-      storage.addKey({keyType: "auth_key_pair", key: keyPair});
-      storage.updateUsername(username);
+      storageHandler.addKey({keyType: "auth_key_pair", key: keyPair});
+      storageHandler.updateUsername(username);
   
     }
   

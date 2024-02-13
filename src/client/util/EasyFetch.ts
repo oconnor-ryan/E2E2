@@ -4,9 +4,9 @@ import { ErrorCode } from '../shared/Constants.js';
 
 
 export async function login() {
-  await storage.waitToOpenIndexedDB();
+  let storageHandler = await storage.getDatabase();
 
-  let keyPair = await storage.getKey('auth_key_pair') as CryptoKeyPair | undefined;
+  let keyPair = await storageHandler.getKey('auth_key_pair') as CryptoKeyPair | undefined;
   if(!keyPair) {
     throw new Error("No auth key found!");
   }
@@ -20,7 +20,7 @@ export async function login() {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({username: storage.getUsername() ?? "", signature_base64: signature})
+      body: JSON.stringify({username: storageHandler.getUsername() ?? "", signature_base64: signature})
     }
   )).json();
 
