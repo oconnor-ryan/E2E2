@@ -1,5 +1,7 @@
 import express from "express";
-import http from 'http';
+import https from 'https';
+import fs from 'fs';
+
 import { WebSocketServer } from 'ws';
 import 'dotenv/config';
 
@@ -17,10 +19,12 @@ const STATIC_ROOT = fileURLToPath(import.meta.resolve("../../client-assets/stati
 const HTML_ROOT = fileURLToPath(import.meta.resolve("../../client-assets/html"));
 const JS_ROOT = fileURLToPath(import.meta.resolve("../client"));
 
-//load .env file
+//load https keys
+const PRIVATE_KEY = fs.readFileSync("./https-keys/MyKey.key");
+const CERTIFICATE = fs.readFileSync("./https-keys/MyCertificate.crt");
 
 const app = express();
-const server = new http.Server(app);
+const server = new https.Server({key: PRIVATE_KEY, cert: CERTIFICATE}, app);
 const wss = new WebSocketServer({server});
 
 

@@ -72,7 +72,15 @@ export const getDatabase = (() => {
       return storageHandler;
     }
 
-    let persistData = await navigator.storage.persist();
+    if(!window.isSecureContext) {
+      throw new Error("StorageManager API is not available under non-secure contexts!");
+    }
+
+    if(!window.navigator.storage) {
+      throw new Error("Persistance API is unavailable, use a browser version that supports it!");
+    }
+
+    let persistData = await window.navigator.storage.persist();
     console.log("Allow persistance: " + persistData);
 
     if(persistData) {
@@ -100,11 +108,12 @@ export const getDatabase = (() => {
         return storageHandler;
       }
     } 
-
+    
+    window.alert("You must allow Persistant storage for this site to securely store your encryption keys/data!");
     throw new Error("Do not have permission to access IndexedDB!");
-
   };
 
+  
 
   
 })();

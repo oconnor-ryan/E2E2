@@ -2,12 +2,26 @@ import * as ecdsa from "./encryption/ECDSA.js";
 import * as ecdh from "./encryption/ECDH.js";
 
 import * as storage from './util/StorageHandler.js';
+import { StorageHandler } from "./util/StorageHandler.js";
 
 const accountForm = document.getElementById('create-account-form') as HTMLFormElement;
 const messageElement = document.getElementById('result-message') as HTMLParagraphElement;
 
 async function main() {
-  let storageHandler = await storage.getDatabase();
+  messageElement.innerHTML = "Start";
+  let storageHandler: StorageHandler;
+  try {
+    storageHandler = await storage.getDatabase();
+    window.alert("Success! Got IndexedDB!");
+  } catch(e: any) {
+    messageElement.innerHTML = e.message;
+    window.alert(e.name);
+    return;
+  }
+
+  messageElement.innerHTML = `${await window.navigator.storage.persisted()}`;
+
+
 
   accountForm.onsubmit = async (e) => {
     e.preventDefault(); //dont allow post request to go through
