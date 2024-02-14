@@ -83,7 +83,8 @@ abstract class EncryptTest {
   protected readonly username: string;
 
   constructor(username: string, webSocketUrlParams: string = '') {
-    this.ws = new WebSocket("ws://localhost:3000" + webSocketUrlParams);
+    let protocol = window.isSecureContext ? "wss://" : "ws://";
+    this.ws = new WebSocket(`${protocol}${window.location.host}${webSocketUrlParams}`);
 
     //must bind listeners to WebSocket in same scope as 
     //WebSocket constructor, otherwise you
