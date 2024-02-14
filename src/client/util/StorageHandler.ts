@@ -121,7 +121,7 @@ async function deleteDB() {
 
 async function initDB() {
   //MAKE SURE TO UNCOMMENT THIS TO PERSIST DB AFTER TESTING!!!!
-  await deleteDB();
+  //await deleteDB();
 
 
   let DBOpenRequest = window.indexedDB.open(DB_NAME, 1);

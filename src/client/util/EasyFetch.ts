@@ -1,6 +1,6 @@
 import * as storage from './StorageHandler.js'
 import { sign } from '../encryption/ECDSA.js';
-import { ErrorCode } from '@shared/Constants.js';
+import { ErrorCode } from '../shared/Constants.js';
 
 
 /**
@@ -13,7 +13,7 @@ import { ErrorCode } from '@shared/Constants.js';
  */
 export async function ezFetch(url: string, jsonData?: any, method: string = "POST") {
   if(!jsonData) {
-    jsonData = "";
+    jsonData = {};
   }
 
   let storageHandler = await storage.getDatabase();

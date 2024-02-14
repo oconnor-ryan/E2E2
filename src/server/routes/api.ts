@@ -5,7 +5,7 @@ import { acceptInvite, createAccount, createChat, getChatInfo, getChatsOfUser, g
 import { ErrorCode } from '../../client/shared/Constants.js';
 
 import testRoute from './tests.js';
-import { verifyKey } from '@server/util/webcrypto/ecdsa.js';
+import { verifyKey } from '../util/webcrypto/ecdsa.js';
 
 const router = express.Router();
 
@@ -29,6 +29,8 @@ router.post("/create-account", async (req, res) => {
     exchange_prekey_pubkey_base64,
     exchange_prekey_pubkey_sig_base64
   } = req.body;
+
+  console.log(req.body);
 
   //if unable to create account
   if(!(await createAccount(
@@ -69,7 +71,10 @@ router.use("/", async (req, res, next) => {
     return res.status(403).json({error: ErrorCode.NO_USER_EXISTS});
   }
 
-  let requestBelongsToUser = await verifyKey(sig, pubKeyBase64);
+  console.log(req.body);
+  console.log(JSON.stringify(req.body));
+
+  let requestBelongsToUser = await verifyKey(JSON.stringify(req.body), sig, pubKeyBase64);
 
   if(!requestBelongsToUser) {
     return res.status(403).json({error: ErrorCode.SIGNATURE_DOES_NOT_MATCH_USER});

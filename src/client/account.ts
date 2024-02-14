@@ -1,5 +1,5 @@
 import * as ecdsa from "./encryption/ECDSA.js";
-import * as ecdh from "@client/encryption/ECDH.js";
+import * as ecdh from "./encryption/ECDH.js";
 
 import * as storage from './util/StorageHandler.js';
 

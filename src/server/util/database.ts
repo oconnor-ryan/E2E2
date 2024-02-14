@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 import { importSignKey, verifyKey } from './webcrypto/ecdsa.js';
-import { ErrorCode } from '@client/shared/Constants.js';
+import { ErrorCode } from '../..//client/shared/Constants.js';
 
 const db = postgres({
   host: process.env.DB_HOST,
@@ -28,8 +28,8 @@ export async function createAccount(
   try {
 
     if (
-      !(await verifyKey(exchange_pubkey_sig_base64, id_pubkey_base64)) ||
-      !(await verifyKey(exchange_prekey_pubkey_sig_base64, id_pubkey_base64))
+      !(await verifyKey(exchange_pubkey_base64, exchange_pubkey_sig_base64, id_pubkey_base64)) ||
+      !(await verifyKey(exchange_prekey_pubkey_base64, exchange_prekey_pubkey_sig_base64, id_pubkey_base64))
     ) {
       throw new Error(ErrorCode.INVALID_SIGNATURE);
     }

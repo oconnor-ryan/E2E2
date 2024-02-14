@@ -14,7 +14,7 @@ export async function importSignKey(keyBase64: string) {
   );
 }
 
-export async function verifyKey(signatureBase64: string, pubKeyBase64: string) {
+export async function verifyKey(message: string, signatureBase64: string, pubKeyBase64: string) {
   try {
     let pubKey = await importSignKey(pubKeyBase64);
 
@@ -25,7 +25,7 @@ export async function verifyKey(signatureBase64: string, pubKeyBase64: string) {
       },
       pubKey,
       Buffer.from(signatureBase64, 'base64'), //the signature is the part we want to check
-      Buffer.from("") //just use empty data
+      Buffer.from(message) //just use empty data
     );
 
     return verified;
