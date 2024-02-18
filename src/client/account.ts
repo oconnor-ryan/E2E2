@@ -1,6 +1,4 @@
-import * as ecdsa from "./encryption/ECDSA.js";
-import * as ecdh from "./encryption/ECDH.js";
-
+import * as fetcher from "./util/EasyFetch.js";
 import * as storage from './util/StorageHandler.js';
 import { StorageHandler } from "./util/StorageHandler.js";
 
@@ -21,8 +19,6 @@ async function main() {
 
   messageElement.innerHTML = `${await window.navigator.storage.persisted()}`;
 
-
-
   accountForm.onsubmit = async (e) => {
     e.preventDefault(); //dont allow post request to go through
   
@@ -31,47 +27,7 @@ async function main() {
   
     console.log(username);
   
-    let idKeyPair = await ecdsa.createKeyPair();
-    let exportedIdPubKey = await ecdsa.exportPublicKey(idKeyPair.publicKey);
-  
-    let exchangeKeyPair = await ecdh.createKeyPair();
-    let exportedExchangePubKey = await ecdh.exportPublicKey(exchangeKeyPair.publicKey);
-
-    let preKey = await ecdh.createKeyPair();
-    let exportedPrePubKey = await ecdh.exportPublicKey(preKey.publicKey);
-
-    let exchangeKeySignature = await ecdsa.sign(exportedExchangePubKey, idKeyPair.privateKey);
-    let preKeySignature = await ecdsa.sign(exportedPrePubKey, idKeyPair.privateKey);
-
-  
-    let response = await fetch(
-      "/api/create-account", 
-      {
-        method: "POST",
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: username,
-          id_pubkey_base64: exportedIdPubKey,
-          exchange_pubkey_base64: exportedExchangePubKey,
-          exchange_pubkey_sig_base64: exchangeKeySignature,
-          exchange_prekey_pubkey_base64: exportedPrePubKey,
-          exchange_prekey_pubkey_sig_base64: preKeySignature
-        })
-      }
-    );
-  
-    let jsonRes = await response.json();
-  
-    if(!jsonRes.error) {
-      storageHandler.addKey({keyType: "id_keypair", key: idKeyPair});
-      storageHandler.addKey({keyType: "exchange_keypair", key: exchangeKeyPair});
-      storageHandler.addKey({keyType: "exchange_prekey_keypair", key: idKeyPair});
-
-      storageHandler.updateUsername(username);
-  
-    }
+    let jsonRes = await fetcher.createAccount(username);
   
     messageElement.innerHTML = `Create Account Result: ${JSON.stringify(jsonRes)}`;
   }

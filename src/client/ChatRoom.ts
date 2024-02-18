@@ -1,4 +1,4 @@
-import { ezFetch } from "./util/EasyFetch.js";
+import * as fetcher from "./util/EasyFetch.js";
 import { StorageHandler, getDatabase } from "./util/StorageHandler.js";
 
 const chatHeader = document.getElementById('chatroom-name') as HTMLHeadingElement;
@@ -23,12 +23,11 @@ userSearchInput.oninput = async (e) => {
     return;
   }
 
-  let res = await ezFetch("/api/searchusers", {search: searchString});
+  let users = await fetcher.searchUsers(searchString);
 
-  console.log(res);
   userSearchDataList.innerHTML = "";
 
-  for(let user of res.users) {
+  for(let user of users) {
     userSearchDataList.innerHTML += `<option value="${user}"></option>`;
   }
 };
@@ -36,11 +35,10 @@ userSearchInput.oninput = async (e) => {
 inviteButton.onclick = async (e) => {
   let invitedUser = userSearchInput.value;
 
-  let res = await ezFetch("/api/invite", {user: invitedUser, chatId: CHAT_ID});
-
-  if(res.error) {
-    window.alert("Failed to invite user")
-    throw new Error(res.error);
+  try {
+    await fetcher.invite(invitedUser, CHAT_ID);
+  } catch(e) {
+    window.alert("Failed to invite user!");
   }
 
   window.alert("Successfully invited user!");
@@ -66,18 +64,14 @@ async function main() {
 
   let storageHandler = await getDatabase();
 
-  let chatInfoResult = await ezFetch("/api/getchatinfo", {chatId: CHAT_ID});
-
-  if(chatInfoResult.error) {
-    throw new Error(chatInfoResult.error);
+  try {
+    let chatInfo = await fetcher.getChatInfo(CHAT_ID);
+    renderMembers(storageHandler, chatInfo.members);
+  } catch(e) {
+    console.error(e);
+    window.location.replace("/test/chatlist");
   }
-
-  let chatInfo = chatInfoResult.chatInfo;
-
-  renderMembers(storageHandler, chatInfo.members);
   
-
-
 }
 
 main();

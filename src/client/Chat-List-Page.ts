@@ -1,4 +1,4 @@
-import { ezFetch } from "./util/EasyFetch.js";
+import * as fetcher from "./util/EasyFetch.js";
 
 
 const chatlistContainer = document.getElementById("chat-list") as HTMLUListElement;
@@ -10,22 +10,16 @@ createChatButton.onclick = (e) => {
 };
 
 async function fetchAndRenderInvites() {
-  let res = await ezFetch('/api/getinvites');
-  if(res.error) {
-    throw new Error(res.error);
-  }
+  let invites = await fetcher.getInvites();
 
-  for(let invite of res.invites) {
+  for(let invite of invites) {
     let li = document.createElement('li');
     li.textContent = `Sender=${invite.sender}, ChatId=${invite.chat_id} `;
 
     let button = document.createElement('button');
     button.textContent = "Accept?";
     button.onclick = async (e) => {
-      let acceptedResult = await ezFetch("/api/acceptinvite", {chatId: invite.chat_id});
-      if(acceptedResult.error) {
-        throw new Error(acceptedResult.error);
-      }
+      await fetcher.acceptInvite(invite.chat_id)
 
       li.remove(); //remove invite from invitation list
       makeChatElement(invite.chat_id); //create link to chat in Chat list
@@ -48,25 +42,18 @@ function makeChatElement(chatId: number) {
 }
 
 async function fetchAndRenderChats() {
-  let chatListResult = await ezFetch("/api/getchats");
-  if(chatListResult.error) {
-    throw new Error(chatListResult.error);
-  }
+  let chats = await fetcher.getChats();
 
   //dont use innerHTML due to protential XSS attacks that can be performed,
   //especially if values come from user input
-  for(let chatId of Object.keys(chatListResult.chats)) {
+  for(let chatId of Object.keys(chats)) {
     makeChatElement(Number(chatId));
   }
 }
 
 async function createChat() {
-  let res = await ezFetch("/api/createchat");
-  if(res.error) {
-    throw new Error(res.error);
-  }
-
-  makeChatElement(res.chat.id);
+  let chat = await fetcher.createChat();
+  makeChatElement(chat.id);
 }
 
 async function main() {
