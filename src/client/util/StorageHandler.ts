@@ -24,7 +24,7 @@ interface MessageEntry {
 
 interface ChatEntry {
   chatId: number, 
-  members: {id: string}[],
+  //members: {id: string}[],
   secretKey: CryptoKey
 }
 
@@ -407,7 +407,7 @@ class _StorageHandler {
       };
     })
   }
-  
+  /*
   async addMemberToChat(chatId: string, memberId: string) {
     let chatEntry = await this.getChat(chatId);
     chatEntry.members.push({id: memberId});
@@ -426,6 +426,7 @@ class _StorageHandler {
     chatEntry.members.splice(selectedUserIndex, 1);
     await this.updateChat(chatEntry);
   }
+  */
   
   
   addMessage(entry: MessageEntry) {

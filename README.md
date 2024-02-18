@@ -9,7 +9,8 @@ A instant-messaging web application where users can send encrypted messages to e
 > messages.
 
 ## Current Objectives
-1. Allow asyncronous encrypted messages to be sent between users.
+1. When creating chats, make sure that IndexedDB for Chat Object Store is in sync with server.
+2. Allow asyncronous encrypted messages to be sent between users.
 
 ## Future Objectives
 1. Add method to backup account in case they accidentally clear their browser.

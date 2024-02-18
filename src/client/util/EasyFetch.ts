@@ -159,7 +159,7 @@ export async function createChat() : Promise<{id: number, invitedUsers: string[]
 
   let chatKey = await aes.generateAESKey();
 
-  storageHandler.addChat({chatId: res.chat.id, members: [{id: username}], secretKey: chatKey});
+  await storageHandler.addChat({chatId: res.chat.id, secretKey: chatKey});
 
 
   return res.chat;
