@@ -143,9 +143,7 @@ export async function acceptInvite(chatId: number) {
     throw new Error("Unable to retrieve joined chat!");
   }
 
-  //
-
-  
+  await initKeyExchange(chatId);
 }
 
 export async function getChats() : Promise<{[chat_id: string] : string[]}>{
@@ -206,9 +204,9 @@ export async function getUserKeysForChat(chatId: number) : Promise<UserInfo[] | 
   return res.keys;
 }
 
-export async function initKeyExchange(chatId: number, members: UserInfo[] | null) {
+export async function initKeyExchange(chatId: number, members?: UserInfo[]) {
   if(!members) {
-    members = await getUserKeysForChat(chatId);
+    members = (await getUserKeysForChat(chatId)) ?? undefined;
   }
   if(!members) {
     throw new Error("No users found in chat!");
@@ -263,6 +261,8 @@ export async function initKeyExchange(chatId: number, members: UserInfo[] | null
   if(res.error) {
     throw new Error(res.error);
   }
+
+  storageHandler.addChat({chatId: chatId, secretKey: senderKey});
 
 }
 
