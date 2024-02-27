@@ -3,12 +3,11 @@ import * as ecdsa from '../encryption/ECDSA.js';
 import * as ecdh from '../encryption/ECDH.js';
 import * as aes from '../encryption/AES.js';
 import * as hkdf from '../encryption/HKDF.js';
-import * as keyExport from "../encryption/Export.js";
 
 import { getDatabase } from './StorageHandler.js';
 
 import { ErrorCode, KeyType, UserInfo } from '../shared/Constants.js';
-import { arrayBufferToBase64 } from '../encryption/Base64.js';
+import { arrayBufferToBase64, base64ToArrayBuffer } from '../encryption/Base64.js';
 
 export async function createAccount(username: string) {
   let storageHandler = await getDatabase();
@@ -240,9 +239,9 @@ export async function initKeyExchange(chatId: number, members?: UserInfo[]) {
       continue;
     }
 
-    let {secretKey, salt} = await x3dh(
-      myIdKeyPair,
-      ephemeralKeyPair,
+    let {secretKey, salt} = await x3dh_sender(
+      myIdKeyPair.privateKey,
+      ephemeralKeyPair.privateKey,
       await ecdh.importKey(member.exchange_key_base64),
       await ecdh.importKey(member.exchange_prekey_base64)
     );
@@ -266,18 +265,49 @@ export async function initKeyExchange(chatId: number, members?: UserInfo[]) {
 
 }
 
-async function x3dh(
-  myIdKeyPair: CryptoKeyPair, 
-  myEphemeralKeyPair: CryptoKeyPair, 
+async function x3dh_sender(
+  myIdKey: CryptoKey,
+  myEphemeralKey: CryptoKey,
   theirIdKey: CryptoKey,
   theirPreKey: CryptoKey
+) {
+  return await x3dh(
+    myIdKey,
+    myEphemeralKey,
+    theirIdKey,
+    theirPreKey
+  );
+}
+
+async function x3dh_receiver(
+  myIdKey: CryptoKey,
+  myPreKey: CryptoKey,
+  theirIdKey: CryptoKey,
+  theirEphemeralKey: CryptoKey,
+  saltBase64: string
+) {
+  return await x3dh(
+    myIdKey,
+    myPreKey,
+    theirIdKey,
+    theirEphemeralKey,
+    saltBase64
+  );
+}
+
+async function x3dh(
+  privateIdKey: CryptoKey, 
+  privateEphemeralOrPreKey: CryptoKey, 
+  publicIdKey: CryptoKey,
+  publicEphemeralOrPreKey: CryptoKey,
+  saltBase64?: string
 ) {
 
   //perform 3 Diffie-Hellman functions record the derived bytes
   //from each function
-  let dh1 = await ecdh.deriveBits(myIdKeyPair.privateKey, theirPreKey);
-  let dh2 = await ecdh.deriveBits(myEphemeralKeyPair.privateKey, theirIdKey);
-  let dh3 = await ecdh.deriveBits(myEphemeralKeyPair.privateKey, theirPreKey);
+  let dh1 = await ecdh.deriveBits(privateIdKey, publicEphemeralOrPreKey);
+  let dh2 = await ecdh.deriveBits(privateEphemeralOrPreKey, publicIdKey);
+  let dh3 = await ecdh.deriveBits(privateEphemeralOrPreKey, publicEphemeralOrPreKey);
 
   //concatenate the raw bytes of each key into one input key material
   //for HKDF
@@ -288,8 +318,13 @@ async function x3dh(
   //which actually performs HKDF. 
   let hkdfKey = await hkdf.importKey(keyMaterial);
 
-  //generate 20 random bytes as the salt for HKDF
-  let salt = window.crypto.getRandomValues(new Uint8Array(20));
+  let salt;
+  if(!saltBase64) {
+    //generate 20 random bytes as the salt for HKDF
+    salt = window.crypto.getRandomValues(new Uint8Array(20));
+  } else {
+    salt = base64ToArrayBuffer(saltBase64);
+  }
 
   //perform HKDF function and get the AES key derived from it.
   let secretKey = await hkdf.deriveKey(hkdfKey, salt);
