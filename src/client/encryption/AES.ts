@@ -34,6 +34,64 @@ export async function importKey(base64String: string) {
   );
 }
 
+function concatIvAndCipherText(iv: ArrayBuffer, cipherText: ArrayBuffer) {
+  //concatenate initialization vector (iv) with ciphertext
+  let output = new Uint8Array(iv.byteLength + cipherText.byteLength);
+
+  output.set(new Uint8Array(iv), 0);
+  output.set(new Uint8Array(cipherText), iv.byteLength);
+
+  return arrayBufferToBase64(output.buffer);
+}
+
+function separateIvAndCipherText(stringBase64: string, ivLength: number) {
+  let buffer = base64ToArrayBuffer(stringBase64);
+  let iv = buffer.slice(0, ivLength);
+  let cipherText = buffer.slice(ivLength);
+  return {iv: iv, ciphertext: cipherText};
+}
+
+export async function wrapKey(keyToExport: CryptoKey, keyToEncrypt: CryptoKey) {
+  let iv = window.crypto.getRandomValues(new Uint8Array(IV_LEN_BYTES));
+  
+  let exportedKey = await cryptoSubtle.wrapKey(
+    "raw",
+    keyToExport,
+    keyToEncrypt,
+    {
+      name: "AES-GCM",
+      iv: iv
+    }
+  );
+
+  return concatIvAndCipherText(iv, exportedKey);
+}
+
+
+export async function upwrapKey(exportedBase64: string, keyToDecrypt: CryptoKey) {
+  let {iv, ciphertext} = separateIvAndCipherText(exportedBase64, IV_LEN_BYTES);
+
+  let key = await cryptoSubtle.unwrapKey(
+    "raw",
+    ciphertext,
+    keyToDecrypt,
+    //the type of key keyToDecrypt is
+    {
+      name: "AES-GCM",
+      iv: iv
+    },
+    //the type of key the unwrapped key from exportedBase64 is
+    {
+      name: "AES-GCM",
+      length: 256
+    },
+    false,
+    ["encrypt", "decrypt"]
+  );
+
+  return key;
+}
+
 export async function encrypt(data: string, key: CryptoKey) {
   let buffer = new Uint8Array(IV_LEN_BYTES);
   let iv = window.crypto.getRandomValues(buffer);

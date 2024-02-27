@@ -2,9 +2,13 @@ import * as storage from './StorageHandler.js'
 import * as ecdsa from '../encryption/ECDSA.js';
 import * as ecdh from '../encryption/ECDH.js';
 import * as aes from '../encryption/AES.js';
+import * as hkdf from '../encryption/HKDF.js';
+import * as keyExport from "../encryption/Export.js";
+
 import { getDatabase } from './StorageHandler.js';
 
-import { ErrorCode } from '../shared/Constants.js';
+import { ErrorCode, KeyType, UserInfo } from '../shared/Constants.js';
+import { arrayBufferToBase64 } from '../encryption/Base64.js';
 
 export async function createAccount(username: string) {
   let storageHandler = await getDatabase();
@@ -47,9 +51,9 @@ export async function createAccount(username: string) {
   let jsonRes = await response.json();
 
   if(!jsonRes.error) {
-    storageHandler.addKey({keyType: "id_keypair", key: idKeyPair});
-    storageHandler.addKey({keyType: "exchange_keypair", key: exchangeKeyPair});
-    storageHandler.addKey({keyType: "exchange_prekey_keypair", key: idKeyPair});
+    storageHandler.addKey({keyType: KeyType.IDENTITY_KEY_PAIR, key: idKeyPair});
+    storageHandler.addKey({keyType: KeyType.EXCHANGE_ID_PAIR, key: exchangeKeyPair});
+    storageHandler.addKey({keyType: KeyType.EXCHANGE_PREKEY_PAIR, key: preKey});
 
     storageHandler.updateUsername(username);
   }
@@ -69,7 +73,7 @@ export async function ezFetch(url: string, jsonData?: any, method: string = "POS
   }
 
   let storageHandler = await storage.getDatabase();
-  let keyPair = await storageHandler.getKey('id_keypair') as CryptoKeyPair | undefined;
+  let keyPair = await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR) as CryptoKeyPair | undefined;
   if(!keyPair) {
     throw new Error("No signing key found! Might want to restore to a backup account!");
   }
@@ -134,6 +138,14 @@ export async function acceptInvite(chatId: number) {
   if(acceptedResult.error) {
     throw new Error(acceptedResult.error);
   }
+
+  if(!acceptedResult.chat) {
+    throw new Error("Unable to retrieve joined chat!");
+  }
+
+  //
+
+  
 }
 
 export async function getChats() : Promise<{[chat_id: string] : string[]}>{
@@ -174,3 +186,135 @@ export async function getChatInfo(chatId: number) : Promise<{members: {id: strin
   return chatInfoResult.chatInfo;
 }
 
+export async function getUserKeys(user: string) : Promise<UserInfo | null> {
+
+  let res = await ezFetch("/api/getuserkeys", {username: user});
+  if(res.error) {
+    throw new Error(res.error);
+  }
+
+  return res.keys;
+}
+
+export async function getUserKeysForChat(chatId: number) : Promise<UserInfo[] | null> {
+
+  let res = await ezFetch("/api/getuserkeysfromchat", {chatId: chatId});
+  if(res.error) {
+    throw new Error(res.error);
+  }
+
+  return res.keys;
+}
+
+export async function initKeyExchange(chatId: number, members: UserInfo[] | null) {
+  if(!members) {
+    members = await getUserKeysForChat(chatId);
+  }
+  if(!members) {
+    throw new Error("No users found in chat!");
+  }
+
+  let storageHandler = await getDatabase();
+
+  let myUsername = storageHandler.getUsername();
+  if(!myUsername) {
+    throw new Error("Not logged in!");
+  }
+
+  const myIdKeyPair = await storageHandler.getKey(KeyType.EXCHANGE_ID_PAIR) as CryptoKeyPair;
+  const ephemeralKeyPair = await ecdh.createKeyPair();
+
+  const senderKey = await aes.generateAESKey(true);
+
+  let keyExchangeData: {
+    chatId: number,
+    ephemeralKeyBase64: string,
+    memberKeyList: {id: string, senderKeyEncBase64: string, saltBase64: string}[]
+  } = {
+    chatId: chatId,
+    ephemeralKeyBase64: await ecdh.exportPublicKey(ephemeralKeyPair.publicKey),
+    memberKeyList: []
+  };
+
+  for(let member of members) {
+    //dont encrypt key for yourself
+    if(member.id === myUsername) {
+      continue;
+    }
+
+    let {secretKey, salt} = await x3dh(
+      myIdKeyPair,
+      ephemeralKeyPair,
+      await ecdh.importKey(member.exchange_key_base64),
+      await ecdh.importKey(member.exchange_prekey_base64)
+    );
+    
+    let encSenderKeyBase64 = await aes.wrapKey(senderKey, secretKey);
+
+    keyExchangeData.memberKeyList.push({
+      id: member.id, 
+      senderKeyEncBase64: encSenderKeyBase64, 
+      saltBase64: arrayBufferToBase64(salt)
+    });
+  }
+
+  let res = await ezFetch("/api/sendkeyexchangetochat", keyExchangeData, "POST");
+
+  if(res.error) {
+    throw new Error(res.error);
+  }
+
+}
+
+async function x3dh(
+  myIdKeyPair: CryptoKeyPair, 
+  myEphemeralKeyPair: CryptoKeyPair, 
+  theirIdKey: CryptoKey,
+  theirPreKey: CryptoKey
+) {
+
+  //perform 3 Diffie-Hellman functions record the derived bytes
+  //from each function
+  let dh1 = await ecdh.deriveBits(myIdKeyPair.privateKey, theirPreKey);
+  let dh2 = await ecdh.deriveBits(myEphemeralKeyPair.privateKey, theirIdKey);
+  let dh3 = await ecdh.deriveBits(myEphemeralKeyPair.privateKey, theirPreKey);
+
+  //concatenate the raw bytes of each key into one input key material
+  //for HKDF
+  let keyMaterial = concatBuffers(dh1, dh2, dh3);
+
+  //though not technically a key, the HKDF CryptoKey is used
+  //as the input key material (IKM) for the deriveKey function,
+  //which actually performs HKDF. 
+  let hkdfKey = await hkdf.importKey(keyMaterial);
+
+  //generate 20 random bytes as the salt for HKDF
+  let salt = window.crypto.getRandomValues(new Uint8Array(20));
+
+  //perform HKDF function and get the AES key derived from it.
+  let secretKey = await hkdf.deriveKey(hkdfKey, salt);
+
+  return {secretKey: secretKey, salt: salt};
+}
+
+/**
+ * Concatenates a list of buffers into a single ArrayBuffer.
+ * Each buffer is stored in the returned buffer in the order it appears in 
+ * the 'buffers' parameter
+ * @param buffers 
+ * @returns 
+ */
+function concatBuffers(...buffers: ArrayBuffer[]) {
+  let byteLength = 0;
+  for(let buffer of buffers) {
+    byteLength += buffer.byteLength;
+  }
+
+  let newBuffer = new Uint8Array(byteLength);
+
+  for(let i = 0; i < buffers.length; i++) {
+    newBuffer.set(new Uint8Array(buffers[i]), i == 0 ? 0 : buffers[i-1].byteLength);
+  }
+
+  return newBuffer.buffer;
+}

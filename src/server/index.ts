@@ -129,6 +129,9 @@ app.get("/test/chatroom", (req, res) => {
   res.sendFile("chat-room.html", {root: HTML_ROOT});
 });
 
+app.get("/test/hkdf-test", (req, res) => {
+  res.sendFile("hkdf-test.html", {root: HTML_ROOT});
+});
 
 server.listen(3000, () => {
   console.log("Server Started!");

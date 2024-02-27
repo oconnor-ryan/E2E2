@@ -1,7 +1,7 @@
 import express, { Response } from 'express';
 
 //local files
-import { acceptInvite, createAccount, createChat, getChatInfo, getChatsOfUser, getInvitesForUser, getIdentityKey, inviteUserToChat, searchUsers } from '../util/database.js';
+import { acceptInvite, createAccount, createChat, getChatInfo, getChatsOfUser, getInvitesForUser, getIdentityKey, inviteUserToChat, searchUsers, getUserKeys, getUserKeysForChat, addKeyExchange } from '../util/database.js';
 import { ErrorCode } from '../../client/shared/Constants.js';
 
 import testRoute from './tests.js';
@@ -30,7 +30,6 @@ router.post("/create-account", async (req, res) => {
     exchange_prekey_pubkey_sig_base64
   } = req.body;
 
-  console.log(req.body);
 
   //if unable to create account
   if(!(await createAccount(
@@ -179,7 +178,9 @@ router.post("/acceptinvite", async (req, res) => {
     return res.json({error: ErrorCode.CHAT_ACCEPT_INVITE_FAILED});
   }
 
-  return res.json({error: null});
+  let chatInfo = await getChatInfo(chatId);
+
+  return res.json({error: null, chat: chatInfo});
 });
 
 router.post("/getchatinfo", async (req, res) => {
@@ -205,5 +206,52 @@ router.post("/getchatinfo", async (req, res) => {
   return res.json({error: null, chatInfo: result})
 });
 
+router.get("/getuserkeys", async (req, res) => {
+  const {username} = req.body;
+
+  if(!username) {
+    return res.json({error: ErrorCode.NO_USER_PROVIDED});
+  }
+
+  let keys = await getUserKeys(username);
+  if(!keys) {
+    return res.json({error: ErrorCode.CANNOT_GET_USER_KEYS});
+  }
+  
+  return res.json({error: null, keys: keys});
+});
+
+router.get("/getuserkeysfromchat", async (req, res) => {
+  const {chatId} = req.body;
+
+  if(!chatId) {
+    return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
+  }
+
+  let keys = await getUserKeysForChat(chatId);
+  if(!keys) {
+    return res.json({error: ErrorCode.CANNOT_GET_USER_KEYS});
+  }
+  
+  return res.json({error: null, keys: keys});
+});
+
+router.post("/sendkeyexchangetochat", async (req, res) => {
+  const currentUser = res.locals.username as string;
+
+  const {chatId, ephemeralKeyBase64, memberKeyList} = req.body;
+
+  if(!chatId) {
+    return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
+  }
+
+  let exchangeSent = await addKeyExchange(currentUser, chatId, ephemeralKeyBase64, memberKeyList);
+
+  if(!exchangeSent) {
+    return res.json({error: ErrorCode.FAILED_TO_ADD_KEY_EXCHANGE});
+  }
+
+  return res.json({error: null});
+});
 
 export default router;

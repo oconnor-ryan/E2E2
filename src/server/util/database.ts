@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 import { importSignKey, verifyKey } from './webcrypto/ecdsa.js';
-import { ErrorCode } from '../..//client/shared/Constants.js';
+import { ErrorCode, UserInfo } from '../..//client/shared/Constants.js';
 
 const db = postgres({
   host: process.env.DB_HOST,
@@ -202,7 +202,13 @@ export async function acceptInvite(receiver: string, chatId: number, permissions
   try {
     await db.begin(async (db) => {
 
-      await db`delete from pending_chat_invite WHERE chat_id=${chatId} AND invited_acct_id=${receiver}`;
+      let res = await db`delete from pending_chat_invite WHERE chat_id=${chatId} AND invited_acct_id=${receiver}`;
+
+      //if no rows were deleted, that means that there was never any invite sent to this user
+      if(res.count === 0) {
+        throw new Error("You were not invited to this chat room!");
+      }
+
       await db`
         insert into chat_member (acct_id, nick_name, chat_id, is_admin, can_invite)
         values (${receiver}, ${receiver}, ${chatId}, ${permissions?.isAdmin ?? false}, ${permissions?.canInvite ?? false})
@@ -212,12 +218,99 @@ export async function acceptInvite(receiver: string, chatId: number, permissions
   } catch(e) {
     console.error(e);
     return false;
-  }
-  
-  
-        
+  }   
 }
 
+export async function getUserKeys(chatId: number) : Promise<UserInfo | null> {
+  try {
+    let res = await db`
+    select
+      id, 
+      identity_key_base64, 
+      exchange_key_base64, 
+      exchange_key_signature_base64, 
+      exchange_prekey_base64, 
+      exchange_prekey_signature_base64
+    from account
+    where id IN (select user_id from chat_member where chat_id=${chatId})
+    `;
+    let row = res[0];
+    return {
+      id: row.id, 
+      identity_key_base64: row.identity_key_base64,
+      exchange_key_base64: row.exchange_key_base64,
+      exchange_key_sig_base64: row.exchange_key_signature_base64,
+      exchange_prekey_base64: row.exchange_prekey_base64,
+      exchange_prekey_sig_base64: row.exchange_prekey_signature_base64,
+    };
+  } catch(e) {
+    console.error(e);
+    return null;
+  }
+}
+
+export async function getUserKeysForChat(chatId: number) : Promise<UserInfo[] | null> {
+  try {
+    let res = await db`
+    select
+      id, 
+      identity_key_base64, 
+      exchange_key_base64, 
+      exchange_key_signature_base64, 
+      exchange_prekey_base64, 
+      exchange_prekey_signature_base64
+    from account
+    where id IN (select user_id from chat_member where chat_id=${chatId})
+    `;
+    return res.map(row => {
+      return {
+        id: row.id, 
+        identity_key_base64: row.identity_key_base64,
+        exchange_key_base64: row.exchange_key_base64,
+        exchange_key_sig_base64: row.exchange_key_signature_base64,
+        exchange_prekey_base64: row.exchange_prekey_base64,
+        exchange_prekey_sig_base64: row.exchange_prekey_signature_base64,
+      };
+    });
+  } catch(e) {
+    console.error(e);
+    return null;
+  }
+}
+
+export async function addKeyExchange(senderId: string, chatId: number, ephemeralKeyBase64: string, members: {id: string, senderKeyEncBase64: string, saltBase64: string}[]) {
+  try {
+    let res = await db.begin(async (db) => {
+      await Promise.all(members.map(member => {
+        return db`
+          insert into pending_key_exchange (
+            sender_id,
+            receiver_id,
+            chat_id,
+            ephemeral_key_base64,
+            sender_key_enc_base64,
+            salt_base64,
+            message_id_start,
+          )
+          values (
+            ${senderId},
+            ${member.id},
+            ${chatId},
+            ${ephemeralKeyBase64},
+            ${member.senderKeyEncBase64},
+            ${member.saltBase64},
+            select id from message where chat_id=${chatId} GROUP BY id HAVING MAX(id) = id
+          )
+        `
+      }));
+    });
+
+    return true;
+  } catch(e) {
+    console.error(e);
+    return false;
+  }
+}
 /**
  * This function checks to find all chat rooms where all members in the 
  * parameter are included in the member list of a chat.

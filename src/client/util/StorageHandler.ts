@@ -5,6 +5,8 @@ WARNING:
   even if they tell the browser that this website's data should persist.
 */
 
+import { KeyType } from "../shared/Constants.js";
+
 
 const DB_NAME = "e2e2";
 const KEY_STORE = "key_store";
@@ -34,7 +36,7 @@ interface KnownUser {
 }
 
 interface KeyEntry {
-  keyType: string,
+  keyType: KeyType,
   key: CryptoKey | CryptoKeyPair
 }
 
@@ -299,7 +301,7 @@ class _StorageHandler {
     });
   }
   
-  removeKey(keyType: string) {
+  removeKey(keyType: KeyType) {
     const transaction = this.db.transaction(KEY_STORE, "readwrite");
   
     const objectStore = transaction.objectStore(KEY_STORE);
@@ -334,7 +336,7 @@ class _StorageHandler {
   
   }
   
-  getKey(keyType: string) : Promise<CryptoKey | CryptoKeyPair | undefined> {
+  getKey(keyType: KeyType) : Promise<CryptoKey | CryptoKeyPair | undefined> {
     const transaction = this.db.transaction(KEY_STORE, "readonly");
   
     const objectStore = transaction.objectStore(KEY_STORE);
