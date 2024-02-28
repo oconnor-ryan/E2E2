@@ -135,6 +135,16 @@ export async function getChatsOfUser(user: string) {
   }
 }
 
+export async function userInChat(chatId: number, userId: string) {
+  try {
+    let res = await db`select acct_id from chat_member where chat_id=${chatId} and acct_id=${chatId}`;
+    return res.length > 0;
+  } catch(e) {
+    console.error(e);
+    throw new Error("Cannot Access Database!");
+  }
+}
+
 export async function getChatInfo(chatId: number) {
   try {
     let res = await db`
@@ -153,6 +163,38 @@ export async function getChatInfo(chatId: number) {
     console.error(e);
     return null;
   }
+}
+
+export async function getLatestMessages(chatId: number, count?: number) : Promise<
+  Array<{
+    id: number,
+    data_enc_base64: string,
+    sender_id: string,
+    chat_id: number,
+    key_exchange_id: number
+  }> 
+  | 
+  null
+> {
+  let limitQuery = count ? db`limit ${count}` : db``;
+
+  try {
+    let result = await db`select * from message where chat_id=${chatId} order by id desc ${limitQuery}`;
+    return result.map(row => {
+      return {
+        id: row.id,
+        data_enc_base64: row.data_enc_base64,
+        sender_id: row.data_enc_base64,
+        chat_id: row.chat_id,
+        key_exchange_id: row.key_exchange_id
+      }
+    });
+  } catch(e) {
+    console.error(e);
+    return null;
+  }
+  
+  
 }
 
 export async function inviteUserToChat(sender: string, receiver: string, chatId: number) {
@@ -181,7 +223,7 @@ export async function getInvitesForUser(receiver: string) : Promise<{sender: str
   }
 }
 
-export async function checkIfAlreadyInvitedUser(sender: string, receiver: string, chatId?: number) : Promise<{sender: string, chat_id: number}[]>{
+export async function checkIfAlreadyInvitedUser(receiver: string) : Promise<{sender: string, chat_id: number}[]>{
   try {
     let invites = await db`
       select invitor_acct_id, chat_id from pending_chat_invite 
@@ -330,6 +372,61 @@ export async function addKeyExchange(senderId: string, chatId: number, members: 
     return false;
   }
 }
+
+export async function getKeyExchanges(receiverId: string, chatId: number) : 
+  Promise<
+    {
+      ephemeralKeyBase64: string,
+      senderKeyEncBase64: string,
+      saltBase64: string,
+      exchangeId: number,
+      exchangeKeyBase64: string,
+      identityKeyBase64: string,
+    } []
+  | null
+  > {
+
+  try {
+    let res = await db`
+      select
+        KEYS.ephemeral_key_base64,
+        KEYS.sender_key_enc_base64,
+        KEYS.salt_base64,
+        EXCHANGE.exchange_id,
+        ACCOUNT.identity_key_base64,
+        ACCOUNT.exchange_key_base64,
+
+      from  
+        pending_key_exchange_keys as KEYS,
+        pending_key_exchange as EXCHANGE,
+        account as ACCOUNT
+
+      where
+        KEYS.exchange_id = EXCHANGE.id
+        AND
+        ACCOUNT.id = EXCHANGE.sender_id
+        AND EXCHANGE.chat_id=${chatId}
+        AND KEYS.receiver_id=${receiverId}
+      )
+    `;
+
+    return res.map((row) => {
+      return {
+        ephemeralKeyBase64: row.ephemeral_key_base64,
+        senderKeyEncBase64: row.sender_key_enc_base64,
+        saltBase64: row.salt_base64,
+        exchangeId: row.exchange_id,
+        exchangeKeyBase64: row.exchange_key_base64,
+        identityKeyBase64: row.identity_key_base64,
+      }
+    });
+  } catch(e) {
+    console.error(e);
+    return null;
+  }
+}
+
+
 /**
  * This function checks to find all chat rooms where all members in the 
  * parameter are included in the member list of a chat.

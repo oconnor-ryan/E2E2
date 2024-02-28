@@ -16,7 +16,10 @@ export enum ErrorCode {
   CHAT_ACCEPT_INVITE_FAILED = "ChatAcceptInviteFailed",
   NOT_MEMBER_OF_CHAT = "NotMemberOfChat",
   CANNOT_GET_USER_KEYS = "CannotGetUserKeys",
-  FAILED_TO_ADD_KEY_EXCHANGE = "FailedToAddKeyExchange"
+  FAILED_TO_ADD_KEY_EXCHANGE = "FailedToAddKeyExchange",
+  FAILED_TO_GET_MESSAGES = "FailedToGetMessages",
+  FAILED_TO_VERIFY_CHAT_MEMBER = "FailedToVerifyChatMember",
+  FAILED_TO_RETRIEVE_KEY_EXCHANGES = "FailedToRetrieveKeyExchanges"
 }
 
 export type UserInfo = {

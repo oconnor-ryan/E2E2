@@ -1,11 +1,13 @@
 import express, { Response } from 'express';
 
 //local files
-import { acceptInvite, createAccount, createChat, getChatInfo, getChatsOfUser, getInvitesForUser, getIdentityKey, inviteUserToChat, searchUsers, getUserKeys, getUserKeysForChat, addKeyExchange } from '../util/database.js';
+import { acceptInvite, createAccount, createChat, getChatInfo, getChatsOfUser, getInvitesForUser, getIdentityKey, inviteUserToChat, searchUsers, getUserKeys, getUserKeysForChat, addKeyExchange, getLatestMessages } from '../util/database.js';
 import { ErrorCode } from '../../client/shared/Constants.js';
-
-import testRoute from './tests.js';
 import { verifyKey } from '../util/webcrypto/ecdsa.js';
+
+//routes
+import testRoute from './tests.js';
+import chatRoute from "./chat.js";
 
 const router = express.Router();
 
@@ -89,6 +91,10 @@ router.use("/", async (req, res, next) => {
   next();
 });
 
+//since user is logged in, they are now allowed to access
+//chat route
+router.use("/chat", chatRoute);
+
 router.post("/searchusers", async (req, res) => {
   let currentUser = res.locals.username as string;
 
@@ -99,112 +105,7 @@ router.post("/searchusers", async (req, res) => {
   res.json({error: null, users: searchResults});
 });
 
-router.post("/createchat", async (req, res) => {
-  let currentUser = res.locals.username as string;
 
-  let {invitees} = req.body;
-
-  if(!invitees || !Array.isArray(invitees)) {
-    invitees = [];
-  }
-
-  let chatId = await createChat(currentUser, ...invitees);
-
-  if(!chatId) {
-    return res.json({error: ErrorCode.CHAT_CREATION_FAILED});
-  }
-
-  return res.json({error: null, chat: {id: chatId, invitedUsers: invitees}});
-});
-
-router.post("/getchats", async (req, res) => {
-  let currentUser = res.locals.username as string;
-
-  let result = await getChatsOfUser(currentUser);
-
-  if(result === null) {
-    return res.json({error: ErrorCode.CHAT_LIST_RETRIEVE_FAILED});
-  }
-
-  return res.json({error: null, chats: result});
-});
-
-
-
-router.post("/getinvites", async (req, res) => {
-  let currentUser = res.locals.username as string;
-
-  let result = await getInvitesForUser(currentUser);
-
-  res.json({error: null, invites: result});
-});
-
-router.post("/invite", async (req, res) => {
-  let currentUser = res.locals.username as string;
-
-  let {user, chatId} : {user?: string, chatId?: number}  = req.body;
-
-  if(!user) {
-    return res.json({error: ErrorCode.NO_USER_EXISTS});
-  }
-
-
-  if(!chatId) {
-    return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
-  }
-
-  let inviteSuccess = await inviteUserToChat(currentUser, user, chatId);
-
-  if(!inviteSuccess) {
-    return res.json({error: ErrorCode.CHAT_INVITE_FAILED});
-  }
-
-  return res.json({error: null});
-
-});
-
-router.post("/acceptinvite", async (req, res) => {
-  let currentUser = res.locals.username as string;
-
-  let {chatId} = req.body;
-
-  if(!chatId) {
-    return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
-  }
-
-  let isMember = await acceptInvite(currentUser, chatId);
-
-  if(!isMember) {
-    return res.json({error: ErrorCode.CHAT_ACCEPT_INVITE_FAILED});
-  }
-
-  let chatInfo = await getChatInfo(chatId);
-
-  return res.json({error: null, chat: chatInfo});
-});
-
-router.post("/getchatinfo", async (req, res) => {
-  let currentUser = res.locals.username as string;
-
-  let {chatId} = req.body;
-  if(!chatId) {
-    return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
-  }
-
-  let result = await getChatInfo(chatId);
-  if(!result) {
-    return res.json({error: ErrorCode.CHAT_RETRIEVE_FAILED});
-  }
-
-  let members = result.members;
-
-  if(!members.find((m) => m.id === currentUser)) {
-    return res.json({error: ErrorCode.NOT_MEMBER_OF_CHAT});
-  }
-
-
-  return res.json({error: null, chatInfo: result})
-});
 
 router.get("/getuserkeys", async (req, res) => {
   const {username} = req.body;
@@ -221,37 +122,6 @@ router.get("/getuserkeys", async (req, res) => {
   return res.json({error: null, keys: keys});
 });
 
-router.get("/getuserkeysfromchat", async (req, res) => {
-  const {chatId} = req.body;
 
-  if(!chatId) {
-    return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
-  }
-
-  let keys = await getUserKeysForChat(chatId);
-  if(!keys) {
-    return res.json({error: ErrorCode.CANNOT_GET_USER_KEYS});
-  }
-  
-  return res.json({error: null, keys: keys});
-});
-
-router.post("/sendkeyexchangetochat", async (req, res) => {
-  const currentUser = res.locals.username as string;
-
-  const {chatId, memberKeyList} = req.body;
-
-  if(!chatId) {
-    return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
-  }
-
-  let exchangeSent = await addKeyExchange(currentUser, chatId, memberKeyList);
-
-  if(!exchangeSent) {
-    return res.json({error: ErrorCode.FAILED_TO_ADD_KEY_EXCHANGE});
-  }
-
-  return res.json({error: null});
-});
 
 export default router;

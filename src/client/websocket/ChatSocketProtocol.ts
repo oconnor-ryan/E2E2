@@ -66,6 +66,7 @@ class ChatSocketHandler {
   private userMessageCallbacks: UserMessageCompleteCallbacks;
   private serverMessageCallbacks: ServerMessageCompleteCallbacks;
   private chatId: number;
+  private userId: string;
 
   constructor(
     chatId: number, 
@@ -78,7 +79,7 @@ class ChatSocketHandler {
     this.userMessageCallbacks = userMessageCallbacks;
     this.serverMessageCallbacks = serverMessageCallbacks;
     this.chatId = chatId;
-
+    this.userId = userId;
     this.senderKey = senderKey;
 
     let protocol = window.isSecureContext ? "wss://" : "ws://";
@@ -89,6 +90,22 @@ class ChatSocketHandler {
     this.ws.onerror = this.onError.bind(this);
     this.ws.onclose = this.onClose.bind(this);
     this.ws.onmessage = this.onMessage.bind(this);
+  }
+
+  public async sendMessage(message: string) {
+    if(this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error("WebSocket is not open!");
+    }
+
+    let data = {
+      type: "message",
+      userId: this.userId,
+      message: message 
+    };
+
+    let encData = await aes.encrypt(JSON.stringify(data), this.senderKey, "arraybuffer");
+
+    this.ws.send(encData);
   }
 
   //when a WebSocket connection is successfully established
@@ -146,34 +163,7 @@ class ChatSocketHandler {
     }
   }
 
-  protected async importKey(data: {ephemeralKeyBase64: string, exchangeKeyBase64: string, encSenderKeyBase64: string, saltBase64: string}) {
-    const storageHandler = await getDatabase();
-
-    const exchangeKeyPair = await storageHandler.getKey(KeyType.EXCHANGE_ID_PAIR) as CryptoKeyPair;
-    const exchangePreKeyPair = await storageHandler.getKey(KeyType.EXCHANGE_PREKEY_PAIR) as CryptoKeyPair;
-
-    const theirEphemeralKey = await ecdh.importKey(data.ephemeralKeyBase64);
-    const theirExchangeKey = await ecdh.importKey(data.exchangeKeyBase64);
-
-    const secretKey = (await x3dh.x3dh_receiver(
-      exchangeKeyPair.privateKey,
-      exchangePreKeyPair.privateKey,
-      theirExchangeKey,
-      theirEphemeralKey,
-      data.saltBase64
-    )).secretKey;
-
-    let senderKey = await aes.upwrapKey(data.encSenderKeyBase64, secretKey);
-
-    try {
-      await storageHandler.updateChat({chatId: this.chatId, secretKey: senderKey});
-      this.serverMessageCallbacks["retrieveNewKey"](null);
-    } catch(e) {
-      console.error(e);
-      this.serverMessageCallbacks["retrieveNewKey"](e as Error);
-    }
-
-  }
+  
 
 
 }

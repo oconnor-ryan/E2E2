@@ -11,6 +11,8 @@ const userSearchDataList = document.getElementById("autocomplete-results") as HT
 const memberListElement = document.getElementById('member-list') as HTMLUListElement;
 const messageBox = document.getElementById('message-input') as HTMLInputElement;
 
+const messagesContainer = document.getElementById('messages');
+
 const CHAT_ID = Number(new URLSearchParams(window.location.search).get("chatId") ?? "");
 chatHeader.textContent = `Chat Room Id = ${CHAT_ID}`;
 
@@ -54,6 +56,12 @@ function renderMembers(storageHandler: StorageHandler, members: {id: string, can
       inviteContainer.remove(); //prevent this user from inviting other people
     }
   }
+}
+
+function renderMessage(userId: string, message: string) {
+  let messageBox = document.createElement('p');
+  messageBox.textContent = `${userId} said: ${message}`;
+  messagesContainer?.appendChild(messageBox);
 }
 
 async function main() {

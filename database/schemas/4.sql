@@ -86,7 +86,8 @@ CREATE TABLE public.message (
     id bigint NOT NULL,
     data_enc_base64 character varying NOT NULL,
     sender_id character varying(30) NOT NULL,
-    chat_id integer NOT NULL
+    chat_id integer NOT NULL,
+    key_exchange_id integer
 );
 
 
@@ -297,6 +298,14 @@ ALTER TABLE ONLY public.chat_member
 
 ALTER TABLE ONLY public.message
     ADD CONSTRAINT message_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chat(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: message message_key_exchange_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.message
+    ADD CONSTRAINT message_key_exchange_id_fkey FOREIGN KEY (key_exchange_id) REFERENCES public.pending_key_exchange(id) ON UPDATE CASCADE ON DELETE SET NULL;
 
 
 --

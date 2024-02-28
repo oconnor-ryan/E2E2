@@ -6,8 +6,7 @@ import * as aes from '../encryption/AES.js';
 import { getDatabase } from './StorageHandler.js';
 
 import { ErrorCode, KeyType, UserInfo } from '../shared/Constants.js';
-import { arrayBufferToBase64 } from '../encryption/Base64.js';
-import { x3dh_sender } from './X3DH.js';
+import { initKeyExchange } from './KeyExchange.js';
 
 export async function createAccount(username: string) {
   let storageHandler = await getDatabase();
@@ -125,7 +124,7 @@ export async function getInvites() : Promise<{sender: string, chat_id: number}[]
 }
 
 export async function invite(invitedUser: string, chatId: number) {
-  let res = await ezFetch("/api/invite", {user: invitedUser, chatId: chatId});
+  let res = await ezFetch("/api/chat/invite", {user: invitedUser, chatId: chatId});
 
   if(res.error) {
     throw new Error(res.error);
@@ -142,11 +141,12 @@ export async function acceptInvite(chatId: number) {
     throw new Error("Unable to retrieve joined chat!");
   }
 
+
   await initKeyExchange(chatId);
 }
 
 export async function getChats() : Promise<{[chat_id: string] : string[]}>{
-  let chatListResult = await ezFetch("/api/getchats");
+  let chatListResult = await ezFetch("/api/chat/getchats");
   if(chatListResult.error) {
     throw new Error(chatListResult.error);
   }
@@ -161,7 +161,7 @@ export async function createChat() : Promise<{id: number, invitedUsers: string[]
     throw new Error("Missing username from localStorage! Create an account or recover from backup!");
   }
 
-  let res = await ezFetch("/api/createchat");
+  let res = await ezFetch("/api/chat/createchat");
   if(res.error) {
     throw new Error(res.error);
   }
@@ -175,7 +175,7 @@ export async function createChat() : Promise<{id: number, invitedUsers: string[]
 }
 
 export async function getChatInfo(chatId: number) : Promise<{members: {id: string, canInvite: boolean, isAdmin: boolean}[]}> {
-  let chatInfoResult = await ezFetch("/api/getchatinfo", {chatId: chatId});
+  let chatInfoResult = await ezFetch("/api/chat/getchatinfo", {chatId: chatId});
   if(chatInfoResult.error) {
     throw new Error(chatInfoResult.error);
   }
@@ -195,7 +195,7 @@ export async function getUserKeys(user: string) : Promise<UserInfo | null> {
 
 export async function getUserKeysForChat(chatId: number) : Promise<UserInfo[] | null> {
 
-  let res = await ezFetch("/api/getuserkeysfromchat", {chatId: chatId});
+  let res = await ezFetch("/api/chat/getuserkeysfromchat", {chatId: chatId});
   if(res.error) {
     throw new Error(res.error);
   }
@@ -203,65 +203,41 @@ export async function getUserKeysForChat(chatId: number) : Promise<UserInfo[] | 
   return res.keys;
 }
 
-export async function initKeyExchange(chatId: number, members?: UserInfo[]) {
-  if(!members) {
-    members = (await getUserKeysForChat(chatId)) ?? undefined;
-  }
-  if(!members) {
-    throw new Error("No users found in chat!");
-  }
-
-  let storageHandler = await getDatabase();
-
-  let myUsername = storageHandler.getUsername();
-  if(!myUsername) {
-    throw new Error("Not logged in!");
-  }
-
-  const myIdKeyPair = await storageHandler.getKey(KeyType.EXCHANGE_ID_PAIR) as CryptoKeyPair;
-  const ephemeralKeyPair = await ecdh.createKeyPair();
-
-  const senderKey = await aes.generateAESKey(true);
-
-  let keyExchangeData: {
-    chatId: number,
-    ephemeralKeyBase64: string,
-    memberKeyList: {id: string, senderKeyEncBase64: string, saltBase64: string}[]
-  } = {
+export async function sendKeyExchange(chatId: number, memberKeyList: {id: string, senderKeyEncBase64: string, saltBase64: string, ephemeralKeyBase64: string}[]) {
+  let keyExchangeData = {
     chatId: chatId,
-    ephemeralKeyBase64: await ecdh.exportPublicKey(ephemeralKeyPair.publicKey),
-    memberKeyList: []
+    memberKeyList: memberKeyList
   };
 
-  for(let member of members) {
-    //dont encrypt key for yourself
-    if(member.id === myUsername) {
-      continue;
-    }
+  let res = await ezFetch("/api/chat/sendkeyexchangetochat", keyExchangeData, "POST");
 
-    let {secretKey, salt} = await x3dh_sender(
-      myIdKeyPair.privateKey,
-      ephemeralKeyPair.privateKey,
-      await ecdh.importKey(member.exchange_key_base64),
-      await ecdh.importKey(member.exchange_prekey_base64)
-    );
-    
-    let encSenderKeyBase64 = await aes.wrapKey(senderKey, secretKey);
-
-    keyExchangeData.memberKeyList.push({
-      id: member.id, 
-      senderKeyEncBase64: encSenderKeyBase64, 
-      saltBase64: arrayBufferToBase64(salt)
-    });
+  if(res.error) {
+    throw new Error(res.error);
   }
+}
 
-  let res = await ezFetch("/api/sendkeyexchangetochat", keyExchangeData, "POST");
+export async function getKeyExchanges(chatId: number) : Promise<Array<{
+    ephemeralKeyBase64: string,
+    senderKeyEncBase64: string,
+    saltBase64: string,
+    exchangeId: number,
+    exchangeKeyBase64: string,
+    identityKeyBase64: string,
+}>>{
+
+
+  let res = await ezFetch("/api/chat/sendkeyexchangetochat", {chatId: chatId}, "POST");
 
   if(res.error) {
     throw new Error(res.error);
   }
 
-  storageHandler.addChat({chatId: chatId, secretKey: senderKey});
-
+  return res.result;
 }
 
+export async function getLatestMessages(chatId: number, numMessages?: number) {
+  let res = await ezFetch("/api/chat/chatmessages", {chatId: chatId, numMessages: numMessages});
+  if(res.error) {
+    throw new Error(res.error);
+  }
+}
