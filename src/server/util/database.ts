@@ -278,31 +278,50 @@ export async function getUserKeysForChat(chatId: number) : Promise<UserInfo[] | 
   }
 }
 
-export async function addKeyExchange(senderId: string, chatId: number, ephemeralKeyBase64: string, members: {id: string, senderKeyEncBase64: string, saltBase64: string}[]) {
+export async function addKeyExchange(senderId: string, chatId: number, members: {id: string, senderKeyEncBase64: string, saltBase64: string, ephemeralKeyBase64: string}[]) {
   try {
     let res = await db.begin(async (db) => {
-      await Promise.all(members.map(member => {
-        return db`
-          insert into pending_key_exchange (
-            sender_id,
-            receiver_id,
-            chat_id,
-            ephemeral_key_base64,
-            sender_key_enc_base64,
-            salt_base64,
-            message_id_start,
-          )
-          values (
-            ${senderId},
-            ${member.id},
-            ${chatId},
-            ${ephemeralKeyBase64},
-            ${member.senderKeyEncBase64},
-            ${member.saltBase64},
-            select id from message where chat_id=${chatId} GROUP BY id HAVING MAX(id) = id
-          )
-        `
-      }));
+      //create key exchange row to start appending keys to it
+      let result1 = await db`
+        insert into pending_key_exchange(
+          sender_id,
+          chat_id
+        )
+        values(
+          ${senderId},
+          ${chatId}
+        )
+        returning id
+      `;
+
+      if(!result1[0].id) {
+        throw new Error("Failed to add new key exchange!");
+      }
+
+      let exchangeId = result1[0].id;
+
+      //append all keys from key exchange for each member
+      return await db`
+        insert into pending_key_exchange_keys (
+          receiver_id,
+          ephemeral_key_base64,
+          sender_key_enc_base64,
+          salt_base64,
+          exchange_id,
+        )
+        //db() will automatically convert array of JSON into a valid INSERT statement
+        ${db(
+          members.map((member) => {
+            return {
+              receiver_id: member.id,
+              ephemeral_key_base64: member.ephemeralKeyBase64,
+              sender_key_enc_base64: member.senderKeyEncBase64,
+              salt_base64: member.saltBase64,
+              exchange_id: exchangeId
+            }
+          })
+        )}
+      `;
     });
 
     return true;

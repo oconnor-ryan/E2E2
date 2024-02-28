@@ -239,13 +239,13 @@ router.get("/getuserkeysfromchat", async (req, res) => {
 router.post("/sendkeyexchangetochat", async (req, res) => {
   const currentUser = res.locals.username as string;
 
-  const {chatId, ephemeralKeyBase64, memberKeyList} = req.body;
+  const {chatId, memberKeyList} = req.body;
 
   if(!chatId) {
     return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
   }
 
-  let exchangeSent = await addKeyExchange(currentUser, chatId, ephemeralKeyBase64, memberKeyList);
+  let exchangeSent = await addKeyExchange(currentUser, chatId, memberKeyList);
 
   if(!exchangeSent) {
     return res.json({error: ErrorCode.FAILED_TO_ADD_KEY_EXCHANGE});
