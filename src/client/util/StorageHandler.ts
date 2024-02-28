@@ -393,7 +393,7 @@ class _StorageHandler {
     })
   }
   
-  getChat(chatId: string) : Promise<ChatEntry> {
+  getChat(chatId: number) : Promise<ChatEntry> {
     const transaction = this.db.transaction(CHAT_STORE, "readonly");
     const objectStore = transaction.objectStore(CHAT_STORE);
   

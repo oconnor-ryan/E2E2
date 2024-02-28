@@ -1,6 +1,7 @@
 import { base64ToArrayBuffer, arrayBufferToBase64 } from "./Base64.js";
 const cryptoSubtle = window.crypto.subtle;
 
+
 const IV_LEN_BYTES = 50;
 
 //if extractable is true, the key material can be exported into the Javascript
@@ -92,7 +93,23 @@ export async function upwrapKey(exportedBase64: string, keyToDecrypt: CryptoKey)
   return key;
 }
 
-export async function encrypt(data: string, key: CryptoKey) {
+/**
+ * 
+ * @param data 
+ * @param key 
+ * @param outputType 
+ * 
+ * Note that this uses Typescript function overloading
+ * for type checking
+ */
+export async function encrypt(data: string, key: CryptoKey) : Promise<string>;
+export async function encrypt(data: string, key: CryptoKey, outputType: "arraybuffer") : Promise<ArrayBuffer>;
+export async function encrypt(data: string, key: CryptoKey, outputType: "base64") : Promise<string>;
+export async function encrypt(data: string, key: CryptoKey, outputType?: "arraybuffer" | "base64") : Promise<ArrayBuffer | string>{
+  if(!outputType) {
+    outputType = "base64";
+  }
+
   let buffer = new Uint8Array(IV_LEN_BYTES);
   let iv = window.crypto.getRandomValues(buffer);
 
@@ -114,13 +131,23 @@ export async function encrypt(data: string, key: CryptoKey) {
   output.set(iv, 0);
   output.set(new Uint8Array(ciphertext), iv.byteLength);
 
-  let base64Output = arrayBufferToBase64(output.buffer);
+  if(outputType === "arraybuffer") {
+    return output.buffer;
+  }
 
-  return base64Output;
+  return arrayBufferToBase64(output.buffer);
+
 }
 
-export async function decrypt(encBase64Data: string, key: CryptoKey) {
-  let encData = base64ToArrayBuffer(encBase64Data);
+export async function decrypt(data: ArrayBuffer, key: CryptoKey) : Promise<string>;
+export async function decrypt(data: string, key: CryptoKey) : Promise<string>;
+export async function decrypt(data: ArrayBuffer | string, key: CryptoKey) {
+  let encData: ArrayBuffer;
+  if(data instanceof ArrayBuffer) {
+    encData = data;
+  } else {
+    encData = base64ToArrayBuffer(data);
+  }
 
   let iv = encData.slice(0, IV_LEN_BYTES);
   let ciphertext = encData.slice(IV_LEN_BYTES);
