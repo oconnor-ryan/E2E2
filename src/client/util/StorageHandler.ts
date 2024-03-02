@@ -27,7 +27,9 @@ interface MessageEntry {
 interface ChatEntry {
   chatId: number, 
   //members: {id: string}[],
-  secretKey: CryptoKey
+  secretKey: CryptoKey | null,
+  keyExchangeId: number | null
+
 }
 
 interface KnownUser {

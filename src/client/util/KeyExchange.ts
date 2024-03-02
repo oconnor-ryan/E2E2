@@ -7,7 +7,7 @@ import * as x3dh from "./X3DH.js";
 import { getUserKeysForChat, sendKeyExchange } from "./EasyFetch.js";
 import { arrayBufferToBase64 } from "../encryption/Base64.js";
 
-export async function importKey(chatId: number, data: {ephemeralKeyBase64: string, exchangeKeyBase64: string, encSenderKeyBase64: string, saltBase64: string}) {
+export async function importKey(chatId: number, data: {ephemeralKeyBase64: string, exchangeKeyBase64: string, senderKeyEncBase64: string, saltBase64: string, keyExchangeId: number, identityKeyBase64: string}) {
   const storageHandler = await getDatabase();
 
   const exchangeKeyPair = await storageHandler.getKey(KeyType.EXCHANGE_ID_PAIR) as CryptoKeyPair;
@@ -24,9 +24,9 @@ export async function importKey(chatId: number, data: {ephemeralKeyBase64: strin
     data.saltBase64
   )).secretKey;
 
-  let senderKey = await aes.upwrapKey(data.encSenderKeyBase64, secretKey);
+  let senderKey = await aes.upwrapKey(data.senderKeyEncBase64, secretKey);
 
-  await storageHandler.updateChat({chatId: chatId, secretKey: senderKey});
+  await storageHandler.updateChat({chatId: chatId, secretKey: senderKey, keyExchangeId: data.keyExchangeId});
 
 }
 
@@ -85,9 +85,9 @@ export async function initKeyExchange(chatId: number, members?: UserInfo[]) {
 
 
   //send exchange to server
-  await sendKeyExchange(keyExchangeData.chatId, keyExchangeData.memberKeyList);
+  let keyExchangeId = await sendKeyExchange(keyExchangeData.chatId, keyExchangeData.memberKeyList);
 
   //save to indexeddb
-  await storageHandler.addChat({chatId: chatId, secretKey: senderKey});
+  await storageHandler.addChat({chatId: chatId, secretKey: senderKey, keyExchangeId: keyExchangeId});
 
 }

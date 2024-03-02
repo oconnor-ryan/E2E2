@@ -163,13 +163,13 @@ router.post("/sendkeyexchangetochat", async (req, res) => {
 
   const {memberKeyList} = req.body;
 
-  let exchangeSent = await addKeyExchange(currentUser, chatId, memberKeyList);
+  let exchangeId = await addKeyExchange(currentUser, chatId, memberKeyList);
 
-  if(!exchangeSent) {
+  if(!exchangeId) {
     return res.json({error: ErrorCode.FAILED_TO_ADD_KEY_EXCHANGE});
   }
 
-  return res.json({error: null});
+  return res.json({error: null, keyExchangeId: exchangeId});
 });
 
 router.get("/getkeyexchangeforchat", async (req, res) => {

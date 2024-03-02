@@ -1,5 +1,5 @@
 import postgres from 'postgres';
-import { importSignKey, verifyKey } from './webcrypto/ecdsa.js';
+import { verifyKey } from './webcrypto/ecdsa.js';
 import { ErrorCode, UserInfo } from '../..//client/shared/Constants.js';
 
 const db = postgres({
@@ -197,6 +197,35 @@ export async function getLatestMessages(chatId: number, count?: number) : Promis
   
 }
 
+export async function sendMessage(
+  senderId: string, 
+  dataEncBase64: string,
+  chatId: number,
+  keyExchangeId: number
+) {
+
+  try {
+    await db`
+      insert into message (
+        data_enc_base64, 
+        sender_id, 
+        chat_id, 
+        key_exchange_id
+      )
+      values (
+        ${dataEncBase64},
+        ${senderId},
+        ${chatId},
+        ${keyExchangeId}
+      )
+    `;
+    return true;
+  } catch(e) {
+    console.error(e);
+    return false;
+  }
+}
+
 export async function inviteUserToChat(sender: string, receiver: string, chatId: number) {
   try {
     await db`
@@ -320,9 +349,9 @@ export async function getUserKeysForChat(chatId: number) : Promise<UserInfo[] | 
   }
 }
 
-export async function addKeyExchange(senderId: string, chatId: number, members: {id: string, senderKeyEncBase64: string, saltBase64: string, ephemeralKeyBase64: string}[]) {
+export async function addKeyExchange(senderId: string, chatId: number, members: {id: string, senderKeyEncBase64: string, saltBase64: string, ephemeralKeyBase64: string}[]) : Promise<number | null> {
   try {
-    let res = await db.begin(async (db) => {
+    let exchangeId = await db.begin(async (db) => {
       //create key exchange row to start appending keys to it
       let result1 = await db`
         insert into pending_key_exchange(
@@ -343,7 +372,7 @@ export async function addKeyExchange(senderId: string, chatId: number, members: 
       let exchangeId = result1[0].id;
 
       //append all keys from key exchange for each member
-      return await db`
+      await db`
         insert into pending_key_exchange_keys (
           receiver_id,
           ephemeral_key_base64,
@@ -364,15 +393,24 @@ export async function addKeyExchange(senderId: string, chatId: number, members: 
           })
         )}
       `;
+
+      return exchangeId;
     });
 
-    return true;
+    return exchangeId;
   } catch(e) {
     console.error(e);
-    return false;
+    return null;
   }
 }
 
+/**
+ * Returns list of all key exchanges for a specific member of a chat
+ * from oldest to newest
+ * @param receiverId 
+ * @param chatId 
+ * @returns 
+ */
 export async function getKeyExchanges(receiverId: string, chatId: number) : 
   Promise<
     {
@@ -408,6 +446,8 @@ export async function getKeyExchanges(receiverId: string, chatId: number) :
         AND EXCHANGE.chat_id=${chatId}
         AND KEYS.receiver_id=${receiverId}
       )
+      order by EXCHANGE.exchange_id ASC
+
     `;
 
     return res.map((row) => {

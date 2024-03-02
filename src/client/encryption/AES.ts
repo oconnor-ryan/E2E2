@@ -139,9 +139,7 @@ export async function encrypt(data: string, key: CryptoKey, outputType?: "arrayb
 
 }
 
-export async function decrypt(data: ArrayBuffer, key: CryptoKey) : Promise<string>;
-export async function decrypt(data: string, key: CryptoKey) : Promise<string>;
-export async function decrypt(data: ArrayBuffer | string, key: CryptoKey) {
+export async function decrypt(data: ArrayBuffer | string, key: CryptoKey) : Promise<string> {
   let encData: ArrayBuffer;
   if(data instanceof ArrayBuffer) {
     encData = data;

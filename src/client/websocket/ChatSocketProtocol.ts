@@ -1,9 +1,8 @@
 import { getDatabase } from "../util/StorageHandler.js";
 import * as ecdsa from "../encryption/ECDSA.js";
-import * as ecdh from "../encryption/ECDH.js";
 import * as aes from "../encryption/AES.js";
-import * as x3dh from "../util/X3DH.js";
 import { KeyType } from "../shared/Constants.js";
+import { decodeMessage } from "../util/MessageDecoder.js";
 
 /**
  * These describe the callbacks that can be called after
@@ -51,13 +50,19 @@ export async function chatSocketBuilder(
     throw new Error("Not logged in!");
   }
 
-  let chatSenderKey = (await storageHandler.getChat(chatId)).secretKey;
+  let chatInfo = await storageHandler.getChat(chatId);
+  let chatSenderKey = chatInfo.secretKey;
+  let keyExchangeId = chatInfo.keyExchangeId;
+
+  if(!chatSenderKey || !keyExchangeId) {
+    throw new Error("No Sender Key stored!");
+  }
 
   //sign the userId so that the server can validate that 
   //the userId matches with the signature provided
   let signature = await ecdsa.sign(username, (await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR) as CryptoKeyPair).privateKey);
 
-  return new ChatSocketHandler(chatId, username, signature, chatSenderKey, userMessageParsedCallbacks, serverMessageParsedCallbacks);
+  return new ChatSocketHandler(chatId, username, signature, chatSenderKey, keyExchangeId, userMessageParsedCallbacks, serverMessageParsedCallbacks);
 }
 
 class ChatSocketHandler {
@@ -73,6 +78,7 @@ class ChatSocketHandler {
     userId: string, 
     signatureBase64: string, 
     senderKey: CryptoKey,
+    keyExchangeId: number,
     userMessageCallbacks: UserMessageCompleteCallbacks,
     serverMessageCallbacks: ServerMessageCompleteCallbacks
   ) {
@@ -83,7 +89,7 @@ class ChatSocketHandler {
     this.senderKey = senderKey;
 
     let protocol = window.isSecureContext ? "wss://" : "ws://";
-    this.ws = new WebSocket(`${protocol}${window.location.host}?chatId=${chatId}&userId=${userId}&signatureBase64=${signatureBase64}`);
+    this.ws = new WebSocket(`${protocol}${window.location.host}?chatId=${chatId}&userId=${userId}&signatureBase64=${signatureBase64}&keyExchangeId=${keyExchangeId}`);
     this.ws.binaryType = "arraybuffer"; //use this instead of Blob
 
     this.ws.onopen = this.onOpen.bind(this);
@@ -139,7 +145,7 @@ class ChatSocketHandler {
   }
 
   protected async handleEncryptedMessage(data: ArrayBuffer) {
-    let messageJSON = JSON.parse(await aes.decrypt(data, this.senderKey));
+    let messageJSON = await decodeMessage(data, this.senderKey);
 
     switch(messageJSON.type) {
       case "message":

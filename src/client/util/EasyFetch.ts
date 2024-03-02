@@ -1,7 +1,6 @@
 import * as storage from './StorageHandler.js'
 import * as ecdsa from '../encryption/ECDSA.js';
 import * as ecdh from '../encryption/ECDH.js';
-import * as aes from '../encryption/AES.js';
 
 import { getDatabase } from './StorageHandler.js';
 
@@ -166,9 +165,10 @@ export async function createChat() : Promise<{id: number, invitedUsers: string[]
     throw new Error(res.error);
   }
 
-  let chatKey = await aes.generateAESKey();
-
-  await storageHandler.addChat({chatId: res.chat.id, secretKey: chatKey});
+  //because no users have accepted invite yet, no keys are 
+  //stored and any messages that the owner writes should be
+  //stored in a queue on the client until a key exchange is performed
+  await storageHandler.addChat({chatId: res.chat.id, secretKey: null, keyExchangeId: null});
 
 
   return res.chat;
@@ -214,6 +214,8 @@ export async function sendKeyExchange(chatId: number, memberKeyList: {id: string
   if(res.error) {
     throw new Error(res.error);
   }
+
+  return res.keyExchangeId;
 }
 
 export async function getKeyExchanges(chatId: number) : Promise<Array<{
@@ -235,9 +237,17 @@ export async function getKeyExchanges(chatId: number) : Promise<Array<{
   return res.result;
 }
 
-export async function getLatestMessages(chatId: number, numMessages?: number) {
+export async function getLatestMessages(chatId: number, numMessages?: number) : Promise<{
+  id: number;
+  data_enc_base64: string;
+  sender_id: string;
+  chat_id: number;
+  key_exchange_id: number;
+}[]>{
   let res = await ezFetch("/api/chat/chatmessages", {chatId: chatId, numMessages: numMessages});
   if(res.error) {
     throw new Error(res.error);
   }
+
+  return res.messages;
 }

@@ -1,7 +1,22 @@
-import { arrayBufferToBase64 } from "./Base64.js";
+import { arrayBufferToBase64, base64ToArrayBuffer } from "./Base64.js";
 
 const cryptoSubtle = window.crypto.subtle;
 
+
+
+export async function importKey(base64String: string) {
+  let buffer = base64ToArrayBuffer(base64String);
+  return await cryptoSubtle.importKey(
+    "spki",
+    buffer,
+    {
+      name: "ECDSA",
+      namedCurve: "P-521"
+    },
+    false,
+    ["sign"]
+  );
+}
 
 export async function createKeyPair() {
   return await cryptoSubtle.generateKey(

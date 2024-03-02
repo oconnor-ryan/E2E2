@@ -10,7 +10,9 @@ import {fileURLToPath} from "url";
 
 import apiRoute from './routes/api.js';
 
-import { onConnection } from "./socket-handlers/public-key/PublicKeySocketHandler.js";
+import * as publicSocketHandler from "./socket-handlers/public-key/PublicKeySocketHandler.js";
+import * as asyncSocketHandler from "./socket-handlers/async/SocketHandler.js";
+
 import * as sharedKeySocketHandler from "./socket-handlers/shared-key/SocketHandlerSharedKey.js";
 
 
@@ -48,7 +50,7 @@ wss.on('connection', (ws, req) => {
   //weird way to get query parameters, but that's how the NodeJS docs stated to parse this url.
   //the protocol can be any value (http:// ws:// etc) since we only care about the search parametes in the URL
   let url = new URL(req.url!, "ws://" + req.headers.host);
-  let chatType = url.searchParams.get('enc_type')
+  let chatType = url.searchParams.get('enc_type');
 
   switch(chatType) {
     //shared key
@@ -58,10 +60,10 @@ wss.on('connection', (ws, req) => {
 
     //public key
     case 'public':
-      onConnection(ws, req);
+      publicSocketHandler.onConnection(ws, req);
       break;
     default:
-      ws.close(undefined, `This encryption protocol ${chatType} is not supported!`);
+      asyncSocketHandler.onConnection(ws, req, url.searchParams);
       break;
 
   }
