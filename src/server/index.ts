@@ -63,6 +63,7 @@ wss.on('connection', (ws, req) => {
       publicSocketHandler.onConnection(ws, req);
       break;
     default:
+      console.log("ASync")
       asyncSocketHandler.onConnection(ws, req, url.searchParams);
       break;
 

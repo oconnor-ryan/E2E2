@@ -13,7 +13,7 @@ export async function generateAESKey(extractable: boolean = false) {
       length: 256
     },
     extractable,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt", "wrapKey", "unwrapKey"]
   );
 }
 
@@ -31,7 +31,7 @@ export async function importKey(base64String: string) {
       length: 256,
     },
     true,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt", "wrapKey", "unwrapKey"]
   );
 }
 

@@ -362,7 +362,7 @@ class _StorageHandler {
   
   
   addChat(entry: ChatEntry) : Promise<void> {
-    const transaction = this.db.transaction(CHAT_STORE, "readonly");
+    const transaction = this.db.transaction(CHAT_STORE, "readwrite");
     const objectStore = transaction.objectStore(CHAT_STORE);
   
     //note that if key does not exist, "put" will automatically add this item
@@ -379,7 +379,7 @@ class _StorageHandler {
   }
   
   updateChat(entry: ChatEntry) : Promise<void> {
-    const transaction = this.db.transaction(CHAT_STORE, "readonly");
+    const transaction = this.db.transaction(CHAT_STORE, "readwrite");
     const objectStore = transaction.objectStore(CHAT_STORE);
   
     //note that if key does not exist, "put" will automatically add this item

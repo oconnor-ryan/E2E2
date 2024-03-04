@@ -115,7 +115,7 @@ export async function searchUsers(searchString: string) : Promise<string[]> {
 }
 
 export async function getInvites() : Promise<{sender: string, chat_id: number}[]> {
-  let res = await ezFetch('/api/getinvites');
+  let res = await ezFetch('/api/chat/getinvites');
   if(res.error) {
     throw new Error(res.error);
   }
@@ -131,7 +131,7 @@ export async function invite(invitedUser: string, chatId: number) {
 }
 
 export async function acceptInvite(chatId: number) {
-  let acceptedResult = await ezFetch("/api/acceptinvite", {chatId: chatId});
+  let acceptedResult = await ezFetch("/api/chat/acceptinvite", {chatId: chatId});
   if(acceptedResult.error) {
     throw new Error(acceptedResult.error);
   }
@@ -228,7 +228,7 @@ export async function getKeyExchanges(chatId: number) : Promise<Array<{
 }>>{
 
 
-  let res = await ezFetch("/api/chat/sendkeyexchangetochat", {chatId: chatId}, "POST");
+  let res = await ezFetch(`/api/chat/getkeyexchangeforchat`, {chatId: chatId});
 
   if(res.error) {
     throw new Error(res.error);

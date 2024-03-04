@@ -1,4 +1,4 @@
-import { sendMessage } from "src/server/util/database.js";
+import { sendMessage } from "../../util/database.js";
 import { WebSocket } from "ws";
 
 export class Room {
@@ -19,6 +19,7 @@ export class Room {
   }
 
   addUser(id: string, ws: WebSocket, keyExchangeId: number) {
+    console.log(this.onlineMemberList);
     this.onlineMemberList.push({id: id, ws: ws, keyExchangeId: keyExchangeId});
   }
 
@@ -35,6 +36,7 @@ export class Room {
   sendMessage(data: ArrayBuffer, sender: WebSocket) {
     const senderData = this.getUser(sender);
     if(!senderData) {
+      console.log("User not found!");
       this.removeUser(sender);
       return;
     }
@@ -43,7 +45,11 @@ export class Room {
 
     //store encrypted message in database for other users.
     //Make sure this does not block main thread by avoiding "await"
-    sendMessage(senderData.id, dataBase64, this.chatId, senderData.keyExchangeId);
+    sendMessage(senderData.id, dataBase64, this.chatId, senderData.keyExchangeId).then((val) => {
+      console.log("Message saved!")
+    }).catch(e => {
+      console.error(e);
+    });
 
     //send encrypted message to all online users
     for(let member of this.onlineMemberList) {

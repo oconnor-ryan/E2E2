@@ -27,6 +27,6 @@ export async function deriveKey(keyMaterial: CryptoKey, salt: ArrayBuffer) {
       length: 256
     },
     true,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt", "wrapKey", "unwrapKey"]
   );
 }

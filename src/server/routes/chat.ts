@@ -1,6 +1,6 @@
 import express from "express";
 import { acceptInvite, addKeyExchange, createChat, getChatInfo, getChatsOfUser, getInvitesForUser, getKeyExchanges, getLatestMessages, getUserKeysForChat, inviteUserToChat, userInChat } from "../util/database.js";
-import { ErrorCode } from "src/client/shared/Constants.js";
+import { ErrorCode } from "../../client/shared/Constants.js";
 
 const router = express.Router();
 
@@ -70,7 +70,12 @@ router.post("/acceptinvite", async (req, res) => {
 router.use("/", async (req, res, next) => {
   let currentUser = res.locals.username;
 
-  let {chatId} = req.body;
+  let chatId;
+  if(req.method === "GET") {
+    chatId = req.query.chatId;
+  } else {
+    chatId = req.body.chatId;
+  }
 
   if(!chatId) {
     return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
@@ -129,7 +134,7 @@ router.post("/getchatinfo", async (req, res) => {
   return res.json({error: null, chatInfo: result})
 });
 
-router.get("/chatmessages", async (req, res) => {
+router.post("/chatmessages", async (req, res) => {
   let currentUser = res.locals.username as string;
   let chatId = res.locals.chatId as number;
 
@@ -145,7 +150,7 @@ router.get("/chatmessages", async (req, res) => {
 
 });
 
-router.get("/getuserkeysfromchat", async (req, res) => {
+router.post("/getuserkeysfromchat", async (req, res) => {
   let chatId = res.locals.chatId as number;
 
 
@@ -172,7 +177,7 @@ router.post("/sendkeyexchangetochat", async (req, res) => {
   return res.json({error: null, keyExchangeId: exchangeId});
 });
 
-router.get("/getkeyexchangeforchat", async (req, res) => {
+router.post("/getkeyexchangeforchat", async (req, res) => {
   const currentUser = res.locals.username as string;
   const chatId = res.locals.chatId as number;
 

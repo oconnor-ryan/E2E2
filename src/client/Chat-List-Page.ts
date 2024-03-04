@@ -19,10 +19,15 @@ async function fetchAndRenderInvites() {
     let button = document.createElement('button');
     button.textContent = "Accept?";
     button.onclick = async (e) => {
-      await fetcher.acceptInvite(invite.chat_id)
+      try {
+        await fetcher.acceptInvite(invite.chat_id)
 
-      li.remove(); //remove invite from invitation list
-      makeChatElement(invite.chat_id); //create link to chat in Chat list
+        li.remove(); //remove invite from invitation list
+        makeChatElement(invite.chat_id); //create link to chat in Chat list
+      } catch(e) {
+        console.error(e);
+      }
+      
     };
     li.appendChild(button);
     invitationContainer.appendChild(li);

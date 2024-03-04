@@ -114,12 +114,26 @@ async function decryptPrevMessages(
 
   for(let exchange of exchanges) {
     exchangeWithImportedKeys[String(exchange.exchangeId)] = {
-      ephemeralKeyPublic: await ecdh.importKey(exchange.ephemeralKeyBase64),
-      exchangeKeyPublic: await ecdh.importKey(exchange.exchangeKeyBase64),
-      identityKeyPublic: await ecdsa.importKey(exchange.identityKeyBase64),
+      ephemeralKeyPublic: await ecdh.importPublicKey(exchange.ephemeralKeyBase64),
+      exchangeKeyPublic: await ecdh.importPublicKey(exchange.exchangeKeyBase64),
+      identityKeyPublic: await ecdsa.importPublicKey(exchange.identityKeyBase64),
       saltBase64: exchange.saltBase64,
       senderKeyEncBase64: exchange.senderKeyEncBase64
     }
+  }
+
+  if(exchanges.length === 0) {
+    let senderKey = (await storageHandler.getChat(CHAT_ID)).secretKey!;
+    for(let message of messages) {
+      let messageJSON = await decodeMessage(message.data_enc_base64, senderKey);
+
+      switch(messageJSON.type) {
+        case "message":
+          renderMessage(messageJSON.userId, messageJSON.message);
+          break;
+      }
+    }
+    return;
   }
 
   for(let message of messages) {
@@ -166,8 +180,11 @@ async function main() {
   try {
     let exchanges = await fetcher.getKeyExchanges(CHAT_ID);
     let messages = await fetcher.getLatestMessages(CHAT_ID);
+    //in future, we will render messages differently to take advantage of having newest to oldest order.
+    messages.reverse(); //for now, display messages in correct order.
     await decryptPrevMessages(exchanges, messages);
 
+    console.log("HERE")
     //take the newest key exchange and import it into IndexedDB
     if(exchanges.length > 0) {
       let newestExchange = exchanges[exchanges.length-1];
@@ -181,6 +198,9 @@ async function main() {
         keyExchangeId: newestExchange.exchangeId,
         identityKeyBase64: newestExchange.identityKeyBase64
       });
+
+      console.log("HERE1")
+
     }
 
     let messageReceiveCallbacks = {
@@ -198,9 +218,19 @@ async function main() {
       messageReceiveCallbacks,
       serverMessageReceiveCallbacks
     );
+    console.log("HERE2")
 
+
+    messageBox.onkeyup = (ev) => {
+      if(ev.key.toLowerCase() == "enter") {
+        chatSocket.sendMessage(messageBox.value);
+        messageBox.value = '';
+      }
+    }
     messageButton.onclick = (e) => {
       chatSocket.sendMessage(messageBox.value);
+      messageBox.value = '';
+
     }
 
   } catch(e) {

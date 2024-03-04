@@ -8,6 +8,7 @@ const db = postgres({
   database: process.env.DB_NAME,
   username: process.env.DB_USER,
   password: process.env.DB_PSWD,
+  transform: postgres.fromCamel
 });
 
 
@@ -137,7 +138,7 @@ export async function getChatsOfUser(user: string) {
 
 export async function userInChat(chatId: number, userId: string) {
   try {
-    let res = await db`select acct_id from chat_member where chat_id=${chatId} and acct_id=${chatId}`;
+    let res = await db`select acct_id from chat_member where chat_id=${chatId} and acct_id=${userId}`;
     return res.length > 0;
   } catch(e) {
     console.error(e);
@@ -331,7 +332,8 @@ export async function getUserKeysForChat(chatId: number) : Promise<UserInfo[] | 
       exchange_prekey_base64, 
       exchange_prekey_signature_base64
     from account
-    where id IN (select user_id from chat_member where chat_id=${chatId})
+    where id IN 
+      (select acct_id from chat_member where chat_id=${chatId})
     `;
     return res.map(row => {
       return {
@@ -371,28 +373,26 @@ export async function addKeyExchange(senderId: string, chatId: number, members: 
 
       let exchangeId = result1[0].id;
 
+      console.log(exchangeId);
+
       //append all keys from key exchange for each member
       await db`
-        insert into pending_key_exchange_keys (
-          receiver_id,
-          ephemeral_key_base64,
-          sender_key_enc_base64,
-          salt_base64,
-          exchange_id,
-        )
-        //db() will automatically convert array of JSON into a valid INSERT statement
+        insert into pending_key_exchange_keys 
         ${db(
           members.map((member) => {
             return {
-              receiver_id: member.id,
-              ephemeral_key_base64: member.ephemeralKeyBase64,
-              sender_key_enc_base64: member.senderKeyEncBase64,
-              salt_base64: member.saltBase64,
-              exchange_id: exchangeId
+              receiverId: member.id,
+              ephemeralKeyBase64: member.ephemeralKeyBase64,
+              senderKeyEncBase64: member.senderKeyEncBase64,
+              saltBase64: member.saltBase64,
+              exchangeId: exchangeId
             }
           })
         )}
       `;
+
+      //db() will automatically convert array of JSON into a valid INSERT statement
+
 
       return exchangeId;
     });
@@ -430,9 +430,9 @@ export async function getKeyExchanges(receiverId: string, chatId: number) :
         KEYS.ephemeral_key_base64,
         KEYS.sender_key_enc_base64,
         KEYS.salt_base64,
-        EXCHANGE.exchange_id,
+        EXCHANGE.id,
         ACCOUNT.identity_key_base64,
-        ACCOUNT.exchange_key_base64,
+        ACCOUNT.exchange_key_base64
 
       from  
         pending_key_exchange_keys as KEYS,
@@ -445,8 +445,8 @@ export async function getKeyExchanges(receiverId: string, chatId: number) :
         ACCOUNT.id = EXCHANGE.sender_id
         AND EXCHANGE.chat_id=${chatId}
         AND KEYS.receiver_id=${receiverId}
-      )
-      order by EXCHANGE.exchange_id ASC
+      
+      order by EXCHANGE.id ASC
 
     `;
 
@@ -455,7 +455,7 @@ export async function getKeyExchanges(receiverId: string, chatId: number) :
         ephemeralKeyBase64: row.ephemeral_key_base64,
         senderKeyEncBase64: row.sender_key_enc_base64,
         saltBase64: row.salt_base64,
-        exchangeId: row.exchange_id,
+        exchangeId: row.id,
         exchangeKeyBase64: row.exchange_key_base64,
         identityKeyBase64: row.identity_key_base64,
       }

@@ -14,17 +14,19 @@ export async function createKeyPair() {
   );
 }
 
-export async function importKey(base64String: string) {
+export async function importPublicKey(base64String: string) {
   let buffer = base64ToArrayBuffer(base64String);
   return await cryptoSubtle.importKey(
-    "raw",
+    "spki",
     buffer,
     {
       name: "ECDH",
       namedCurve: "P-521"
     },
     false,
-    ["deriveKey", "deriveBits"]
+    //no key usages because deriveBits and deriveKey
+    //are only applied to the private key of a ECDH pair
+    []
   );
 }
 

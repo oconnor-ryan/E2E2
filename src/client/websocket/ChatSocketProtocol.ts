@@ -60,7 +60,7 @@ export async function chatSocketBuilder(
 
   //sign the userId so that the server can validate that 
   //the userId matches with the signature provided
-  let signature = await ecdsa.sign(username, (await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR) as CryptoKeyPair).privateKey);
+  let signature = await ecdsa.sign(username, (await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR) as CryptoKeyPair).privateKey, "base64url");
 
   return new ChatSocketHandler(chatId, username, signature, chatSenderKey, keyExchangeId, userMessageParsedCallbacks, serverMessageParsedCallbacks);
 }
@@ -76,7 +76,7 @@ class ChatSocketHandler {
   constructor(
     chatId: number, 
     userId: string, 
-    signatureBase64: string, 
+    signatureBase64URL: string, 
     senderKey: CryptoKey,
     keyExchangeId: number,
     userMessageCallbacks: UserMessageCompleteCallbacks,
@@ -89,7 +89,7 @@ class ChatSocketHandler {
     this.senderKey = senderKey;
 
     let protocol = window.isSecureContext ? "wss://" : "ws://";
-    this.ws = new WebSocket(`${protocol}${window.location.host}?chatId=${chatId}&userId=${userId}&signatureBase64=${signatureBase64}&keyExchangeId=${keyExchangeId}`);
+    this.ws = new WebSocket(`${protocol}${window.location.host}?chatId=${chatId}&userId=${userId}&signatureBase64URL=${signatureBase64URL}&keyExchangeId=${keyExchangeId}`);
     this.ws.binaryType = "arraybuffer"; //use this instead of Blob
 
     this.ws.onopen = this.onOpen.bind(this);

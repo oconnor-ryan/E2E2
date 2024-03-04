@@ -4,7 +4,7 @@ const cryptoSubtle = window.crypto.subtle;
 
 
 
-export async function importKey(base64String: string) {
+export async function importPublicKey(base64String: string) {
   let buffer = base64ToArrayBuffer(base64String);
   return await cryptoSubtle.importKey(
     "spki",
@@ -14,7 +14,7 @@ export async function importKey(base64String: string) {
       namedCurve: "P-521"
     },
     false,
-    ["sign"]
+    ["verify"]
   );
 }
 
@@ -36,7 +36,12 @@ export async function exportPublicKey(pubKey: CryptoKey) {
   ));
 }
 
-export async function sign(message: string, privateKey: CryptoKey) {
+export async function sign(message: string, privateKey: CryptoKey, type?: "base64") : Promise<string>;
+export async function sign(message: string, privateKey: CryptoKey, type: "base64url") : Promise<string>;
+export async function sign(message: string, privateKey: CryptoKey, type?: "base64" | "base64url") {
+  if(!type) {
+    type = "base64";
+  }
   let signature = await cryptoSubtle.sign(
     {
       name: 'ECDSA',
@@ -45,5 +50,5 @@ export async function sign(message: string, privateKey: CryptoKey) {
     privateKey,
     new TextEncoder().encode(message)
   );
-  return arrayBufferToBase64(signature);
+  return arrayBufferToBase64(signature, type === "base64url");
 }

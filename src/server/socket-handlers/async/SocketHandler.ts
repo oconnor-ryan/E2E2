@@ -1,9 +1,9 @@
 import { WebSocket } from "ws";
 import http from 'http';
 
-import { verifyKey } from "src/server/util/webcrypto/ecdsa.js";
+import { verifyKey } from "../../util/webcrypto/ecdsa.js";
 import { Room } from "./Room.js";
-import { getIdentityKey, userInChat } from "src/server/util/database.js";
+import { getIdentityKey, userInChat } from "../../util/database.js";
 
 let rooms: Room[] = [];
 
@@ -15,7 +15,7 @@ export async function onConnection(ws: WebSocket, req: http.IncomingMessage, req
   //if value is undefined, it returns NaN.
   let chatId = Number(reqParams.get("chatId") ?? NaN);
   let userId = reqParams.get("userId");
-  let signatureBase64 = reqParams.get("signatureBase64");
+  let signatureBase64URL = reqParams.get("signatureBase64URL");
   let keyExchangeId = reqParams.get("keyExchangeId");
 
 
@@ -29,7 +29,7 @@ export async function onConnection(ws: WebSocket, req: http.IncomingMessage, req
     return;
   }
 
-  if(!signatureBase64) {
+  if(!signatureBase64URL) {
     ws.close(undefined, "You must provide a signature matching the userId!");
     return;
   }
@@ -45,7 +45,9 @@ export async function onConnection(ws: WebSocket, req: http.IncomingMessage, req
     return;
   }
 
-  if(!(await verifyKey(userId, signatureBase64, pubKeyBase64))) {
+  let sigBase64 = Buffer.from(signatureBase64URL, 'base64url').toString('base64');
+
+  if(!(await verifyKey(userId, sigBase64, pubKeyBase64))) {
     ws.close(undefined, "Unable to verify signature!");
     return;
   }
@@ -64,6 +66,7 @@ export async function onConnection(ws: WebSocket, req: http.IncomingMessage, req
     room = rooms[chatId];
   }
 
+  room.addUser(userId, ws, Number(keyExchangeId));
 
   ws.on('error', console.error);
 
