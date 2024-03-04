@@ -122,8 +122,12 @@ async function decryptPrevMessages(
     }
   }
 
+  //if there are no pending exchanges, use the senderKey stored in IndexedDB
   if(exchanges.length === 0) {
-    let senderKey = (await storageHandler.getChat(CHAT_ID)).secretKey!;
+    let senderKey = (await storageHandler.getChat(CHAT_ID)).secretKey;
+    if(!senderKey) {
+      throw new Error("No Sender Key and No Key Exchanges, cannot decrypt any messages");
+    }
     for(let message of messages) {
       let messageJSON = await decodeMessage(message.data_enc_base64, senderKey);
 
@@ -181,10 +185,10 @@ async function main() {
     let exchanges = await fetcher.getKeyExchanges(CHAT_ID);
     let messages = await fetcher.getLatestMessages(CHAT_ID);
     //in future, we will render messages differently to take advantage of having newest to oldest order.
+    //(get 1st 100 messages, then next 100, etc)
     messages.reverse(); //for now, display messages in correct order.
     await decryptPrevMessages(exchanges, messages);
 
-    console.log("HERE")
     //take the newest key exchange and import it into IndexedDB
     if(exchanges.length > 0) {
       let newestExchange = exchanges[exchanges.length-1];
@@ -199,7 +203,6 @@ async function main() {
         identityKeyBase64: newestExchange.identityKeyBase64
       });
 
-      console.log("HERE1")
 
     }
 
@@ -218,7 +221,6 @@ async function main() {
       messageReceiveCallbacks,
       serverMessageReceiveCallbacks
     );
-    console.log("HERE2")
 
 
     messageBox.onkeyup = (ev) => {
