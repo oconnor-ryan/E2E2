@@ -11,12 +11,12 @@ export async function x3dh_sender(
 ) {
   //perform 3 Diffie-Hellman functions record the derived bytes
   //from each function
-  let dh1 = await ecdh.deriveBits(myIdKey, theirPreKey);
-  let dh2 = await ecdh.deriveBits(myEphemeralKey, theirIdKey);
-  let dh3 = await ecdh.deriveBits(myEphemeralKey, theirPreKey);
+  let dh1 = await ecdh.deriveBits(myIdKey, theirPreKey); //authenticate with myIdKey
+  let dh2 = await ecdh.deriveBits(myEphemeralKey, theirIdKey); //authenticate with their Id Key
+  let dh3 = await ecdh.deriveBits(myEphemeralKey, theirPreKey); //forward secrecy by using ephemeral/short-term keys
 
-
-
+  //TODO: in full X3DH, there is a 4th DH performed for one-time-keys to
+  //improve forward secrecy, consider implementing this in future
 
   //concatenate the raw bytes of each key into one input key material
   //for HKDF

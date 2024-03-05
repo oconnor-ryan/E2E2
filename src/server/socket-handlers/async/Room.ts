@@ -46,12 +46,18 @@ export class Room {
     //store encrypted message in database for other users.
     //Make sure this does not block main thread by avoiding "await"
     sendMessage(senderData.id, dataBase64, this.chatId, senderData.keyExchangeId).then((val) => {
-      console.log("Message saved!")
+      if(val) {
+        console.log("Message saved!")
+      } else {
+        console.warn("Message failed to save!")
+      }
     }).catch(e => {
       console.error(e);
     });
 
-    //send encrypted message to all online users
+    //send encrypted message to all online users/
+    //note that even the user who sent the message retrieves the message too.
+    //This can be used as a confirmation message that their message was sent successfully.
     for(let member of this.onlineMemberList) {
       member.ws.send(data, {binary: true});
     }
