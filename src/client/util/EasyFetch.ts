@@ -1,11 +1,14 @@
 import * as storage from './StorageHandler.js'
 import * as ecdsa from '../encryption/ECDSA.js';
 import * as ecdh from '../encryption/ECDH.js';
+import * as aes from '../encryption/AES.js';
 
 import { getDatabase } from './StorageHandler.js';
 
 import { ErrorCode, KeyType, UserInfo } from '../shared/Constants.js';
-import { initKeyExchange } from './KeyExchange.js';
+import { importKey, initKeyExchange } from './KeyExchange.js';
+import { EncryptedMessageDecoder } from './MessageDecoder.js';
+import { x3dh_receiver } from './X3DH.js';
 
 export async function createAccount(username: string) {
   let storageHandler = await getDatabase();
@@ -250,4 +253,88 @@ export async function getLatestMessages(chatId: number, numMessages?: number) : 
   }
 
   return res.messages;
+}
+
+export async function decryptPrevMessages(chatId: number, decoder: EncryptedMessageDecoder) {
+  let exchanges = await getKeyExchanges(chatId);
+  let messages = await getLatestMessages(chatId);
+
+  //in future, we will render messages differently to take advantage of having newest to oldest order.
+  //(get 1st 100 messages, then next 100, etc)
+  messages.reverse(); //for now, display messages in correct order.
+
+  if(messages.length === 0) {
+    return;
+  }
+
+  let storageHandler = await getDatabase();
+
+  let myExchangeKeyPrivate = (await storageHandler.getKey(KeyType.EXCHANGE_ID_PAIR) as CryptoKeyPair).privateKey;
+  let myExchangePreKeyPrivate = (await storageHandler.getKey(KeyType.EXCHANGE_PREKEY_PAIR) as CryptoKeyPair).privateKey;
+
+
+  let exchangeWithImportedKeys: {
+    [id: string] : {
+      ephemeralKeyPublic: CryptoKey,
+      senderKeyEncBase64: string;
+      saltBase64: string;
+      exchangeKeyPublic: CryptoKey;
+      identityKeyPublic: CryptoKey;
+    }
+  } = {};
+
+  for(let exchange of exchanges) {
+    exchangeWithImportedKeys[String(exchange.exchangeId)] = {
+      ephemeralKeyPublic: await ecdh.importPublicKey(exchange.ephemeralKeyBase64),
+      exchangeKeyPublic: await ecdh.importPublicKey(exchange.exchangeKeyBase64),
+      identityKeyPublic: await ecdsa.importPublicKey(exchange.identityKeyBase64),
+      saltBase64: exchange.saltBase64,
+      senderKeyEncBase64: exchange.senderKeyEncBase64
+    }
+  }
+
+  //if there are no pending exchanges, use the senderKey stored in IndexedDB
+  if(exchanges.length === 0) {
+    let senderKey = (await storageHandler.getChat(chatId)).secretKey;
+    if(!senderKey) {
+      throw new Error("No Sender Key and No Key Exchanges, cannot decrypt any messages");
+    }
+    for(let message of messages) {
+      await decoder.decodeMessage(message.data_enc_base64, senderKey);
+
+    }
+    return;
+  }
+
+  //take the newest key exchange and import it into IndexedDB
+  if(exchanges.length > 0) {
+    let newestExchange = exchanges[exchanges.length-1];
+
+
+    await importKey(chatId, {
+      ephemeralKeyBase64: newestExchange.ephemeralKeyBase64,
+      exchangeKeyBase64: newestExchange.exchangeKeyBase64,
+      senderKeyEncBase64: newestExchange.senderKeyEncBase64,
+      saltBase64: newestExchange.saltBase64,
+      keyExchangeId: newestExchange.exchangeId,
+      identityKeyBase64: newestExchange.identityKeyBase64
+    });
+
+  }
+
+  for(let message of messages) {
+    let exchangeData = exchangeWithImportedKeys[message.key_exchange_id];
+
+    let secretKey = (await x3dh_receiver(
+      myExchangeKeyPrivate,
+      myExchangePreKeyPrivate,
+      exchangeData.exchangeKeyPublic,
+      exchangeData.ephemeralKeyPublic,
+      exchangeData.saltBase64
+    )).secretKey;
+
+    let senderKey = await aes.upwrapKey(exchangeData.senderKeyEncBase64, secretKey);
+
+    await decoder.decodeMessage(message.data_enc_base64, senderKey);
+  }
 }

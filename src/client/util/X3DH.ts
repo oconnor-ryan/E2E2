@@ -1,7 +1,6 @@
 import { base64ToArrayBuffer } from "../encryption/Base64.js";
 import * as ecdh from "../encryption/ECDH.js";
 import * as hkdf from "../encryption/HKDF.js";
-import * as aes from "../encryption/AES.js";
 
 
 export async function x3dh_sender(
@@ -10,16 +9,12 @@ export async function x3dh_sender(
   theirIdKey: CryptoKey,
   theirPreKey: CryptoKey
 ) {
-  console.log("X3DH Send")
   //perform 3 Diffie-Hellman functions record the derived bytes
   //from each function
   let dh1 = await ecdh.deriveBits(myIdKey, theirPreKey);
   let dh2 = await ecdh.deriveBits(myEphemeralKey, theirIdKey);
   let dh3 = await ecdh.deriveBits(myEphemeralKey, theirPreKey);
 
-  console.log("1", new Uint8Array(dh1));
-  console.log("2", new Uint8Array(dh2));
-  console.log("3", new Uint8Array(dh3));
 
 
 
@@ -27,7 +22,6 @@ export async function x3dh_sender(
   //for HKDF
   let keyMaterial = concatBuffers(dh1, dh2, dh3);
 
-  console.log(new Uint8Array(keyMaterial));
 
 
   //though not technically a key, the HKDF CryptoKey is used
@@ -42,7 +36,6 @@ export async function x3dh_sender(
   //perform HKDF function and get the AES key derived from it.
   let secretKey = await hkdf.deriveKey(hkdfKey, salt);
 
-  console.log(await aes.exportKeyAsBase64(secretKey));
 
   return {secretKey: secretKey, salt: salt};
 }
@@ -54,22 +47,19 @@ export async function x3dh_receiver(
   theirEphemeralKey: CryptoKey,
   saltBase64: string
 ) {
-  console.log("X3DH Receive")
   //perform 3 Diffie-Hellman functions record the derived bytes
-  //from each function
+  //from each function. 
+  //Notice that this is almost identical to x3dh_sender except 
+  //the public and private keys are swapped.
   let dh1 = await ecdh.deriveBits(myPreKey, theirIdKey);
   let dh2 = await ecdh.deriveBits(myIdKey, theirEphemeralKey);
   let dh3 = await ecdh.deriveBits(myPreKey, theirEphemeralKey);
 
-  console.log("1", new Uint8Array(dh1));
-  console.log("2", new Uint8Array(dh2));
-  console.log("3", new Uint8Array(dh3));
 
   //concatenate the raw bytes of each key into one input key material
   //for HKDF
   let keyMaterial = concatBuffers(dh1, dh2, dh3);
 
-  console.log(new Uint8Array(keyMaterial));
 
 
   //though not technically a key, the HKDF CryptoKey is used
@@ -77,14 +67,12 @@ export async function x3dh_receiver(
   //which actually performs HKDF. 
   let hkdfKey = await hkdf.importKey(keyMaterial);
 
-  //generate 20 random bytes as the salt for HKDF
   let salt = base64ToArrayBuffer(saltBase64);
 
 
   //perform HKDF function and get the AES key derived from it.
   let secretKey = await hkdf.deriveKey(hkdfKey, salt);
 
-  console.log(await aes.exportKeyAsBase64(secretKey));
 
 
   return {secretKey: secretKey, salt: salt};

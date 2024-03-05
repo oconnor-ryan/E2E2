@@ -10,18 +10,14 @@ import { arrayBufferToBase64 } from "../encryption/Base64.js";
 export async function importKey(chatId: number, data: {ephemeralKeyBase64: string, exchangeKeyBase64: string, senderKeyEncBase64: string, saltBase64: string, keyExchangeId: number, identityKeyBase64: string}) {
   const storageHandler = await getDatabase();
 
-  console.log(data);
 
-  console.log("Import key1");
   const exchangeKeyPair = await storageHandler.getKey(KeyType.EXCHANGE_ID_PAIR) as CryptoKeyPair;
   const exchangePreKeyPair = await storageHandler.getKey(KeyType.EXCHANGE_PREKEY_PAIR) as CryptoKeyPair;
 
-  console.log("Import key2");
 
   const theirEphemeralKey = await ecdh.importPublicKey(data.ephemeralKeyBase64);
   const theirExchangeKey = await ecdh.importPublicKey(data.exchangeKeyBase64);
 
-  console.log("Import key3");
 
   const secretKey = (await x3dh.x3dh_receiver(
     exchangeKeyPair.privateKey,
@@ -31,11 +27,9 @@ export async function importKey(chatId: number, data: {ephemeralKeyBase64: strin
     data.saltBase64
   )).secretKey;
 
-  console.log("Import key4");
 
   let senderKey = await aes.upwrapKey(data.senderKeyEncBase64, secretKey);
 
-  console.log("Import key5");
 
   await storageHandler.updateChat({chatId: chatId, secretKey: senderKey, keyExchangeId: data.keyExchangeId});
 
@@ -77,7 +71,6 @@ export async function initKeyExchange(chatId: number, members?: UserInfo[]) {
     const ephemeralKeyPair = await ecdh.createKeyPair();
 
 
-    console.log(member);
     let {secretKey, salt} = await x3dh.x3dh_sender(
       myIdKeyPair.privateKey,
       ephemeralKeyPair.privateKey,
@@ -85,12 +78,10 @@ export async function initKeyExchange(chatId: number, members?: UserInfo[]) {
       await ecdh.importPublicKey(member.exchange_prekey_base64)
     );
 
-    console.log("HERE3");
 
     
     let encSenderKeyBase64 = await aes.wrapKey(senderKey, secretKey);
 
-    console.log("HERE4");
 
     keyExchangeData.memberKeyList.push({
       id: member.id, 

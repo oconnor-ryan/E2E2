@@ -2,7 +2,7 @@ import { getDatabase } from "../util/StorageHandler.js";
 import * as ecdsa from "../encryption/ECDSA.js";
 import * as aes from "../encryption/AES.js";
 import { KeyType } from "../shared/Constants.js";
-import { decodeMessage } from "../util/MessageDecoder.js";
+import { EncryptedMessageDecoder } from "../util/MessageDecoder.js";
 
 /**
  * These describe the callbacks that can be called after
@@ -16,7 +16,7 @@ import { decodeMessage } from "../util/MessageDecoder.js";
  * client.
  */
 export interface UserMessageCompleteCallbacks {
-  "message": (user: string, message: string) => void,
+  "message": (data: {userId: string, message: string}) => void,
 };
 
 /**
@@ -73,6 +73,8 @@ class ChatSocketHandler {
   private chatId: number;
   private userId: string;
 
+  private decoder;
+
   constructor(
     chatId: number, 
     userId: string, 
@@ -87,6 +89,8 @@ class ChatSocketHandler {
     this.chatId = chatId;
     this.userId = userId;
     this.senderKey = senderKey;
+
+    this.decoder = new EncryptedMessageDecoder(this.userMessageCallbacks);
 
     let protocol = window.isSecureContext ? "wss://" : "ws://";
     this.ws = new WebSocket(`${protocol}${window.location.host}?chatId=${chatId}&userId=${userId}&signatureBase64URL=${signatureBase64URL}&keyExchangeId=${keyExchangeId}`);
@@ -145,13 +149,7 @@ class ChatSocketHandler {
   }
 
   protected async handleEncryptedMessage(data: ArrayBuffer) {
-    let messageJSON = await decodeMessage(data, this.senderKey);
-
-    switch(messageJSON.type) {
-      case "message":
-        this.userMessageCallbacks["message"](messageJSON.userId, messageJSON.message);
-        break;
-    }
+    await this.decoder.decodeMessage(data, this.senderKey);
   }
 
   protected async handleServerMessage(data: string) {
