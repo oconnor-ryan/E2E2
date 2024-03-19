@@ -138,9 +138,9 @@ router.post("/chatmessages", async (req, res) => {
   let currentUser = res.locals.username as string;
   let chatId = res.locals.chatId as number;
 
-  let {numMessages, currentKeyExchangeId} = req.body;
+  let {numMessages, currentKeyExchangeId, lastReadMessageUUID} = req.body;
 
-  let messages = await getLatestMessages(chatId, currentKeyExchangeId, numMessages);
+  let messages = await getLatestMessages(chatId, lastReadMessageUUID, currentKeyExchangeId, numMessages);
 
   if(!messages) {
     return res.json({error: ErrorCode.FAILED_TO_GET_MESSAGES});

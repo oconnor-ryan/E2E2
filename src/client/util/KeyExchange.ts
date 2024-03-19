@@ -31,7 +31,8 @@ export async function saveKeyFromExchange(chatId: number, data: {ephemeralKeyBas
   let senderKey = await aes.upwrapKey(data.senderKeyEncBase64, secretKey);
 
 
-  await storageHandler.updateChat({chatId: chatId, secretKey: senderKey, keyExchangeId: data.keyExchangeId});
+  let chatInfo = await storageHandler.getChat(chatId);
+  await storageHandler.updateChat({chatId: chatId, secretKey: senderKey, keyExchangeId: data.keyExchangeId, lastReadMessageUUID: chatInfo.lastReadMessageUUID});
 
 }
 
@@ -96,6 +97,7 @@ export async function initKeyExchange(chatId: number, members?: UserInfo[]) {
   let keyExchangeId = await sendKeyExchange(keyExchangeData.chatId, keyExchangeData.memberKeyList);
 
   //save to indexeddb
-  await storageHandler.addChat({chatId: chatId, secretKey: senderKey, keyExchangeId: keyExchangeId});
+  let chatInfo = await storageHandler.getChat(chatId);
+  await storageHandler.addChat({chatId: chatId, secretKey: senderKey, keyExchangeId: keyExchangeId, lastReadMessageUUID: chatInfo.lastReadMessageUUID});
 
 }

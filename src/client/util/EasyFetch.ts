@@ -168,7 +168,7 @@ export async function createChat() : Promise<{id: number, invitedUsers: string[]
   //because no users have accepted invite yet, no keys are 
   //stored and any messages that the owner writes should be
   //stored in a queue on the client until a key exchange is performed
-  await storageHandler.addChat({chatId: res.chat.id, secretKey: null, keyExchangeId: null});
+  await storageHandler.addChat({chatId: res.chat.id, secretKey: null, keyExchangeId: null, lastReadMessageUUID: null});
 
 
   return res.chat;
@@ -237,13 +237,14 @@ export async function getKeyExchanges(chatId: number, keyExchangeId?: number) : 
   return res.result;
 }
 
-export async function getLatestMessages(chatId: number, currentKeyExchangeId?: number, numMessages?: number) : Promise<{
-  id: number;
-  data_enc_base64: string;
-  chat_id: number;
-  key_exchange_id: number;
+export async function getLatestMessages(chatId: number, lastestMessageUUID?: string, currentKeyExchangeId?: number, numMessages?: number) : Promise<{
+  id: number,
+  data_enc_base64: string,
+  chat_id: number,
+  key_exchange_id: number,
+  message_uuid: string
 }[]>{
-  let res = await ezFetch("/api/chat/chatmessages", {chatId: chatId, numMessages: numMessages, currentKeyExchangeId: currentKeyExchangeId});
+  let res = await ezFetch("/api/chat/chatmessages", {chatId: chatId, numMessages: numMessages, currentKeyExchangeId: currentKeyExchangeId, lastReadMessageUUID: lastestMessageUUID});
   if(res.error) {
     throw new Error(res.error);
   }

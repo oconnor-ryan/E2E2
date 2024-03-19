@@ -36,6 +36,7 @@ interface MessageEntry {
 }
 interface ChatEntry {
   chatId: number, 
+  lastReadMessageUUID: string | null,
   //members: {id: string}[],
   secretKey: CryptoKey | null,
   keyExchangeId: number | null
@@ -408,6 +409,12 @@ class _StorageHandler {
       };
     })
   }
+
+  async updateLastReadMessageChat(chatId: number, uuid: string) : Promise<void> {
+    let chatEntry = await this.getChat(chatId);
+    chatEntry.lastReadMessageUUID = uuid;
+    await this.updateChat(chatEntry);
+  }
   
   getChat(chatId: number) : Promise<ChatEntry> {
     const transaction = this.db.transaction(CHAT_STORE, "readonly");
@@ -453,9 +460,9 @@ class _StorageHandler {
   
     let request = objectStore.add(entry);
   
-    return new Promise<void>((resolve, reject) => {
-      request.onsuccess = () => {
-        resolve();
+    return new Promise<number>((resolve, reject) => {
+      request.onsuccess = (ev) => {
+        resolve(request.result as number);
       };
   
       request.onerror = (ev) => {

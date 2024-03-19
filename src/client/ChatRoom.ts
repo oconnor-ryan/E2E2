@@ -1,7 +1,7 @@
 import * as fetcher from "./util/EasyFetch.js";
 import { StorageHandler, getDatabase } from "./util/StorageHandler.js";
 
-import { EncryptedMessageDecoder, decryptPrevMessages, formatMessage } from "./util/MessageHandler.js";
+import { EncryptedMessageDecoder, decryptPrevMessages, formatAndSaveMessage, formatMessage, saveLastReadMessageUUID } from "./util/MessageHandler.js";
 import { chatSocketBuilder } from "./websocket/ChatSocketProtocol.js";
 
 const chatHeader = document.getElementById('chatroom-name') as HTMLHeadingElement;
@@ -27,7 +27,10 @@ const messageReceiveCallbacks = {
 const serverMessageReceiveCallbacks = {
   "userOnline": (user: string) => {},
   "userOffline": (user: string) => {},
-  "retrieveNewKey": (error: Error | null) => {}
+  "retrieveNewKey": (error: Error | null) => {},
+  "messageConfirm": (chatId: number, uuid: string) => {
+    saveLastReadMessageUUID(chatId, uuid);
+  }
 };
 
 
@@ -106,6 +109,7 @@ async function main() {
   //render all old messages stored on client
   try {
     let oldMessages = await storageHandler.getMessages(CHAT_ID, undefined, false);
+    console.log("Number of old messages", oldMessages.length);
     for(let message of oldMessages) {
       if(message.data.type === "message") {
         renderMessage(message.data.senderId, message.data.message);
@@ -130,13 +134,15 @@ async function main() {
     );
 
     let sendMessageCallback = async () => {
-      let formattedData = await formatMessage(messageBox.value);
+      let result = await formatAndSaveMessage(messageBox.value, CHAT_ID);
         
-      chatSocket.sendMessage(formattedData)
-        .then(() => renderMessage(storageHandler.getUsername() ?? "You", formattedData.message))
+      chatSocket.sendMessage(result.formattedMessage)
+        .then(() => {
+          renderMessage((result.savedMessageId ? "" : "FAILED TO SAVE MESSAGE: ") + storageHandler.getUsername() ?? "You", result.formattedMessage.message)
+        })
         .catch(e => {
-          console.warn(e);
-          renderMessage("WARNING: FAILED TO SAVE FOLLOWING MESSAGE", formattedData.message);
+          console.error(e);
+          renderMessage("ERROR: FAILED TO SEND FOLLOWING MESSAGE", result.formattedMessage.message);
         });
 
       messageBox.value = '';

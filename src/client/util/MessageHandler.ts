@@ -26,13 +26,43 @@ export class EncryptedMessageDecoder {
     this.chatId = chatId;
   }
 
+  /**
+   * 
+   * @param dataEnc - can be in the following formats
+   * 1. As a encrypted base64-encoded JSON message
+   * 2. As an encrypted binary JSON message
+   * 3. As an encrypted binary value where the JSON message and UUID of a message are concatenated
+   * @param key 
+   * @returns 
+   */
   async decodeMessage(dataEnc: string | ArrayBuffer, key: CryptoKey) {
-    let decrypted = await aes.decrypt(dataEnc, key);
-    console.log(decrypted);
-    let val = JSON.parse(decrypted) as Message;
+    let decrypted;
+    try {
+      decrypted = await aes.decrypt(dataEnc, key);
+    } catch(e) {
+      if(dataEnc instanceof ArrayBuffer) {
+        //the last 36 bytes are the UUID of the message
+        let jsonEnc = dataEnc.slice(0, dataEnc.byteLength-36);
+        let uuidPart = dataEnc.slice(-36);
+
+        //save the last read message's UUID so that the server can figure out what messages
+        //the client has not stored yet.
+        //make sure to await so we can ensure that this value is saved
+        await saveLastReadMessageUUID(this.chatId, new TextDecoder('utf-8').decode(uuidPart))
+        try {
+          decrypted = await aes.decrypt(jsonEnc, key);
+        } catch(e) {
+          console.error(e);
+          return;
+        }
+      }
+    }
+
+    let val = JSON.parse(decrypted!) as Message;
 
     //automatically save each message to client after decoding
     saveMessage(val, this.chatId).catch(e => console.error(e));
+
 
     //@ts-ignore
     if(!this.userMessageCallbacks[val.type as string]) {
@@ -63,17 +93,27 @@ export async function formatMessage(message: string, type: "message" = "message"
 export async function saveMessage(data: Message, chatId: number) {
   let storageHandler = await getDatabase();
 
-  await storageHandler.addMessage({
+  return await storageHandler.addMessage({
     chatId: chatId,
     data: data
   })
 }
 
+export async function saveLastReadMessageUUID(chatId: number, uuid: string) {
+  await (await getDatabase()).updateLastReadMessageChat(chatId, uuid);
+}
+
+
 //helper function used only by a sender of a message to simplify formatting and saving a message
 export async function formatAndSaveMessage(message: string, chatId: number, type: "message" = "message") {
   let formattedMessage = await formatMessage(message, type);
-  saveMessage(formattedMessage, chatId).catch(e => console.error(e));
-  return formattedMessage;
+  let messageId;
+  try {
+    messageId = await saveMessage(formattedMessage, chatId);
+  } catch(e) {
+    messageId = null;
+  }
+  return {formattedMessage: formattedMessage, savedMessageId: messageId};
 }
 
 export async function encryptMessage(data: Message, key: CryptoKey) {
@@ -89,7 +129,7 @@ export async function decryptPrevMessages(chatId: number, decoder: EncryptedMess
   //include the current key exchange being used so that server can only retrieve exchanges and messages that
   //occur after this key exchange
   let exchanges = await fetcher.getKeyExchanges(chatId, chatInfo.keyExchangeId ?? undefined);
-  let messages = await fetcher.getLatestMessages(chatId, chatInfo.keyExchangeId ?? undefined);
+  let messages = await fetcher.getLatestMessages(chatId, chatInfo.lastReadMessageUUID ?? undefined, chatInfo.keyExchangeId ?? undefined);
 
   //in future, we will render messages differently to take advantage of having newest to oldest order.
   //(get 1st 100 messages, then next 100, etc)
@@ -133,14 +173,19 @@ export async function decryptPrevMessages(chatId: number, decoder: EncryptedMess
     if(!senderKey) {
       throw new Error("No Sender Key and No Key Exchanges, cannot decrypt any messages");
     }
+    let currentUUID = "";
     for(let message of messages) {
       try {
         await decoder.decodeMessage(message.data_enc_base64, senderKey);
+        currentUUID = message.message_uuid;
       } catch(e) {
         //you cannot decrypt this message most likely because these messages were sent before you joined
       }
-
     }
+    if(currentUUID) {
+      await saveLastReadMessageUUID(chatId, currentUUID);
+    }
+
     return;
   }
 
@@ -160,6 +205,7 @@ export async function decryptPrevMessages(chatId: number, decoder: EncryptedMess
 
   }
 
+  let currentUUID = "";
   for(let message of messages) {
     let exchangeData = exchangeWithImportedKeys[message.key_exchange_id];
 
@@ -181,5 +227,10 @@ export async function decryptPrevMessages(chatId: number, decoder: EncryptedMess
 
 
     await decoder.decodeMessage(message.data_enc_base64, senderKey);
+    currentUUID = message.message_uuid;
+  }
+
+  if(!currentUUID) {
+    await saveLastReadMessageUUID(chatId, currentUUID);
   }
 }

@@ -86,7 +86,8 @@ CREATE TABLE public.message (
     id bigint NOT NULL,
     data_enc_base64 character varying NOT NULL,
     chat_id integer NOT NULL,
-    key_exchange_id integer
+    key_exchange_id integer,
+    message_uuid uuid NOT NULL
 );
 
 
@@ -241,6 +242,14 @@ ALTER TABLE ONLY public.chat_member
 
 ALTER TABLE ONLY public.chat
     ADD CONSTRAINT chat_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: message message_message_uuid_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.message
+    ADD CONSTRAINT message_message_uuid_key UNIQUE (message_uuid);
 
 
 --

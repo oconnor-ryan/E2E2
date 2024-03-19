@@ -32,7 +32,8 @@ export interface UserMessageCompleteCallbacks {
 export interface ServerMessageCompleteCallbacks {
   "userOnline": (user: string) => void,
   "userOffline": (user: string) => void,
-  "retrieveNewKey": (error: Error | null) => void
+  "retrieveNewKey": (error: Error | null) => void,
+  "messageConfirm": (chatId: number, uuid: string) => void
 
 };
 
@@ -129,7 +130,7 @@ class ChatSocketHandler {
   protected async onMessage(e: MessageEvent<any>) {
     if(e.data instanceof ArrayBuffer) {
       //to keep things simple, all messages are encrypted binary
-      this.handleEncryptedMessage(e.data);
+      await this.handleEncryptedMessage(e.data);
     } 
     //string, so this is not an encrypted message from another
     //client. This is most likely a notification from the server
@@ -155,6 +156,9 @@ class ChatSocketHandler {
         break;
       case "retrieveNewKey":
         this.serverMessageCallbacks["retrieveNewKey"](null);
+        break;
+      case "messageConfirm":
+        this.serverMessageCallbacks["messageConfirm"](this.chatId, messageJSON.uuid);
         break;
     }
   }

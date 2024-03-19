@@ -9,7 +9,7 @@ A instant-messaging web application where users can send encrypted messages to e
 > messages.
 
 ## Current Objectives
-1. Implement user signatures for messages and key exchanges. Save public keys of users you chat with in order to verify that each message sent was sent by them. When first connecting to user, save their keys so that if it changes, you have the option to use their new signing key uploaded to the server.
+1. Implement user signatures for messages and key exchanges. Save public keys of users you chat with in order to verify that each message sent was sent by them (this way, you no longer need to attach a senderId to each message, it can be signed with a user's signing key). When first connecting to user, save their keys so that if it changes, you have the option to use their new signing key uploaded to the server.
 2. Save messages from server and store them on client.
 3. Delete messages and key exchanges once all users in a chat room receive all previous messages
 

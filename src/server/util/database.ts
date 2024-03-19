@@ -166,27 +166,30 @@ export async function getChatInfo(chatId: number) {
   }
 }
 
-export async function getLatestMessages(chatId: number, receiversCurrentKeyExchange? : number, count?: number) : Promise<
+export async function getLatestMessages(chatId: number, lastReadMessageUUID?: string, receiversCurrentKeyExchange? : number, count?: number) : Promise<
   Array<{
     id: number,
     data_enc_base64: string,
     chat_id: number,
-    key_exchange_id: number
+    key_exchange_id: number,
+    message_uuid: string
   }> 
   | 
   null
 > {
   let limitQuery = count ? db`limit ${count}` : db``;
   let getMessagesAfterExchangeQuery = receiversCurrentKeyExchange ? db`AND key_exchange_id >= ${receiversCurrentKeyExchange}` : db``;
+  let latestMessageOnlyQuery = lastReadMessageUUID ? db`AND id > COALESCE((SELECT id FROM message WHERE message_uuid=${lastReadMessageUUID}), -1)` : db``;
 
   try {
-    let result = await db`select * from message where chat_id=${chatId} ${getMessagesAfterExchangeQuery} order by id desc ${limitQuery}`;
+    let result = await db`select * from message where chat_id=${chatId} ${latestMessageOnlyQuery} ${getMessagesAfterExchangeQuery} order by id desc ${limitQuery}`;
     return result.map(row => {
       return {
         id: row.id,
         data_enc_base64: row.data_enc_base64,
         chat_id: row.chat_id,
-        key_exchange_id: row.key_exchange_id
+        key_exchange_id: row.key_exchange_id,
+        message_uuid: row.message_uuid
       }
     });
   } catch(e) {
@@ -200,7 +203,8 @@ export async function getLatestMessages(chatId: number, receiversCurrentKeyExcha
 export async function storeMessage(
   dataEncBase64: string,
   chatId: number,
-  keyExchangeId: number
+  keyExchangeId: number,
+  uuid: string
 ) {
 
   try {
@@ -208,12 +212,14 @@ export async function storeMessage(
       insert into message (
         data_enc_base64, 
         chat_id, 
-        key_exchange_id
+        key_exchange_id,
+        message_uuid
       )
       values (
         ${dataEncBase64},
         ${chatId},
-        ${keyExchangeId}
+        ${keyExchangeId},
+        ${uuid}
       )
     `;
     return true;
