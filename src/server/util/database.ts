@@ -170,7 +170,6 @@ export async function getLatestMessages(chatId: number, count?: number) : Promis
   Array<{
     id: number,
     data_enc_base64: string,
-    sender_id: string,
     chat_id: number,
     key_exchange_id: number
   }> 
@@ -185,7 +184,6 @@ export async function getLatestMessages(chatId: number, count?: number) : Promis
       return {
         id: row.id,
         data_enc_base64: row.data_enc_base64,
-        sender_id: row.data_enc_base64,
         chat_id: row.chat_id,
         key_exchange_id: row.key_exchange_id
       }
@@ -199,7 +197,6 @@ export async function getLatestMessages(chatId: number, count?: number) : Promis
 }
 
 export async function sendMessage(
-  senderId: string, 
   dataEncBase64: string,
   chatId: number,
   keyExchangeId: number
@@ -209,13 +206,11 @@ export async function sendMessage(
     await db`
       insert into message (
         data_enc_base64, 
-        sender_id, 
         chat_id, 
         key_exchange_id
       )
       values (
         ${dataEncBase64},
-        ${senderId},
         ${chatId},
         ${keyExchangeId}
       )

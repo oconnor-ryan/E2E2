@@ -3,34 +3,26 @@ import { WebSocket } from "ws";
 
 export class Room {
   private chatId: number;
-  private onlineMemberList: {id: string, ws: WebSocket, keyExchangeId: number}[];
+  private onlineMemberList: {ws: WebSocket, keyExchangeId: number}[];
 
   constructor(chatId: number) {
     this.chatId = chatId;
     this.onlineMemberList = [];
   }
 
-  get onlineMembers() : Readonly<string[]>{
-    return this.onlineMemberList.map((val) => val.id);
-  };
-
   getUser(ws: WebSocket) {
     return this.onlineMemberList.find((val) => val.ws === ws);
   }
 
-  addUser(id: string, ws: WebSocket, keyExchangeId: number) {
-    console.log(this.onlineMemberList);
-    this.onlineMemberList.push({id: id, ws: ws, keyExchangeId: keyExchangeId});
+  addUser(ws: WebSocket, keyExchangeId: number) {
+    this.onlineMemberList.push({ws: ws, keyExchangeId: keyExchangeId});
   }
 
-  removeUser(userIdOrSocket: string | WebSocket) {
-    let userIndex: number;
-    if(userIdOrSocket instanceof WebSocket) {
-      userIndex = this.onlineMemberList.findIndex((val) => val.ws === userIdOrSocket)
-    } else {
-      userIndex = this.onlineMemberList.findIndex((val) => val.id === userIdOrSocket)
+  removeUser(socket: WebSocket) {
+    let userIndex = this.onlineMemberList.findIndex((val) => val.ws === socket);
+    if(userIndex >= 0) {
+      this.onlineMemberList.splice(userIndex, 1);
     }
-    this.onlineMemberList.splice(userIndex, 1);
   }
 
   sendMessage(data: ArrayBuffer, sender: WebSocket) {
@@ -45,7 +37,7 @@ export class Room {
 
     //store encrypted message in database for other users.
     //Make sure this does not block main thread by avoiding "await"
-    sendMessage(senderData.id, dataBase64, this.chatId, senderData.keyExchangeId).then((val) => {
+    sendMessage(dataBase64, this.chatId, senderData.keyExchangeId).then((val) => {
       if(val) {
         console.log("Message saved!")
       } else {
@@ -57,7 +49,9 @@ export class Room {
 
     //send encrypted message to all online users/
     //note that even the user who sent the message retrieves the message too.
-    //This can be used as a confirmation message that their message was sent successfully.
+    //TODO: make sure that the sender of a message does not send
+    //the message to themself. Instead, sent a confirmation message to them
+    //to verify that a message has been sent
     for(let member of this.onlineMemberList) {
       member.ws.send(data, {binary: true});
     }

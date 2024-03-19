@@ -13,6 +13,8 @@ A instant-messaging web application where users can send encrypted messages to e
 2. Save messages from server and store them on client.
 3. Delete messages and key exchanges once all users in a chat room receive all previous messages
 
+## Current Bugs
+1. When a key exchange is performed, the person who sent the previous key exchange will lose any messages encrypted with their key because their key exchange is not stored on the database.
 
 ## Objectives to Consider
 1. Try encrypting the members of a chat such that the server does not know who the users in a chat room are (similar to Signal's private group feature)

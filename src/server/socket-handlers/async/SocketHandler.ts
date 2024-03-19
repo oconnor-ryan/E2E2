@@ -66,7 +66,7 @@ export async function onConnection(ws: WebSocket, req: http.IncomingMessage, req
     room = rooms[chatId];
   }
 
-  room.addUser(userId, ws, Number(keyExchangeId));
+  room.addUser(ws, Number(keyExchangeId));
 
   ws.on('error', console.error);
 

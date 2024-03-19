@@ -243,7 +243,6 @@ export async function getKeyExchanges(chatId: number) : Promise<Array<{
 export async function getLatestMessages(chatId: number, numMessages?: number) : Promise<{
   id: number;
   data_enc_base64: string;
-  sender_id: string;
   chat_id: number;
   key_exchange_id: number;
 }[]>{
@@ -263,6 +262,8 @@ export async function decryptPrevMessages(chatId: number, decoder: EncryptedMess
   //(get 1st 100 messages, then next 100, etc)
   messages.reverse(); //for now, display messages in correct order.
 
+
+  //no messages to decrypt
   if(messages.length === 0) {
     return;
   }
@@ -283,6 +284,7 @@ export async function decryptPrevMessages(chatId: number, decoder: EncryptedMess
     }
   } = {};
 
+  console.log(exchanges);
   for(let exchange of exchanges) {
     exchangeWithImportedKeys[String(exchange.exchangeId)] = {
       ephemeralKeyPublic: await ecdh.importPublicKey(exchange.ephemeralKeyBase64),
@@ -293,14 +295,18 @@ export async function decryptPrevMessages(chatId: number, decoder: EncryptedMess
     }
   }
 
-  //if there are no pending exchanges, use the senderKey stored in IndexedDB
+  //if there are no pending exchanges, try using the senderKey stored in IndexedDB
   if(exchanges.length === 0) {
     let senderKey = (await storageHandler.getChat(chatId)).secretKey;
     if(!senderKey) {
       throw new Error("No Sender Key and No Key Exchanges, cannot decrypt any messages");
     }
     for(let message of messages) {
-      await decoder.decodeMessage(message.data_enc_base64, senderKey);
+      try {
+        await decoder.decodeMessage(message.data_enc_base64, senderKey);
+      } catch(e) {
+        //you cannot decrypt this message most likely because these messages were sent before you joined
+      }
 
     }
     return;
@@ -325,6 +331,11 @@ export async function decryptPrevMessages(chatId: number, decoder: EncryptedMess
   for(let message of messages) {
     let exchangeData = exchangeWithImportedKeys[message.key_exchange_id];
 
+    //a newly joined user cannot decrypt previously sent messages!
+    if(!exchangeData) {
+      continue;
+    }
+
     let secretKey = (await x3dh_receiver(
       myExchangeKeyPrivate,
       myExchangePreKeyPrivate,
@@ -333,7 +344,9 @@ export async function decryptPrevMessages(chatId: number, decoder: EncryptedMess
       exchangeData.saltBase64
     )).secretKey;
 
+
     let senderKey = await aes.upwrapKey(exchangeData.senderKeyEncBase64, secretKey);
+
 
     await decoder.decodeMessage(message.data_enc_base64, senderKey);
   }
