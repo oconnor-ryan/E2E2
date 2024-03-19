@@ -7,7 +7,7 @@ import * as x3dh from "./X3DH.js";
 import { getUserKeysForChat, sendKeyExchange } from "./EasyFetch.js";
 import { arrayBufferToBase64 } from "../encryption/Base64.js";
 
-export async function importKey(chatId: number, data: {ephemeralKeyBase64: string, exchangeKeyBase64: string, senderKeyEncBase64: string, saltBase64: string, keyExchangeId: number, identityKeyBase64: string}) {
+export async function saveKeyFromExchange(chatId: number, data: {ephemeralKeyBase64: string, exchangeKeyBase64: string, senderKeyEncBase64: string, saltBase64: string, keyExchangeId: number, identityKeyBase64: string}) {
   const storageHandler = await getDatabase();
 
 

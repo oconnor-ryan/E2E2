@@ -138,9 +138,9 @@ router.post("/chatmessages", async (req, res) => {
   let currentUser = res.locals.username as string;
   let chatId = res.locals.chatId as number;
 
-  let {numMessages} = req.body;
+  let {numMessages, currentKeyExchangeId} = req.body;
 
-  let messages = await getLatestMessages(chatId, numMessages);
+  let messages = await getLatestMessages(chatId, currentKeyExchangeId, numMessages);
 
   if(!messages) {
     return res.json({error: ErrorCode.FAILED_TO_GET_MESSAGES});
@@ -181,7 +181,7 @@ router.post("/getkeyexchangeforchat", async (req, res) => {
   const currentUser = res.locals.username as string;
   const chatId = res.locals.chatId as number;
 
-  let result = await getKeyExchanges(currentUser, chatId);
+  let result = await getKeyExchanges(currentUser, chatId, req.body.currentKeyExchangeId);
 
   if(!result) {
     return res.json({error: ErrorCode.FAILED_TO_RETRIEVE_KEY_EXCHANGES});

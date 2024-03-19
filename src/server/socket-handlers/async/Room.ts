@@ -1,4 +1,4 @@
-import { sendMessage } from "../../util/database.js";
+import { storeMessage } from "../../util/database.js";
 import { WebSocket } from "ws";
 
 export class Room {
@@ -37,7 +37,7 @@ export class Room {
 
     //store encrypted message in database for other users.
     //Make sure this does not block main thread by avoiding "await"
-    sendMessage(dataBase64, this.chatId, senderData.keyExchangeId).then((val) => {
+    storeMessage(dataBase64, this.chatId, senderData.keyExchangeId).then((val) => {
       if(val) {
         console.log("Message saved!")
       } else {
@@ -47,13 +47,10 @@ export class Room {
       console.error(e);
     });
 
-    //send encrypted message to all online users/
-    //note that even the user who sent the message retrieves the message too.
-    //TODO: make sure that the sender of a message does not send
-    //the message to themself. Instead, sent a confirmation message to them
-    //to verify that a message has been sent
     for(let member of this.onlineMemberList) {
-      member.ws.send(data, {binary: true});
+      if(sender !== member.ws) {
+        member.ws.send(data, {binary: true});
+      }
     }
     
   }

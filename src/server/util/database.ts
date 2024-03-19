@@ -166,7 +166,7 @@ export async function getChatInfo(chatId: number) {
   }
 }
 
-export async function getLatestMessages(chatId: number, count?: number) : Promise<
+export async function getLatestMessages(chatId: number, receiversCurrentKeyExchange? : number, count?: number) : Promise<
   Array<{
     id: number,
     data_enc_base64: string,
@@ -177,9 +177,10 @@ export async function getLatestMessages(chatId: number, count?: number) : Promis
   null
 > {
   let limitQuery = count ? db`limit ${count}` : db``;
+  let getMessagesAfterExchangeQuery = receiversCurrentKeyExchange ? db`AND key_exchange_id >= ${receiversCurrentKeyExchange}` : db``;
 
   try {
-    let result = await db`select * from message where chat_id=${chatId} order by id desc ${limitQuery}`;
+    let result = await db`select * from message where chat_id=${chatId} ${getMessagesAfterExchangeQuery} order by id desc ${limitQuery}`;
     return result.map(row => {
       return {
         id: row.id,
@@ -196,7 +197,7 @@ export async function getLatestMessages(chatId: number, count?: number) : Promis
   
 }
 
-export async function sendMessage(
+export async function storeMessage(
   dataEncBase64: string,
   chatId: number,
   keyExchangeId: number
@@ -406,7 +407,7 @@ export async function addKeyExchange(senderId: string, chatId: number, members: 
  * @param chatId 
  * @returns 
  */
-export async function getKeyExchanges(receiverId: string, chatId: number) : 
+export async function getKeyExchanges(receiverId: string, chatId: number, receiversCurrentKeyExchange? : number) : 
   Promise<
     {
       ephemeralKeyBase64: string,
@@ -440,6 +441,7 @@ export async function getKeyExchanges(receiverId: string, chatId: number) :
         ACCOUNT.id = EXCHANGE.sender_id
         AND EXCHANGE.chat_id=${chatId}
         AND KEYS.receiver_id=${receiverId}
+        ${receiversCurrentKeyExchange ? db`AND EXCHANGE.id > ${receiversCurrentKeyExchange}` : db``}
       
       order by EXCHANGE.id ASC
 

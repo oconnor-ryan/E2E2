@@ -1,8 +1,7 @@
 import { getDatabase } from "../util/StorageHandler.js";
 import * as ecdsa from "../encryption/ECDSA.js";
-import * as aes from "../encryption/AES.js";
 import { KeyType } from "../shared/Constants.js";
-import { EncryptedMessageDecoder } from "../util/MessageDecoder.js";
+import { EncryptedMessageDecoder, Message, encryptMessage, formatAndSaveMessage } from "../util/MessageHandler.js";
 
 /**
  * These describe the callbacks that can be called after
@@ -16,7 +15,7 @@ import { EncryptedMessageDecoder } from "../util/MessageDecoder.js";
  * client.
  */
 export interface UserMessageCompleteCallbacks {
-  "message": (data: {userId: string, message: string}) => void,
+  "message": (data: {senderId: string, message: string}) => void,
 };
 
 /**
@@ -90,7 +89,7 @@ class ChatSocketHandler {
     this.userId = userId;
     this.senderKey = senderKey;
 
-    this.decoder = new EncryptedMessageDecoder(this.userMessageCallbacks);
+    this.decoder = new EncryptedMessageDecoder(this.userMessageCallbacks, this.chatId);
 
     let protocol = window.isSecureContext ? "wss://" : "ws://";
     this.ws = new WebSocket(`${protocol}${window.location.host}?chatId=${chatId}&userId=${userId}&signatureBase64URL=${signatureBase64URL}&keyExchangeId=${keyExchangeId}`);
@@ -102,19 +101,12 @@ class ChatSocketHandler {
     this.ws.onmessage = this.onMessage.bind(this);
   }
 
-  public async sendMessage(message: string) {
+  public async sendMessage(data: Message) {
     if(this.ws.readyState !== WebSocket.OPEN) {
       throw new Error("WebSocket is not open!");
     }
 
-    let data = {
-      type: "message",
-      userId: this.userId,
-      message: message 
-    };
-
-    let encData = await aes.encrypt(JSON.stringify(data), this.senderKey, "arraybuffer");
-
+    let encData = await encryptMessage(data, this.senderKey);
     this.ws.send(encData);
   }
 

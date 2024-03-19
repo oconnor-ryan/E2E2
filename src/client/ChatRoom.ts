@@ -1,7 +1,7 @@
 import * as fetcher from "./util/EasyFetch.js";
 import { StorageHandler, getDatabase } from "./util/StorageHandler.js";
 
-import { EncryptedMessageDecoder } from "./util/MessageDecoder.js";
+import { EncryptedMessageDecoder, decryptPrevMessages, formatMessage } from "./util/MessageHandler.js";
 import { chatSocketBuilder } from "./websocket/ChatSocketProtocol.js";
 
 const chatHeader = document.getElementById('chatroom-name') as HTMLHeadingElement;
@@ -19,7 +19,9 @@ const messagesContainer = document.getElementById('messages');
 
 
 const messageReceiveCallbacks = {
-  "message": (data: {userId: string, message: string}) => renderMessage(data.userId, data.message)
+  "message": (data: {senderId: string, message: string}) => {
+    renderMessage(data.senderId, data.message)
+  }
 };
 
 const serverMessageReceiveCallbacks = {
@@ -28,10 +30,11 @@ const serverMessageReceiveCallbacks = {
   "retrieveNewKey": (error: Error | null) => {}
 };
 
-const DECODER = new EncryptedMessageDecoder(messageReceiveCallbacks);
 
 const CHAT_ID = Number(new URLSearchParams(window.location.search).get("chatId") ?? "");
 chatHeader.textContent = `Chat Room Id = ${CHAT_ID}`;
+
+const DECODER = new EncryptedMessageDecoder(messageReceiveCallbacks, CHAT_ID);
 
 userSearchInput.oninput = async (e) => {
   //@ts-ignore
@@ -90,6 +93,8 @@ async function main() {
 
   let storageHandler = await getDatabase();
 
+
+
   try {
     let chatInfo = await fetcher.getChatInfo(CHAT_ID);
     renderMembers(storageHandler, chatInfo.members);
@@ -98,8 +103,23 @@ async function main() {
     window.location.replace("/test/chatlist");
   }
 
+  //render all old messages stored on client
   try {
-    await fetcher.decryptPrevMessages(CHAT_ID, DECODER);
+    let oldMessages = await storageHandler.getMessages(CHAT_ID, undefined, false);
+    for(let message of oldMessages) {
+      if(message.data.type === "message") {
+        renderMessage(message.data.senderId, message.data.message);
+      }
+    }
+
+    console.log("Old messages rendered!");
+  } catch(e) {
+    console.error(e);
+  }
+
+  //retrieve new messages, decrypt them, and render them!
+  try {
+    await decryptPrevMessages(CHAT_ID, DECODER);
 
     
 
@@ -109,17 +129,26 @@ async function main() {
       serverMessageReceiveCallbacks
     );
 
+    let sendMessageCallback = async () => {
+      let formattedData = await formatMessage(messageBox.value);
+        
+      chatSocket.sendMessage(formattedData)
+        .then(() => renderMessage(storageHandler.getUsername() ?? "You", formattedData.message))
+        .catch(e => {
+          console.warn(e);
+          renderMessage("WARNING: FAILED TO SAVE FOLLOWING MESSAGE", formattedData.message);
+        });
+
+      messageBox.value = '';
+    };
 
     messageBox.onkeyup = (ev) => {
       if(ev.key.toLowerCase() == "enter") {
-        chatSocket.sendMessage(messageBox.value);
-        messageBox.value = '';
+        sendMessageCallback();
       }
     }
     messageButton.onclick = (e) => {
-      chatSocket.sendMessage(messageBox.value);
-      messageBox.value = '';
-
+      sendMessageCallback();
     }
 
   } catch(e) {

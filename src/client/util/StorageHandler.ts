@@ -9,13 +9,14 @@ import { KeyType } from "../shared/Constants.js";
 
 
 const DB_NAME = "e2e2";
+const DB_VERSION = 2;
 const KEY_STORE = "key_store";
 const CHAT_STORE = "chat_store1";
 const USER_STORE = "user_store";
 
 const MESSAGE_STORE = "message_store1";
 
-
+/*
 interface MessageEntry {
   message: string,
   messageId: number,
@@ -23,7 +24,16 @@ interface MessageEntry {
   sender: string,
   date: Date
 }
+*/
 
+interface MessageEntry {
+  chatId: number,
+  data: {
+    message: string,
+    type: string,
+    senderId: string
+  }
+}
 interface ChatEntry {
   chatId: number, 
   //members: {id: string}[],
@@ -137,7 +147,7 @@ async function initDB() {
   //await deleteDB();
 
 
-  let DBOpenRequest = window.indexedDB.open(DB_NAME, 1);
+  let DBOpenRequest = window.indexedDB.open(DB_NAME, DB_VERSION);
 
   
   // This event handles the event whereby a new version of the database needs to be created
@@ -171,6 +181,10 @@ async function initDB() {
       let objectStore = db.createObjectStore(CHAT_STORE, {
         keyPath: "chatId",
       });
+    }
+
+    if(db.objectStoreNames.contains(MESSAGE_STORE)) {
+      db.deleteObjectStore(MESSAGE_STORE);
     }
 
     if(!db.objectStoreNames.contains(MESSAGE_STORE)) {
@@ -458,7 +472,7 @@ class _StorageHandler {
    * @param numMessages - the number of messages to retrieve
    * @returns 
    */
-  getMessages(chatId: number, numMessages?: number) {
+  getMessages(chatId: number, numMessages?: number, newestToOldest: boolean = true) : Promise<MessageEntry[]>{
     const transaction = this.db.transaction(MESSAGE_STORE, "readonly");
     const objectStore = transaction.objectStore(MESSAGE_STORE);
   
@@ -466,7 +480,7 @@ class _StorageHandler {
     let chatIndex = objectStore.index('chatId');
   
     //prev means that entries are sorted in decreasing order (5,4,3,2,1)
-    let request = chatIndex.openCursor(IDBKeyRange.only(chatId), 'prev');
+    let request = chatIndex.openCursor(IDBKeyRange.only(chatId), newestToOldest ? 'prev' : 'next');
   
     return new Promise((resolve, reject) => {
       let rtn: MessageEntry[] = [];
@@ -476,6 +490,8 @@ class _StorageHandler {
         //@ts-ignore
         const cursor: IDBCursorWithValue | null = event.target.result;
   
+        //if all messages have been searched by cursor or the limit on 
+        //the number of messages has been reached
         if(!cursor || (numMessages && messageIndex >= numMessages)) {
           resolve(rtn);
           return;
