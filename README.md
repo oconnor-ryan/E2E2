@@ -10,20 +10,20 @@ A instant-messaging web application where users can send encrypted messages to e
 
 ## Current Objectives
 1. Implement user signatures for messages and key exchanges. Save public keys of users you chat with in order to verify that each message sent was sent by them (this way, you no longer need to attach a senderId to each message, it can be signed with a user's signing key). When first connecting to user, save their keys so that if it changes, you have the option to use their new signing key uploaded to the server.
-2. Save messages from server and store them on client.
-3. Delete messages and key exchanges once all users in a chat room receive all previous messages
+2. Delete messages and key exchanges once all users in a chat room receive all previous messages
 
 ## Current Bugs
 1. When a key exchange is performed, the person who sent the previous key exchange will lose any messages encrypted with their key because their key exchange is not stored on the database.
 
 ## Objectives to Consider
 1. Try encrypting the members of a chat such that the server does not know who the users in a chat room are (similar to Signal's private group feature)
+2. Similar to the first consideration, a server can figure out who is part of a chat based on the initial HTTP upgrade request used to join a chat room via WebSocket. A alternative to this is to provide a unique access token to each user that is not linked to their account. Note that current invite method will not work since when an invite is accepted, the request is verified by the user's ID and signature. 
 
-2. Currently, you can only send POST requests to server because each request body is signed by the user's identity key. Maybe consider using JWT token for authentication and authorization for requests that do not have a body (note that setting cookie does not work because we want to use client's private signing key to sign data, but you cannot set cookies on a client's HTTP request. Try keeping auth data and signatures in custom HTTP headers or in query in GET request).
+3. Currently, you can only send POST requests to server because each request body is signed by the user's identity key. Maybe consider using JWT token for authentication and authorization for requests that do not have a body (note that setting cookie does not work because we want to use client's private signing key to sign data, but you cannot set cookies on a client's HTTP request. Try keeping auth data and signatures in custom HTTP headers or in query in GET request).
 
-3. Federated Communication (Server-To-Server). Users chatting on one server instance can form chats with users from a different server as long as their userId and server domain name are known.
+4. Federated Communication (Server-To-Server). Users chatting on one server instance can form chats with users from a different server as long as their userId and server domain name are known.
 
-4. WebRTC for peer-to-peer connections for syncronous chats and voice/video calls
+5. WebRTC for peer-to-peer connections for syncronous chats and voice/video calls
 
 ## Future Objectives
 1. Add method to backup account in case they accidentally clear their browser.

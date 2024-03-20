@@ -142,7 +142,7 @@ class ChatSocketHandler {
   }
 
   protected async handleEncryptedMessage(data: ArrayBuffer) {
-    await this.decoder.decodeMessage(data, this.senderKey);
+    await this.decoder.decodeMessageWithUUIDAppended(data, this.senderKey);
   }
 
   protected async handleServerMessage(data: string) {

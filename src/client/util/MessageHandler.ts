@@ -40,22 +40,8 @@ export class EncryptedMessageDecoder {
     try {
       decrypted = await aes.decrypt(dataEnc, key);
     } catch(e) {
-      if(dataEnc instanceof ArrayBuffer) {
-        //the last 36 bytes are the UUID of the message
-        let jsonEnc = dataEnc.slice(0, dataEnc.byteLength-36);
-        let uuidPart = dataEnc.slice(-36);
-
-        //save the last read message's UUID so that the server can figure out what messages
-        //the client has not stored yet.
-        //make sure to await so we can ensure that this value is saved
-        await saveLastReadMessageUUID(this.chatId, new TextDecoder('utf-8').decode(uuidPart))
-        try {
-          decrypted = await aes.decrypt(jsonEnc, key);
-        } catch(e) {
-          console.error(e);
-          return;
-        }
-      }
+      console.error(e);
+      return;
     }
 
     let val = JSON.parse(decrypted!) as Message;
@@ -72,6 +58,19 @@ export class EncryptedMessageDecoder {
 
     //@ts-ignore
     this.userMessageCallbacks[val.type](val);
+  }
+
+  async decodeMessageWithUUIDAppended(dataEnc: ArrayBuffer, key: CryptoKey) {
+    //the last 36 bytes are the UUID of the message
+    let jsonEnc = dataEnc.slice(0, dataEnc.byteLength-36);
+    let uuidPart = dataEnc.slice(-36);
+
+    //save the last read message's UUID so that the server can figure out what messages
+    //the client has not stored yet.
+    //make sure to await so we can ensure that this value is saved
+    await saveLastReadMessageUUID(this.chatId, new TextDecoder('utf-8').decode(uuidPart));
+
+    await this.decodeMessage(jsonEnc, key);
   }
 }
 
