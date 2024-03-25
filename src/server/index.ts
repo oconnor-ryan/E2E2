@@ -21,9 +21,12 @@ import * as sharedKeySocketHandler from "./socket-handlers/shared-key/SocketHand
 //extend types of global
 declare global {
   var ROOT_PROJECT_DIR: string
+  var CHAT_UPLOAD_DIR: string
 }
 
-global.ROOT_PROJECT_DIR = fileURLToPath(import.meta.resolve("../../chat_file_uploads"));
+global.ROOT_PROJECT_DIR = fileURLToPath(import.meta.resolve("../../"));
+global.CHAT_UPLOAD_DIR = fileURLToPath(global.CHAT_UPLOAD_DIR + "/chat_file_uploads");
+
 
 
 //GLOBALS END HERE
