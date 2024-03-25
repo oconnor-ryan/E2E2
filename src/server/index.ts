@@ -1,6 +1,7 @@
 import express from "express";
 import https from 'https';
 import fs from 'fs';
+import path from 'path';
 
 import { WebSocketServer } from 'ws';
 import 'dotenv/config';
@@ -24,8 +25,11 @@ declare global {
   var CHAT_UPLOAD_DIR: string
 }
 
-global.ROOT_PROJECT_DIR = fileURLToPath(import.meta.resolve("../../"));
-global.CHAT_UPLOAD_DIR = fileURLToPath(global.CHAT_UPLOAD_DIR + "/chat_file_uploads");
+global.ROOT_PROJECT_DIR = path.join(fileURLToPath(import.meta.url), "..", "..", "..");
+console.log(global.ROOT_PROJECT_DIR);
+global.CHAT_UPLOAD_DIR = path.join(global.ROOT_PROJECT_DIR, "chat_file_uploads");
+console.log(global.CHAT_UPLOAD_DIR);
+
 
 
 
