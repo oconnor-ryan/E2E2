@@ -19,7 +19,11 @@ export enum ErrorCode {
   FAILED_TO_ADD_KEY_EXCHANGE = "FailedToAddKeyExchange",
   FAILED_TO_GET_MESSAGES = "FailedToGetMessages",
   FAILED_TO_VERIFY_CHAT_MEMBER = "FailedToVerifyChatMember",
-  FAILED_TO_RETRIEVE_KEY_EXCHANGES = "FailedToRetrieveKeyExchanges"
+  FAILED_TO_RETRIEVE_KEY_EXCHANGES = "FailedToRetrieveKeyExchanges",
+  FAILED_TO_PROCESS_FILE_DURING_UPLOAD = "FailedToProcessFileDuringUpload",
+  FAILED_TO_SAVE_FILE_INFO_DATABASE = "FailedToSaveFileInfoDatabase",
+  FAILED_TO_UPLOAD_FILE = "FailedToUploadFile",
+
 }
 
 export type UserInfo = {

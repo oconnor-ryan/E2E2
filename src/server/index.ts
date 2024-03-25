@@ -16,6 +16,18 @@ import * as asyncSocketHandler from "./socket-handlers/async/SocketHandler.js";
 import * as sharedKeySocketHandler from "./socket-handlers/shared-key/SocketHandlerSharedKey.js";
 
 
+//GLOBALS HERE
+
+//extend types of global
+declare global {
+  var ROOT_PROJECT_DIR: string
+}
+
+global.ROOT_PROJECT_DIR = fileURLToPath(import.meta.resolve("../../chat_file_uploads"));
+
+
+//GLOBALS END HERE
+
 //the website's root folder
 const STATIC_ROOT = fileURLToPath(import.meta.resolve("../../client-assets/static-root"));
 const HTML_ROOT = fileURLToPath(import.meta.resolve("../../client-assets/html"));

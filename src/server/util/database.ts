@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 import { verifyKey } from './webcrypto/ecdsa.js';
-import { ErrorCode, UserInfo } from '../..//client/shared/Constants.js';
+import { ErrorCode, UserInfo } from '../../client/shared/Constants.js';
 
 const db = postgres({
   host: process.env.DB_HOST,
@@ -403,6 +403,26 @@ export async function addKeyExchange(senderId: string, chatId: number, members: 
   } catch(e) {
     console.error(e);
     return null;
+  }
+}
+
+export async function saveFileToDatabase(filename: string, chatId: number) : Promise<boolean>{
+  try {
+    await db`insert into encrypted_file(filename, chat_id) VALUES (${filename}, ${chatId})`;
+    return true;
+  } catch(e) {
+    console.error(e);
+    return false;
+  }
+}
+
+export async function fileInChat(filename: string, chatId: number) : Promise<boolean> {
+  try {
+    let result = await db`select count(*) as does_belong from encrypted_file WHERE filename=(${filename} AND chat_id=${chatId})`;
+    return result.count > 0 && result[0].does_belong > 0;
+  } catch(e) {
+    console.error(e);
+    return false;
   }
 }
 

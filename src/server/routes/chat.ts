@@ -1,9 +1,24 @@
 import express from "express";
-import { acceptInvite, addKeyExchange, createChat, getChatInfo, getChatsOfUser, getInvitesForUser, getKeyExchanges, getLatestMessages, getUserKeysForChat, inviteUserToChat, userInChat } from "../util/database.js";
+import multer from "multer";
+
+import { acceptInvite, addKeyExchange, createChat, getChatInfo, getChatsOfUser, getInvitesForUser, getKeyExchanges, getLatestMessages, getUserKeysForChat, inviteUserToChat, userInChat, saveFileToDatabase } from "../util/database.js";
 import { ErrorCode } from "../../client/shared/Constants.js";
 
 const router = express.Router();
 
+const uploadStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, global.ROOT_PROJECT_DIR + "/chat_file_uploads");
+  },
+
+  //every filename becomes a random uuid
+  filename: (req, file, cb) => {
+    const uuid = crypto.randomUUID();
+    cb(null, uuid);
+  }
+});
+
+const upload = multer({storage: uploadStorage});
 
 router.post("/createchat", async (req, res) => {
   let currentUser = res.locals.username as string;
@@ -188,6 +203,43 @@ router.post("/getkeyexchangeforchat", async (req, res) => {
   }
 
   return res.json({error: null, result: result});
+});
+
+router.post("/uploadFile", (req, res) => {
+  const chatId = res.locals.chatId as number;
+
+  upload.single('uploadedFile')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      // A Multer error occurred when uploading.
+      console.error(err);
+      return res.json({error: ErrorCode.FAILED_TO_PROCESS_FILE_DURING_UPLOAD});
+    } else if (err) {
+      // An unknown error occurred when uploading.
+      console.error(err);
+      return res.json({error: ErrorCode.FAILED_TO_PROCESS_FILE_DURING_UPLOAD});
+    }
+
+    //file was saved successfully
+    let filename = req.file?.filename;
+    if(!filename) {
+      return res.json({error: ErrorCode.FAILED_TO_PROCESS_FILE_DURING_UPLOAD});
+    }
+
+    
+    saveFileToDatabase(filename, chatId).then((saved) => {
+      if(saved) {
+        return res.json({error: null})
+      } else {
+        res.json({error: ErrorCode.FAILED_TO_SAVE_FILE_INFO_DATABASE});
+      }
+    }).catch(e => {
+      res.json({error: ErrorCode.FAILED_TO_SAVE_FILE_INFO_DATABASE});
+    });
+
+
+
+
+  })
 });
 
 export default router;
