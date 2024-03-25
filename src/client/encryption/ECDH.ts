@@ -1,4 +1,4 @@
-import { arrayBufferToBase64, base64ToArrayBuffer } from "./Base64.js";
+import { arrayBufferToBase64, base64ToArrayBuffer } from "../util/Base64.js";
 import { CryptoKeyWrapper } from "./CryptoKeyWrapper.js";
 
 const cryptoSubtle = window.crypto.subtle;
@@ -13,7 +13,7 @@ export class ECDHPublicKey extends CryptoKeyWrapper {
     return key.type === 'public' && key.algorithm.name === "ECDH" && key.algorithm.namedCurve && key.algorithm.namedCurve === 'P-521';
   }
 
-  async exportKey(type: "base64") : Promise<string>
+  async exportKey(type?: "base64") : Promise<string>
   async exportKey(type: "arraybuffer") : Promise<ArrayBuffer>
   async exportKey(type: "base64" | "arraybuffer" = "base64") : Promise<string | ArrayBuffer> {
     let exportedKey = await crypto.subtle.exportKey(
@@ -49,7 +49,7 @@ export class ECDHPrivateKey extends CryptoKeyWrapper {
 
   isValidKey(key: CryptoKey): boolean {
     //@ts-ignore
-    return key.type !== 'private' || key.algorithm.name !== "ECDH" || !key.algorithm.namedCurve || key.algorithm.namedCurve !== 'P-521';
+    return key.type === 'private' && key.algorithm.name === "ECDH" && key.algorithm.namedCurve && key.algorithm.namedCurve === 'P-521';
   }
 
   async deriveBits(theirPublicKey: ECDHPublicKey) {
@@ -78,68 +78,4 @@ export async function createECDHKeyPair() {
     publicKey: new ECDHPublicKey(keyPair.publicKey),
     privateKey: new ECDHPrivateKey(keyPair.privateKey)
   }
-}
-
-export async function createKeyPair() {
-  let keyPair = await cryptoSubtle.generateKey(
-    {
-      name: "ECDH",
-      namedCurve: "P-521"
-    },
-    false,
-    ['deriveKey', 'deriveBits']
-  );
-
-  return keyPair;
-
-}
-
-export async function importPublicKey(base64String: string) {
-  let buffer = base64ToArrayBuffer(base64String);
-  return await cryptoSubtle.importKey(
-    "spki",
-    buffer,
-    {
-      name: "ECDH",
-      namedCurve: "P-521"
-    },
-    false,
-    //no key usages because deriveBits and deriveKey
-    //are only applied to the private key of a ECDH pair
-    []
-  );
-}
-
-export async function exportPublicKey(pubKey: CryptoKey) {
-  return arrayBufferToBase64(await crypto.subtle.exportKey(
-    'spki', 
-    pubKey
-  ));
-}
-
-export async function deriveAESKey(myPrivateKey: CryptoKey, theirPublicKey: CryptoKey, extractable: boolean = false) {
-  return await cryptoSubtle.deriveKey(
-    {
-      name: "ECDH",
-      public: theirPublicKey
-    },
-    myPrivateKey,
-    {
-      name: 'AES-GCM',
-      length: 256
-    },
-    extractable,
-    ["encrypt", "decrypt"]
-  );
-}
-
-export async function deriveBits(myPrivateKey: CryptoKey, theirPublicKey: CryptoKey) {
-  return await cryptoSubtle.deriveBits(
-    {
-      name: "ECDH",
-      public: theirPublicKey
-    },
-    myPrivateKey,
-    256
-  );
 }

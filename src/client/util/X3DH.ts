@@ -1,19 +1,21 @@
-import { base64ToArrayBuffer } from "../encryption/Base64.js";
-import * as ecdh from "../encryption/ECDH.js";
-import * as hkdf from "../encryption/HKDF.js";
-
+import { base64ToArrayBuffer } from "./Base64.js";
+import { ECDHPrivateKey, ECDHPublicKey, HKDFKey } from "../encryption/encryption.js";
 
 export async function x3dh_sender(
-  myIdKey: CryptoKey,
-  myEphemeralKey: CryptoKey,
-  theirIdKey: CryptoKey,
-  theirPreKey: CryptoKey
+  myIdKey: ECDHPrivateKey,
+  myEphemeralKey: ECDHPrivateKey,
+  theirIdKey: ECDHPublicKey,
+  theirPreKey: ECDHPublicKey
 ) {
   //perform 3 Diffie-Hellman functions record the derived bytes
   //from each function
-  let dh1 = await ecdh.deriveBits(myIdKey, theirPreKey); //authenticate with myIdKey
-  let dh2 = await ecdh.deriveBits(myEphemeralKey, theirIdKey); //authenticate with their Id Key
-  let dh3 = await ecdh.deriveBits(myEphemeralKey, theirPreKey); //forward secrecy by using ephemeral/short-term keys
+ // let dh1 = await ecdh.deriveBits(myIdKey, theirPreKey); //authenticate with myIdKey
+  //let dh2 = await ecdh.deriveBits(myEphemeralKey, theirIdKey); //authenticate with their Id Key
+  //let dh3 = await ecdh.deriveBits(myEphemeralKey, theirPreKey); //forward secrecy by using ephemeral/short-term keys
+
+  let dh1 = await myIdKey.deriveBits(theirIdKey);
+  let dh2 = await myEphemeralKey.deriveBits(theirIdKey);
+  let dh3 = await myEphemeralKey.deriveBits(theirPreKey);
 
   //TODO: in full X3DH, there is a 4th DH performed for one-time-keys to
   //improve forward secrecy, consider implementing this in future
@@ -27,33 +29,29 @@ export async function x3dh_sender(
   //though not technically a key, the HKDF CryptoKey is used
   //as the input key material (IKM) for the deriveKey function,
   //which actually performs HKDF. 
-  let hkdfKey = await hkdf.importKey(keyMaterial);
-
-  //generate 20 random bytes as the salt for HKDF
-  let salt = window.crypto.getRandomValues(new Uint8Array(20));
-
+  let hkdfKey = await HKDFKey.importKey(keyMaterial);
 
   //perform HKDF function and get the AES key derived from it.
-  let secretKey = await hkdf.deriveKey(hkdfKey, salt);
+  let {key, salt} = await hkdfKey.deriveAesGcmKey();
 
 
-  return {secretKey: secretKey, salt: salt};
+  return {secretKey: key, salt: salt};
 }
 
 export async function x3dh_receiver(
-  myIdKey: CryptoKey,
-  myPreKey: CryptoKey,
-  theirIdKey: CryptoKey,
-  theirEphemeralKey: CryptoKey,
+  myIdKey: ECDHPrivateKey,
+  myPreKey: ECDHPrivateKey,
+  theirIdKey: ECDHPublicKey,
+  theirEphemeralKey: ECDHPublicKey,
   saltBase64: string
 ) {
   //perform 3 Diffie-Hellman functions record the derived bytes
   //from each function. 
   //Notice that this is almost identical to x3dh_sender except 
   //the public and private keys are swapped.
-  let dh1 = await ecdh.deriveBits(myPreKey, theirIdKey);
-  let dh2 = await ecdh.deriveBits(myIdKey, theirEphemeralKey);
-  let dh3 = await ecdh.deriveBits(myPreKey, theirEphemeralKey);
+  let dh1 = await myPreKey.deriveBits(theirIdKey);
+  let dh2 = await myIdKey.deriveBits(theirEphemeralKey);
+  let dh3 = await myPreKey.deriveBits(theirEphemeralKey);
 
 
   //concatenate the raw bytes of each key into one input key material
@@ -65,14 +63,13 @@ export async function x3dh_receiver(
   //though not technically a key, the HKDF CryptoKey is used
   //as the input key material (IKM) for the deriveKey function,
   //which actually performs HKDF. 
-  let hkdfKey = await hkdf.importKey(keyMaterial);
+  let hkdfKey = await HKDFKey.importKey(keyMaterial);
 
   let salt = base64ToArrayBuffer(saltBase64);
 
 
   //perform HKDF function and get the AES key derived from it.
-  let secretKey = await hkdf.deriveKey(hkdfKey, salt);
-
+  let secretKey = (await hkdfKey.deriveAesGcmKey(salt)).key;
 
 
   return {secretKey: secretKey, salt: salt};

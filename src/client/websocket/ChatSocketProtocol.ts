@@ -1,7 +1,7 @@
 import { getDatabase } from "../util/StorageHandler.js";
-import * as ecdsa from "../encryption/ECDSA.js";
 import { KeyType } from "../shared/Constants.js";
 import { EncryptedMessageDecoder, Message, encryptMessage, formatAndSaveMessage } from "../util/MessageHandler.js";
+import { AesGcmKey } from "../encryption/encryption.js";
 
 /**
  * These describe the callbacks that can be called after
@@ -58,16 +58,21 @@ export async function chatSocketBuilder(
     throw new Error("No Sender Key stored!");
   }
 
+  let idKeyPair = await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR);
+  if(!idKeyPair) {
+    throw new Error("Cannot find identity key!");
+  }
+
   //sign the userId so that the server can validate that 
   //the userId matches with the signature provided
-  let signature = await ecdsa.sign(username, (await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR) as CryptoKeyPair).privateKey, "base64url");
+  let signature = await idKeyPair.privateKey.sign(username, "base64url");
 
   return new ChatSocketHandler(chatId, username, signature, chatSenderKey, keyExchangeId, userMessageParsedCallbacks, serverMessageParsedCallbacks);
 }
 
 class ChatSocketHandler {
   private ws: WebSocket;
-  private senderKey: CryptoKey;
+  private senderKey: AesGcmKey;
   private userMessageCallbacks: UserMessageCompleteCallbacks;
   private serverMessageCallbacks: ServerMessageCompleteCallbacks;
   private chatId: number;
@@ -79,7 +84,7 @@ class ChatSocketHandler {
     chatId: number, 
     userId: string, 
     signatureBase64URL: string, 
-    senderKey: CryptoKey,
+    senderKey: AesGcmKey,
     keyExchangeId: number,
     userMessageCallbacks: UserMessageCompleteCallbacks,
     serverMessageCallbacks: ServerMessageCompleteCallbacks

@@ -1,8 +1,3 @@
-import * as aes from "../encryption/AES.js";
-import * as ecdh from '../encryption/ECDH.js';
-import * as ecdsa from '../encryption/ECDSA.js';
-
-
 import * as fetcher from  "./EasyFetch.js";
 import { getDatabase } from "./StorageHandler.js";
 
@@ -10,6 +5,7 @@ import { UserMessageCompleteCallbacks } from "../websocket/ChatSocketProtocol.js
 import { KeyType } from "../shared/Constants.js";
 import { x3dh_receiver } from "./X3DH.js";
 import { saveKeyFromExchange } from "./KeyExchange.js";
+import { ECDHPublicKey, AesGcmKey } from "../encryption/encryption.js";
 
 export interface Message {
   message: string, 
@@ -35,10 +31,10 @@ export class EncryptedMessageDecoder {
    * @param key 
    * @returns 
    */
-  async decodeMessage(dataEnc: string | ArrayBuffer, key: CryptoKey) {
+  async decodeMessage(dataEnc: string | ArrayBuffer, key: AesGcmKey) {
     let decrypted;
     try {
-      decrypted = await aes.decrypt(dataEnc, key);
+      decrypted = await key.decrypt(dataEnc);
     } catch(e) {
       console.error(e);
       return;
@@ -60,7 +56,7 @@ export class EncryptedMessageDecoder {
     this.userMessageCallbacks[val.type](val);
   }
 
-  async decodeMessageWithUUIDAppended(dataEnc: ArrayBuffer, key: CryptoKey) {
+  async decodeMessageWithUUIDAppended(dataEnc: ArrayBuffer, key: AesGcmKey) {
     //the last 36 bytes are the UUID of the message
     let jsonEnc = dataEnc.slice(0, dataEnc.byteLength-36);
     let uuidPart = dataEnc.slice(-36);
@@ -115,8 +111,8 @@ export async function formatAndSaveMessage(message: string, chatId: number, type
   return {formattedMessage: formattedMessage, savedMessageId: messageId};
 }
 
-export async function encryptMessage(data: Message, key: CryptoKey) {
-  return await aes.encrypt(JSON.stringify(data), key, "arraybuffer");
+export async function encryptMessage(data: Message, key: AesGcmKey) {
+  return await key.encrypt(JSON.stringify(data), "arraybuffer");
 }
 
 export async function decryptPrevMessages(chatId: number, decoder: EncryptedMessageDecoder) {
@@ -141,26 +137,33 @@ export async function decryptPrevMessages(chatId: number, decoder: EncryptedMess
   }
 
 
-  let myExchangeKeyPrivate = (await storageHandler.getKey(KeyType.EXCHANGE_ID_PAIR) as CryptoKeyPair).privateKey;
-  let myExchangePreKeyPrivate = (await storageHandler.getKey(KeyType.EXCHANGE_PREKEY_PAIR) as CryptoKeyPair).privateKey;
+  let myExchangeKeyPair = await storageHandler.getKey(KeyType.EXCHANGE_ID_PAIR);
+  let myExchangePreKeyPair = await storageHandler.getKey(KeyType.EXCHANGE_PREKEY_PAIR);
+
+  if(!myExchangeKeyPair || !myExchangePreKeyPair) {
+    throw new Error("No Exchange keys found!");
+  }
+
+  let myExchangeKeyPrivate = myExchangeKeyPair.privateKey;
+  let myExchangePreKeyPrivate = myExchangePreKeyPair.privateKey;
 
 
   let exchangeWithImportedKeys: {
     [id: string] : {
-      ephemeralKeyPublic: CryptoKey,
+      ephemeralKeyPublic: ECDHPublicKey,
       senderKeyEncBase64: string;
       saltBase64: string;
-      exchangeKeyPublic: CryptoKey;
-      identityKeyPublic: CryptoKey;
+      exchangeKeyPublic: ECDHPublicKey;
+      identityKeyPublic: ECDHPublicKey;
     }
   } = {};
 
   console.log(exchanges);
   for(let exchange of exchanges) {
     exchangeWithImportedKeys[String(exchange.exchangeId)] = {
-      ephemeralKeyPublic: await ecdh.importPublicKey(exchange.ephemeralKeyBase64),
-      exchangeKeyPublic: await ecdh.importPublicKey(exchange.exchangeKeyBase64),
-      identityKeyPublic: await ecdsa.importPublicKey(exchange.identityKeyBase64),
+      ephemeralKeyPublic: await ECDHPublicKey.importKey(exchange.ephemeralKeyBase64),
+      exchangeKeyPublic: await ECDHPublicKey.importKey(exchange.exchangeKeyBase64),
+      identityKeyPublic: await ECDHPublicKey.importKey(exchange.identityKeyBase64),
       saltBase64: exchange.saltBase64,
       senderKeyEncBase64: exchange.senderKeyEncBase64
     }
@@ -222,7 +225,7 @@ export async function decryptPrevMessages(chatId: number, decoder: EncryptedMess
     )).secretKey;
 
 
-    let senderKey = await aes.upwrapKey(exchangeData.senderKeyEncBase64, secretKey);
+    let senderKey = await secretKey.upwrapKeyAesGcmKey(exchangeData.senderKeyEncBase64);
 
 
     await decoder.decodeMessage(message.data_enc_base64, senderKey);

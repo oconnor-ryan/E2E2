@@ -5,6 +5,7 @@ WARNING:
   even if they tell the browser that this website's data should persist.
 */
 
+import {ECDSAPrivateKey, ECDSAPublicKey, ECDHPrivateKey, ECDHPublicKey, AesGcmKey} from "../encryption/encryption.js";
 import { KeyType } from "../shared/Constants.js";
 
 
@@ -34,13 +35,45 @@ interface MessageEntry {
     senderId: string
   }
 }
-interface ChatEntry {
+
+//this is the exact format of an object stored in Chat Object Store
+interface RawChatEntry {
   chatId: number, 
   lastReadMessageUUID: string | null,
   //members: {id: string}[],
   secretKey: CryptoKey | null,
   keyExchangeId: number | null
+}
 
+
+//this is the format exposed outside of StorageHandler for an entry in the
+//Chat Object store. 
+//this type is used because it automatically wraps the CryptoKey to the 
+//appropriate AesGcmKey key. This avoids confusion on what CryptoKey to store.
+interface ChatEntry {
+  chatId: number, 
+  lastReadMessageUUID: string | null,
+  //members: {id: string}[],
+  secretKey: AesGcmKey | null
+  keyExchangeId: number | null
+}
+
+function rawChatEntryToChatEntry(entry: RawChatEntry): ChatEntry {
+  return {
+    chatId: entry.chatId,
+    lastReadMessageUUID: entry.lastReadMessageUUID,
+    keyExchangeId: entry.keyExchangeId,
+    secretKey: entry.secretKey ? new AesGcmKey(entry.secretKey) : null,
+  }
+}
+
+function chatEntryToRawChatEntry(entry: ChatEntry) : RawChatEntry {
+  return {
+    chatId: entry.chatId,
+    lastReadMessageUUID: entry.lastReadMessageUUID,
+    keyExchangeId: entry.keyExchangeId,
+    secretKey: entry.secretKey ? entry.secretKey.getCryptoKey() : null
+  }
 }
 
 interface KnownUser {
@@ -48,10 +81,50 @@ interface KnownUser {
   signingPublicKey: CryptoKey
 }
 
-interface KeyEntry {
+
+
+//the exact format of an object in the Key Object Store.
+//this type is hidden within the StorageHandler object
+interface RawKeyEntry {
   keyType: KeyType,
   key: CryptoKey | CryptoKeyPair
 }
+
+//this format abstracts the RawKeyEntry type by automatically wrapping any
+//CryptoKey and CryptoKeyPair objects stored in IndexedDB into an appropriate
+//CryptoKeyWrapper class.
+
+type KeyEntry = 
+  {keyType: KeyType.EXCHANGE_ID_PAIR, privateKey: ECDHPrivateKey, publicKey: ECDHPublicKey}
+  | {keyType: KeyType.EXCHANGE_PREKEY_PAIR, privateKey: ECDHPrivateKey, publicKey: ECDHPublicKey}
+  | {keyType: KeyType.IDENTITY_KEY_PAIR, privateKey: ECDSAPrivateKey, publicKey: ECDSAPublicKey}
+
+
+
+function rawKeyEntryToKeyEntry(entry: RawKeyEntry) : KeyEntry {
+  switch(entry.keyType) {
+    case KeyType.IDENTITY_KEY_PAIR: {
+      let keyPair = entry.key as CryptoKeyPair;
+      return {keyType: entry.keyType, privateKey: new ECDSAPrivateKey(keyPair.privateKey), publicKey: new ECDSAPublicKey(keyPair.publicKey)};
+    }
+    case KeyType.EXCHANGE_ID_PAIR:
+    case KeyType.EXCHANGE_PREKEY_PAIR: {
+      let keyPair = entry.key as CryptoKeyPair;
+      return {keyType: entry.keyType, privateKey: new ECDHPrivateKey(keyPair.privateKey), publicKey: new ECDHPublicKey(keyPair.publicKey)}
+    }
+  }
+}
+
+function keyEntryToRawKeyEntry(entry: KeyEntry) : RawKeyEntry {
+  switch(entry.keyType) {
+    case KeyType.EXCHANGE_ID_PAIR:
+    case KeyType.EXCHANGE_PREKEY_PAIR:
+    case KeyType.IDENTITY_KEY_PAIR: {
+      return {keyType: entry.keyType, key: {privateKey: entry.privateKey.getCryptoKey(), publicKey: entry.publicKey.getCryptoKey()}};
+    }
+  }
+}
+
 
 //using function closure in order to hide storageHandler variable
 //and assure that only one instance of storageHandler is ever initialized
@@ -303,7 +376,7 @@ class _StorageHandler {
   
     //for all data inserted, if the ObjectStore has an explicit KeyPath,
     //then you must include it in the value JSON.
-    const request = objectStore.add(entry);
+    const request = objectStore.add(keyEntryToRawKeyEntry(entry));
   
     return new Promise<void>((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -342,7 +415,7 @@ class _StorageHandler {
     //note that if key does not exist, "put" will automatically add this item
     //for all data inserted, if the ObjectStore has an explicit KeyPath,
     //then you must include it in the value JSON.
-    let request = objectStore.put(entry);
+    let request = objectStore.put(keyEntryToRawKeyEntry(entry));
     return new Promise<void>((resolve, reject) => {
       request.onsuccess = (e) => resolve();
       request.onerror = (e) => {
@@ -353,7 +426,10 @@ class _StorageHandler {
   
   }
   
-  getKey(keyType: KeyType) : Promise<CryptoKey | CryptoKeyPair | undefined> {
+  getKey(keyType: KeyType.IDENTITY_KEY_PAIR) : Promise<{privateKey: ECDSAPrivateKey, publicKey: ECDSAPublicKey} | undefined>
+  getKey(keyType: KeyType.EXCHANGE_ID_PAIR) : Promise<{privateKey: ECDHPrivateKey, publicKey: ECDHPublicKey} | undefined>
+  getKey(keyType: KeyType.EXCHANGE_PREKEY_PAIR) : Promise<{privateKey: ECDHPrivateKey, publicKey: ECDHPrivateKey} | undefined>
+  getKey(keyType: KeyType) {
     const transaction = this.db.transaction(KEY_STORE, "readonly");
   
     const objectStore = transaction.objectStore(KEY_STORE);
@@ -364,8 +440,22 @@ class _StorageHandler {
   
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
-        let record = request.result;
-        resolve(record.key);
+        if(!request.result) {
+          return resolve(undefined);
+        }
+
+        
+
+        let entry;
+        try {
+          entry = rawKeyEntryToKeyEntry(request.result);
+        } catch(e) {
+          console.error(e);
+          return reject(e);
+        }
+        
+
+        resolve({privateKey: entry.privateKey, publicKey: entry.publicKey});
       };
       request.onerror = (event) => {
         reject(request.error);
@@ -381,7 +471,7 @@ class _StorageHandler {
     const objectStore = transaction.objectStore(CHAT_STORE);
   
     //note that if key does not exist, "put" will automatically add this item
-    let request = objectStore.add(entry);
+    let request = objectStore.add(chatEntryToRawChatEntry(entry));
   
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -398,7 +488,7 @@ class _StorageHandler {
     const objectStore = transaction.objectStore(CHAT_STORE);
   
     //note that if key does not exist, "put" will automatically add this item
-    let request = objectStore.put(entry);
+    let request = objectStore.put(chatEntryToRawChatEntry(entry));
   
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -425,7 +515,7 @@ class _StorageHandler {
   
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
-        resolve(request.result);
+        resolve(rawChatEntryToChatEntry(request.result));
       };
       request.onerror = (event) => {
         reject(request.error);

@@ -1,10 +1,10 @@
-import { arrayBufferToBase64, base64ToArrayBuffer } from "./Base64.js";
+import { arrayBufferToBase64, base64ToArrayBuffer } from "../util/Base64.js";
 import { CryptoKeyWrapper } from "./CryptoKeyWrapper.js";
 
-//note that AesGcm class cannot be stored in IndexedDB, while CryptoKey can, 
+//note that AesGcmKey class cannot be stored in IndexedDB, while CryptoKey can, 
 //since IndexedDB only stores JSON and primitive values,
 //so we need the constructor to be public to get these keys from IndexedDB
-export class AesGcm extends CryptoKeyWrapper {
+export class AesGcmKey extends CryptoKeyWrapper {
   private static readonly IV_LEN_BYTES = 50;
   public static readonly GEN_PARAMS = {
     name: "AES-GCM",
@@ -15,31 +15,31 @@ export class AesGcm extends CryptoKeyWrapper {
     super(key);
   }
 
-  static async generateKey(extractable: boolean = false) : Promise<AesGcm> {
+  static async generateKey(extractable: boolean = false) : Promise<AesGcmKey> {
     let key = await window.crypto.subtle.generateKey(
-      AesGcm.GEN_PARAMS,
+      AesGcmKey.GEN_PARAMS,
       extractable,
       ["encrypt", "decrypt", "wrapKey", "unwrapKey"]
     );
 
-    return new AesGcm(key);
+    return new AesGcmKey(key);
   }
 
-  static async importKey(keyMaterial: ArrayBuffer, extractable: boolean = false) {
+  static async importKey(keyMaterial: ArrayBuffer | string, extractable: boolean = false) {
     let key = await window.crypto.subtle.importKey(
       "raw", 
-      keyMaterial, 
-      AesGcm.GEN_PARAMS,
+      keyMaterial instanceof ArrayBuffer ? keyMaterial : base64ToArrayBuffer(keyMaterial), 
+      AesGcmKey.GEN_PARAMS,
       extractable,
       ["encrypt", "decrypt", "wrapKey", "unwrapKey"]
     );
 
-    return new AesGcm(key);
+    return new AesGcmKey(key);
   }
 
   isValidKey(key: CryptoKey): boolean {
     //@ts-ignore
-    return key.algorithm.name === 'AES-GCM' && key.algorithm.length & key.algorithm.length !== 256;
+    return key.algorithm.name === 'AES-GCM' && key.algorithm.length && key.algorithm.length === 256;
   }
 
   isExtractable() {
@@ -59,15 +59,15 @@ export class AesGcm extends CryptoKeyWrapper {
    * Note that this uses Typescript function overloading
    * for type checking
   */
-  async encrypt(data: string, key: CryptoKey) : Promise<string>;
-  async encrypt(data: string, key: CryptoKey, outputType: "arraybuffer") : Promise<ArrayBuffer>;
-  async encrypt(data: string, key: CryptoKey, outputType: "base64") : Promise<string>;
-  async encrypt(data: string, key: CryptoKey, outputType?: "arraybuffer" | "base64") : Promise<ArrayBuffer | string>{
+  async encrypt(data: string) : Promise<string>;
+  async encrypt(data: string, outputType: "arraybuffer") : Promise<ArrayBuffer>;
+  async encrypt(data: string, outputType: "base64") : Promise<string>;
+  async encrypt(data: string, outputType?: "arraybuffer" | "base64") : Promise<ArrayBuffer | string>{
     if(!outputType) {
       outputType = "base64";
     }
 
-    let buffer = new Uint8Array(AesGcm.IV_LEN_BYTES);
+    let buffer = new Uint8Array(AesGcmKey.IV_LEN_BYTES);
     let iv = window.crypto.getRandomValues(buffer);
 
     let ciphertext = await window.crypto.subtle.encrypt(
@@ -75,7 +75,7 @@ export class AesGcm extends CryptoKeyWrapper {
         name: "AES-GCM",
         iv: iv
       },
-      key,
+      this.key,
       new TextEncoder().encode(data)
     );
 
@@ -90,7 +90,7 @@ export class AesGcm extends CryptoKeyWrapper {
 
   }
 
-  async decrypt(data: ArrayBuffer | string, key: CryptoKey) : Promise<string> {
+  async decrypt(data: ArrayBuffer | string) : Promise<string> {
     let encData: ArrayBuffer;
     if(data instanceof ArrayBuffer) {
       encData = data;
@@ -98,22 +98,22 @@ export class AesGcm extends CryptoKeyWrapper {
       encData = base64ToArrayBuffer(data);
     }
   
-    let {iv, ciphertext} = this.separateIvAndCipherText(encData, AesGcm.IV_LEN_BYTES);
+    let {iv, ciphertext} = this.separateIvAndCipherText(encData, AesGcmKey.IV_LEN_BYTES);
   
     let decrypted = await window.crypto.subtle.decrypt(
       {
         name: "AES-GCM",
         iv: iv
       },
-      key,
+      this.key,
       ciphertext
     );
   
     return new TextDecoder().decode(decrypted);
   }
 
-  async wrapKeyAesGcm(keyToExport: AesGcm) {
-    let iv = window.crypto.getRandomValues(new Uint8Array(AesGcm.IV_LEN_BYTES));
+  async wrapKeyAesGcmKey(keyToExport: AesGcmKey) {
+    let iv = window.crypto.getRandomValues(new Uint8Array(AesGcmKey.IV_LEN_BYTES));
     
     if(!keyToExport.isExtractable()) {
       throw new Error("Cannot wrap a key who is not extractable!");
@@ -132,12 +132,12 @@ export class AesGcm extends CryptoKeyWrapper {
     return this.concatIvAndCipherText(iv, exportedKey);
   }
 
-  async upwrapKeyAesGcm(encKeyMaterial: string | ArrayBuffer) {
+  async upwrapKeyAesGcmKey(encKeyMaterial: string | ArrayBuffer) {
     if(typeof encKeyMaterial === 'string') {
       encKeyMaterial = base64ToArrayBuffer(encKeyMaterial);
     }
 
-    let {iv, ciphertext} = this.separateIvAndCipherText(encKeyMaterial, AesGcm.IV_LEN_BYTES);
+    let {iv, ciphertext} = this.separateIvAndCipherText(encKeyMaterial, AesGcmKey.IV_LEN_BYTES);
   
     let key = await window.crypto.subtle.unwrapKey(
       "raw",
@@ -157,7 +157,7 @@ export class AesGcm extends CryptoKeyWrapper {
       ["encrypt", "decrypt"]
     );
   
-    return new AesGcm(key);
+    return new AesGcmKey(key);
   }
 
   private concatIvAndCipherText(iv: ArrayBuffer, cipherText: ArrayBuffer) {

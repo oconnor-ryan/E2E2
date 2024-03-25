@@ -1,6 +1,5 @@
 import * as storage from './StorageHandler.js'
-import * as ecdsa from '../encryption/ECDSA.js';
-import * as ecdh from '../encryption/ECDH.js';
+import * as encrypt from '../encryption/encryption.js';
 
 import { getDatabase } from './StorageHandler.js';
 
@@ -11,20 +10,20 @@ export async function createAccount(username: string) {
   let storageHandler = await getDatabase();
   //using Promise.all so that all three keys are generated concurrently
   let [idKeyPair, exchangeKeyPair, preKey] = await Promise.all([
-    ecdsa.createKeyPair(), 
-    ecdh.createKeyPair(), 
-    ecdh.createKeyPair()
+    encrypt.createECDSAKeyPair(), 
+    encrypt.createECDHKeyPair(), 
+    encrypt.createECDHKeyPair()
   ])
 
   let [exportedIdPubKey, exportedExchangePubKey, exportedPrePubKey] = await Promise.all([
-    ecdsa.exportPublicKey(idKeyPair.publicKey),
-    ecdh.exportPublicKey(exchangeKeyPair.publicKey),
-    ecdh.exportPublicKey(preKey.publicKey)
+    idKeyPair.publicKey.exportKey(),
+    exchangeKeyPair.publicKey.exportKey(),
+    preKey.publicKey.exportKey()
   ]);
 
   let [exchangeKeySignature, preKeySignature] = await Promise.all([
-    ecdsa.sign(exportedExchangePubKey, idKeyPair.privateKey),
-    ecdsa.sign(exportedPrePubKey, idKeyPair.privateKey),
+    idKeyPair.privateKey.sign(exportedExchangePubKey),
+    idKeyPair.privateKey.sign(exportedPrePubKey),
   ]);
 
   let response = await fetch(
@@ -48,9 +47,10 @@ export async function createAccount(username: string) {
   let jsonRes = await response.json();
 
   if(!jsonRes.error) {
-    storageHandler.addKey({keyType: KeyType.IDENTITY_KEY_PAIR, key: idKeyPair});
-    storageHandler.addKey({keyType: KeyType.EXCHANGE_ID_PAIR, key: exchangeKeyPair});
-    storageHandler.addKey({keyType: KeyType.EXCHANGE_PREKEY_PAIR, key: preKey});
+    storageHandler.addKey({keyType: KeyType.IDENTITY_KEY_PAIR, privateKey: idKeyPair.privateKey, publicKey: idKeyPair.publicKey});
+    storageHandler.addKey({keyType: KeyType.EXCHANGE_ID_PAIR, privateKey: exchangeKeyPair.privateKey, publicKey: exchangeKeyPair.publicKey});
+    storageHandler.addKey({keyType: KeyType.EXCHANGE_PREKEY_PAIR, privateKey: preKey.privateKey, publicKey: preKey.publicKey});
+
 
     storageHandler.updateUsername(username);
   }
@@ -70,10 +70,11 @@ export async function ezFetch(url: string, jsonData?: any, method: string = "POS
   }
 
   let storageHandler = await storage.getDatabase();
-  let keyPair = await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR) as CryptoKeyPair | undefined;
+  let keyPair = await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR);
   if(!keyPair) {
     throw new Error("No signing key found! Might want to restore to a backup account!");
   }
+  
 
   let jsonStr = JSON.stringify(jsonData);
   let res = await fetch(
@@ -84,7 +85,7 @@ export async function ezFetch(url: string, jsonData?: any, method: string = "POS
         'Content-Type': 'application/json',
         //custom HTTP headers for storing the signature of the HTTP request body
         //and the user who claims to have sent the request
-        'E2E2-Body-Signature': await ecdsa.sign(jsonStr, keyPair.privateKey),
+        'E2E2-Body-Signature': await keyPair.privateKey.sign(jsonStr),
         'E2E2-User-Id': storageHandler.getUsername() ?? ""
       },
       body: jsonStr

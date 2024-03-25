@@ -1,5 +1,5 @@
-import { base64ToArrayBuffer, arrayBufferToBase64 } from "./encryption/Base64.js";
-import { encrypt, decrypt } from "./encryption/KeyDerivation.js";
+import { base64ToArrayBuffer, arrayBufferToBase64 } from "./util/Base64.js";
+import { encrypt, decrypt } from "./encryption-old/KeyDerivation.js";
 
 function test() {
   let plaintextElement = document.getElementById("plaintext") as HTMLInputElement;

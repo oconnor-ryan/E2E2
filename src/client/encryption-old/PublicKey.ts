@@ -1,4 +1,4 @@
-import { arrayBufferToBase64, base64ToArrayBuffer } from "./Base64.js";
+import { arrayBufferToBase64, base64ToArrayBuffer } from "../util/Base64.js";
 
 const cryptoSubtle = window.crypto.subtle;
 

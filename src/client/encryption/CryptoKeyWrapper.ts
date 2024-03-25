@@ -22,15 +22,3 @@ export abstract class CryptoKeyWrapper {
   }
 
 }
-
-export class CryptoKeyPairWrapper {
-  protected keyPair: CryptoKeyPair;
-
-  constructor(keyPair: CryptoKeyPair) {
-    this.keyPair = keyPair;
-  }
-
-  getCryptoKeyPair() : Readonly<CryptoKeyPair> {
-    return this.keyPair;
-  }
-}

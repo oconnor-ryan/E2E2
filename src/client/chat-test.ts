@@ -1,8 +1,9 @@
 "use strict"
 
-import { arrayBufferToBase64, base64ToArrayBuffer } from "./encryption/Base64.js"
-import * as rsa from "./encryption/PublicKey.js"
-import * as aes from "./encryption/AES.js";
+import { arrayBufferToBase64, base64ToArrayBuffer } from "./util/Base64.js"
+import * as rsa from "./encryption-old/PublicKey.js";
+import * as aes from "./encryption-old/AES.js";
+
 
 
 interface UserPublicKey {
