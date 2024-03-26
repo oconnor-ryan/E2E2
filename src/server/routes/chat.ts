@@ -82,6 +82,56 @@ router.post("/acceptinvite", async (req, res) => {
   return res.json({error: null, chat: chatInfo});
 });
 
+router.post("/uploadfile", async (req, res) => {
+  const chatId = res.locals.chatId as number;
+
+  let filename;
+  try {
+    filename = await (async () => {
+      return new Promise<string>((resolve, reject) => {
+
+        //Multer does not have use Promises for async operations, so
+        //I used this wrapper.
+        upload.single('uploadedFile')(req, res, (err) => {
+          /*
+          if (err instanceof multer.MulterError) {
+            // A Multer error occurred when uploading.
+            reject(err);
+          } else if (err) {
+            // An unknown error occurred when uploading.
+            reject(err)
+          }
+          */
+          if(err) {
+            return reject(err);
+          }
+      
+          //file was saved successfully
+          let filename = req.file?.filename;
+          if(!filename) {
+            return reject(new Error("File not saved!"));
+          }
+  
+          resolve(filename);
+        });
+      });
+    })();
+  } catch(e) {
+    console.error(e);
+    return res.json({error: ErrorCode.FAILED_TO_PROCESS_FILE_DURING_UPLOAD});
+  }
+  
+  let savedDBEntry = await saveFileToDatabase(filename, chatId);
+
+
+  if(savedDBEntry) {
+    return res.json({error: null, filename: filename})
+  } else {
+    res.json({error: ErrorCode.FAILED_TO_SAVE_FILE_INFO_DATABASE});
+  }
+
+});
+
 //middleware to check if a user belongs to the chat
 //they claim to be a part of.
 router.use("/", async (req, res, next) => {
@@ -205,56 +255,6 @@ router.post("/getkeyexchangeforchat", async (req, res) => {
   }
 
   return res.json({error: null, result: result});
-});
-
-router.post("/uploadfile", async (req, res) => {
-  const chatId = res.locals.chatId as number;
-
-  let filename;
-  try {
-    filename = await (async () => {
-      return new Promise<string>((resolve, reject) => {
-
-        //Multer does not have use Promises for async operations, so
-        //I used this wrapper.
-        upload.single('uploadedFile')(req, res, (err) => {
-          /*
-          if (err instanceof multer.MulterError) {
-            // A Multer error occurred when uploading.
-            reject(err);
-          } else if (err) {
-            // An unknown error occurred when uploading.
-            reject(err)
-          }
-          */
-          if(err) {
-            return reject(err);
-          }
-      
-          //file was saved successfully
-          let filename = req.file?.filename;
-          if(!filename) {
-            return reject(new Error("File not saved!"));
-          }
-  
-          resolve(filename);
-        });
-      });
-    })();
-  } catch(e) {
-    console.error(e);
-    return res.json({error: ErrorCode.FAILED_TO_PROCESS_FILE_DURING_UPLOAD});
-  }
-  
-  let savedDBEntry = await saveFileToDatabase(filename, chatId);
-
-
-  if(savedDBEntry) {
-    return res.json({error: null})
-  } else {
-    res.json({error: ErrorCode.FAILED_TO_SAVE_FILE_INFO_DATABASE});
-  }
-
 });
 
 router.post("/getfile", async (req, res) => {

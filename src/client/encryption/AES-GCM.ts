@@ -59,10 +59,10 @@ export class AesGcmKey extends CryptoKeyWrapper {
    * Note that this uses Typescript function overloading
    * for type checking
   */
-  async encrypt(data: string) : Promise<string>;
-  async encrypt(data: string, outputType: "arraybuffer") : Promise<ArrayBuffer>;
-  async encrypt(data: string, outputType: "base64") : Promise<string>;
-  async encrypt(data: string, outputType?: "arraybuffer" | "base64") : Promise<ArrayBuffer | string>{
+  async encrypt(data: string | ArrayBuffer) : Promise<string>;
+  async encrypt(data: string | ArrayBuffer, outputType: "arraybuffer") : Promise<ArrayBuffer>;
+  async encrypt(data: string | ArrayBuffer, outputType: "base64") : Promise<string>;
+  async encrypt(data: string | ArrayBuffer, outputType?: "arraybuffer" | "base64") : Promise<ArrayBuffer | string>{
     if(!outputType) {
       outputType = "base64";
     }
@@ -76,7 +76,7 @@ export class AesGcmKey extends CryptoKeyWrapper {
         iv: iv
       },
       this.key,
-      new TextEncoder().encode(data)
+      data instanceof ArrayBuffer ? data : new TextEncoder().encode(data)
     );
 
 

@@ -72,8 +72,6 @@ router.use("/", async (req, res, next) => {
     return res.status(403).json({error: ErrorCode.NO_USER_EXISTS});
   }
 
-  console.log(req.body);
-  console.log(JSON.stringify(req.body));
 
   let requestBelongsToUser = await verifyKey(JSON.stringify(req.body), sig, pubKeyBase64);
 

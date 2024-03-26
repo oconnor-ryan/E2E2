@@ -20,20 +20,43 @@
         bottom: 0;
         left: 5%;
 
+        box-sizing: border-box;
+
         margin: 10px auto;
       
         width: 90%;  
         height: 30px;
         display: flex;
         flex-direction: row;
+        justify-content: space-between;
+      }
+
+      #attach-file-form {
+        box-sizing: border-box; /*Border box needed so that border is counted in width and height*/
+
+        flex: 10%;
+        height: inherit;
+        display: inline-block;
+        border: 1px solid black;
+      }
+
+      .attach-file-button {
+        box-sizing: border-box; /*Border box needed so that border is counted in width and height*/
+
+        width: 100%;
+        height: 100%;
+        padding: 1px;
+        text-align: center;
+        display: inline-block;
+        cursor: pointer;
       }
 
       #message-input {
-        flex: 75%;
+        flex: 80%;
       }
 
       #send-message-button {
-        flex: 25%;
+        flex: 10%;
       }
 
 
@@ -60,6 +83,10 @@
     </div>
 
     <div id="message-input-container">
+      <form id="attach-file-form" enctype="multipart/form-data">
+        <label class="attach-file-button" for="file-to-attach">Add File</label>
+        <input id="file-to-attach" style="display: none" type="file"/>
+      </form>
       <input type="text" id="message-input"/>
       <button id="send-message-button">Send</button>
     </div>

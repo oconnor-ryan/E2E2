@@ -68,16 +68,16 @@ export class ECDSAPrivateKey extends CryptoKeyWrapper {
     return key.type === "private" && key.algorithm.name === "ECDSA" && key.algorithm.namedCurve && key.algorithm.namedCurve === "P-521";
   }
 
-  async sign(message: string, outputType: "arraybuffer") : Promise<ArrayBuffer>
-  async sign(message: string, outputType?: "base64" | "base64url") : Promise<string>
-  async sign(message: string, outputType: "arraybuffer" | "base64" | "base64url" = "base64") : Promise<string | ArrayBuffer> {
+  async sign(message: string | ArrayBuffer, outputType: "arraybuffer") : Promise<ArrayBuffer>
+  async sign(message: string | ArrayBuffer, outputType?: "base64" | "base64url") : Promise<string>
+  async sign(message: string | ArrayBuffer, outputType: "arraybuffer" | "base64" | "base64url" = "base64") : Promise<string | ArrayBuffer> {
     let signature = await cryptoSubtle.sign(
       {
         name: 'ECDSA',
         hash: {name: 'SHA-512'}
       },
       this.getCryptoKey(),
-      new TextEncoder().encode(message)
+      message instanceof ArrayBuffer ? message : new TextEncoder().encode(message)
     );
     if(outputType === "arraybuffer") {
       return signature;

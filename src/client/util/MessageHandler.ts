@@ -11,6 +11,7 @@ export interface Message {
   message: string, 
   type: string, 
   senderId: string
+  filename?: string
 }
 
 export class EncryptedMessageDecoder {
@@ -71,14 +72,19 @@ export class EncryptedMessageDecoder {
 }
 
 
+
+
 //format message in the format other clients will expect
-export async function formatMessage(message: string, type: "message" = "message") : Promise<Message> {
+export async function formatMessage(type: "message", message: string) : Promise<Message>
+export async function formatMessage(type: "file", message: string, filename: string) : Promise<Message>
+export async function formatMessage(type: "message" | "file", message: string, filename?: string) : Promise<Message> {
   let storageHandler = await getDatabase();
 
   let data = {
     type: type,
     senderId: storageHandler.getUsername() ?? "",
-    message: message 
+    message: message,
+    filename: filename
   };
 
   return data;
@@ -100,8 +106,8 @@ export async function saveLastReadMessageUUID(chatId: number, uuid: string) {
 
 
 //helper function used only by a sender of a message to simplify formatting and saving a message
-export async function formatAndSaveMessage(message: string, chatId: number, type: "message" = "message") {
-  let formattedMessage = await formatMessage(message, type);
+export async function formatAndSaveMessage(chatId: number, type: "message" | "file", message: string, filename?: string) : Promise<{formattedMessage: Message, savedMessageId: number | null}> {
+  let formattedMessage = type === 'file' ? await formatMessage(type, message, filename!) : await formatMessage(type, message);
   let messageId;
   try {
     messageId = await saveMessage(formattedMessage, chatId);

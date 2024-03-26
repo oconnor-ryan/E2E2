@@ -102,6 +102,7 @@ export async function ezFetch(url: string, jsonData?: any, method: string = "POS
 }
 
 
+
 //you can put typed functions that use ezFetch so that you know exactly what
 //responses you receive
 
@@ -253,4 +254,61 @@ export async function getLatestMessages(chatId: number, lastestMessageUUID?: str
   return res.messages;
 }
 
+export async function uploadFile(file: File, chatId: number) {
+  let storageHandler = await getDatabase();
+
+  let formData = new FormData();
+  formData.append("uploadedFile", file);
+  formData.append('chatId', String(chatId));
+
+  let fileReader = new FileReader();
+  fileReader.readAsArrayBuffer(file);
+
+  return new Promise<string>((resolve, reject) => {
+    fileReader.onload = async (ev) => {
+      let contents = fileReader.result as ArrayBuffer;
+  
+      let signingKeyPair = await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR);
+      if(!signingKeyPair) {
+        throw new Error("No key found!");
+      }
+  
+      //sign the contents of the file to verify that it has not been tampered with
+      let signature = await signingKeyPair.privateKey.sign(contents);
+  
+  
+      let response = await fetch("/api/chat/uploadfile", {
+        method: 'POST',
+        headers: {
+          //do not explicity set multipart/form-data header
+          //since Fetch API needs to add the boundary property to that header
+          //'Content-Type': 'multipart/form-data',
+          'E2E2-File-Signature': signature,
+          'E2E2-User-Id': storageHandler.getUsername() ?? ""
+        },
+        body: formData
+      });
+  
+      let json = await response.json();
+  
+      if(json.error) {
+        return reject(json.error);
+      }
+
+      //if file upload succeeds, a filename is given to the client
+      resolve(json.filename as string);
+    }
+  
+    fileReader.onerror = (ev) => {
+      let error = fileReader.error;
+      reject(error);
+    }
+  });
+
+  
+
+  
+
+
+}
 

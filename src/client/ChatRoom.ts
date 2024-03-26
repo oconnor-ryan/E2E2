@@ -3,6 +3,7 @@ import { StorageHandler, getDatabase } from "./util/StorageHandler.js";
 
 import { EncryptedMessageDecoder, decryptPrevMessages, formatAndSaveMessage, formatMessage, saveLastReadMessageUUID } from "./util/MessageHandler.js";
 import { chatSocketBuilder } from "./websocket/ChatSocketProtocol.js";
+import { encryptFile } from "./util/FileUpload.js";
 
 const chatHeader = document.getElementById('chatroom-name') as HTMLHeadingElement;
 
@@ -17,6 +18,11 @@ const messageButton = document.getElementById('send-message-button') as HTMLButt
 
 const messagesContainer = document.getElementById('messages');
 
+const fileUploadForm = document.getElementById('attach-file-form') as HTMLFormElement;
+const inputFileAttachment = document.getElementById('file-to-attach') as HTMLInputElement;
+
+
+let fileBeingUploaded: File | null = null;
 
 const messageReceiveCallbacks = {
   "message": (data: {senderId: string, message: string}) => {
@@ -67,6 +73,21 @@ inviteButton.onclick = async (e) => {
   }
 
   window.alert("Successfully invited user!");
+}
+
+inputFileAttachment.onchange = (e) => {
+  const fileList = inputFileAttachment.files;
+  if(!fileList) {
+    fileBeingUploaded = null;
+    return;
+  }
+
+  if(!fileList[0]) {
+    fileBeingUploaded = null;
+    return;
+  }
+
+  fileBeingUploaded = fileList[0];
 }
 
 function renderMembers(storageHandler: StorageHandler, members: {id: string, canInvite: boolean, isAdmin: boolean}[]) {
@@ -134,7 +155,18 @@ async function main() {
     );
 
     let sendMessageCallback = async () => {
-      let result = await formatAndSaveMessage(messageBox.value, CHAT_ID);
+      let messageType : "message" | "file" = "message";
+      if(fileBeingUploaded) {
+        messageType = "file";
+
+        //encrypt file
+        let key = (await storageHandler.getChat(CHAT_ID)).secretKey!;
+        let encFile = await encryptFile(fileBeingUploaded, key);
+
+        
+      }
+      
+      let result = await formatAndSaveMessage(CHAT_ID, messageType, messageBox.value, fileBeingUploaded ? fileBeingUploaded.name : undefined);
         
       chatSocket.sendMessage(result.formattedMessage)
         .then(() => {
