@@ -5,6 +5,7 @@ import { getDatabase } from './StorageHandler.js';
 
 import { ErrorCode, KeyType, UserInfo } from '../shared/Constants.js';
 import { initKeyExchange } from './KeyExchange.js';
+import { arrayBufferToBase64 } from './Base64.js';
 
 export async function createAccount(username: string) {
   let storageHandler = await getDatabase();
@@ -26,6 +27,8 @@ export async function createAccount(username: string) {
     idKeyPair.privateKey.sign(exportedPrePubKey),
   ]);
 
+  let password = arrayBufferToBase64(window.crypto.getRandomValues(new Uint8Array(32)).buffer);
+
   let response = await fetch(
     "/api/create-account", 
     {
@@ -35,6 +38,7 @@ export async function createAccount(username: string) {
       },
       body: JSON.stringify({
         username: username,
+        password: password,
         id_pubkey_base64: exportedIdPubKey,
         exchange_pubkey_base64: exportedExchangePubKey,
         exchange_pubkey_sig_base64: exchangeKeySignature,
@@ -53,6 +57,7 @@ export async function createAccount(username: string) {
 
 
     storageHandler.updateUsername(username);
+    storageHandler.updatePassword(password);
   }
 }
 
@@ -75,6 +80,14 @@ export async function ezFetch(url: string, jsonData?: any, method: string = "POS
     throw new Error("No signing key found! Might want to restore to a backup account!");
   }
   
+  let userId = storageHandler.getUsername();
+  let password = storageHandler.getPassword();
+
+  if(!userId || !password) {
+    throw new Error("No user ID and/or password found!");
+  }
+
+  let authHeader = "Basic " + btoa(userId + ":" + password);
 
   let jsonStr = JSON.stringify(jsonData);
   let res = await fetch(
@@ -85,8 +98,7 @@ export async function ezFetch(url: string, jsonData?: any, method: string = "POS
         'Content-Type': 'application/json',
         //custom HTTP headers for storing the signature of the HTTP request body
         //and the user who claims to have sent the request
-        'E2E2-Body-Signature': await keyPair.privateKey.sign(jsonStr),
-        'E2E2-User-Id': storageHandler.getUsername() ?? ""
+        'Authorization': authHeader
       },
       body: jsonStr
     }
@@ -94,8 +106,14 @@ export async function ezFetch(url: string, jsonData?: any, method: string = "POS
   )
 
   let jsonRes = await res.json();
-  if(jsonRes.error && jsonRes.error === ErrorCode.NOT_LOGGED_IN) {
-    throw new Error("Unable to authenticate you!");
+  if(jsonRes.error 
+    && (jsonRes.error === ErrorCode.NO_AUTH_HEADER 
+       || jsonRes.error === ErrorCode.INVALID_AUTH_SCHEME
+       || jsonRes.error === ErrorCode.NO_USER_EXISTS 
+       || jsonRes.error === ErrorCode.WRONG_PASSWORD 
+       )
+  ) {
+    throw new Error(jsonRes.error);
   }
 
   return jsonRes;

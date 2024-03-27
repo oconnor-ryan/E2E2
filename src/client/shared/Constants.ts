@@ -1,7 +1,11 @@
 export enum ErrorCode {
+  NO_AUTH_HEADER = "NoAuthHeader",
+  INVALID_AUTH_SCHEME = "InvalidAuthScheme",
   NOT_LOGGED_IN = "NotLoggedIn",
+  WRONG_PASSWORD = "WrongPassword",
   NO_USER_EXISTS = "NoUserExists",
   NO_USER_PROVIDED = "NoUserProvided",
+  INVALID_USERNAME_FOR_ACCOUNT = "InvalidUsernameForAccount",
   INVALID_SIGNATURE = "InvalidSignature",
   SIGNATURE_DOES_NOT_MATCH_USER = "SignatureDoesNotMatchUser",
   MISSING_HTTP_SIGNATURE = "MissingHttpSignature",

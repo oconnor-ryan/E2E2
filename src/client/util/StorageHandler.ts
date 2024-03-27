@@ -318,6 +318,21 @@ class _StorageHandler {
     return this.localStorage.getItem("username");
   }
 
+  updatePassword(password: string) {
+    try {
+      this.localStorage.setItem("password", password);
+      return true;
+
+    } catch(e) {
+      console.error(e);
+      return false;
+    }
+  }
+
+  getPassword() {
+    return this.localStorage.getItem('password');
+  }
+
   addUser(entry: KnownUser) {
     const transaction = this.db.transaction(USER_STORE, "readwrite");
 

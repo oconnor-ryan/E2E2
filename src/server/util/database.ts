@@ -14,6 +14,8 @@ const db = postgres({
 
 export async function createAccount(
   username: string, 
+  hash: string,
+  salt: string,
   id_pubkey_base64: string,
   exchange_pubkey_base64: string,
   exchange_pubkey_sig_base64: string,
@@ -44,14 +46,18 @@ export async function createAccount(
       exchange_key_base64, 
       exchange_key_signature_base64, 
       exchange_prekey_base64, 
-      exchange_prekey_signature_base64
+      exchange_prekey_signature_base64,
+      pwd_hash_base64,
+      pwd_salt_base64
     ) VALUES (
       ${username}, 
       ${id_pubkey_base64}, 
       ${exchange_pubkey_base64}, 
       ${exchange_pubkey_sig_base64},
       ${exchange_prekey_pubkey_base64},
-      ${exchange_prekey_pubkey_sig_base64}
+      ${exchange_prekey_pubkey_sig_base64},
+      ${hash},
+      ${salt}
     )`;
     return true;
   } catch(e) {
@@ -64,6 +70,19 @@ export async function getIdentityKey(username: string) : Promise<string | null> 
   try {
     let res = await db`select identity_key_base64 from account where id=${username}`;
     return res[0].identity_key_base64 as string;
+  } catch(e) {
+    console.error(e);
+    return null;
+  }
+}
+
+export async function getUserPasswordHashAndSalt(userId: string) {
+  try {
+    let res = await db`select pwd_hash_base64, pwd_salt_base64 from account where id=${userId}`;
+    if(!res[0]) {
+      return null;
+    }
+    return {hashBase64: res[0].pwd_hash_base64, saltBase64: res[0].pwd_salt_base64};
   } catch(e) {
     console.error(e);
     return null;
