@@ -15,9 +15,11 @@ OR
 
 Automatically download all files sent by users once a message is received and save it either to IndexedDB or Downloads folder. This removes the need to save old keys. Users downloading files can be given a prompt that asks what files they want to download. Whatsapp and Signal both automatically save files when they are sent to clients.
 
-2. Work on Voice-Over-IP using WebRTC
+2. Display storage quota and usage using window.navigator.storage.estimate() in order to prompt the user to clean out some data. This also helps avoid the browser from automatically deleting data when Persistance is not available.
 
-3. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
+3. Work on Voice-Over-IP using WebRTC
+
+4. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
 
 
 
