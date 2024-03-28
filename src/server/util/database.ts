@@ -437,7 +437,7 @@ export async function saveFileToDatabase(filename: string, chatId: number) : Pro
 
 export async function fileInChat(filename: string, chatId: number) : Promise<boolean> {
   try {
-    let result = await db`select count(*) as does_belong from encrypted_file WHERE filename=(${filename} AND chat_id=${chatId})`;
+    let result = await db`select count(*) as does_belong from encrypted_file WHERE filename=${filename} AND chat_id=${chatId}`;
     return result.count > 0 && result[0].does_belong > 0;
   } catch(e) {
     console.error(e);

@@ -1,4 +1,4 @@
-import { AesGcmKey } from "../encryption/encryption.js";
+import { AesGcmKey, ECDSAPrivateKey } from "../encryption/encryption.js";
 
 
 /**
@@ -10,18 +10,22 @@ import { AesGcmKey } from "../encryption/encryption.js";
  * @param key 
  * @returns 
  */
-export async function encryptFile(file: File, key: AesGcmKey) {
+export async function encryptFile(file: File, encKey: AesGcmKey, signingKey: ECDSAPrivateKey) {
   let reader = new FileReader();
 
   reader.readAsArrayBuffer(file);
 
-  return new Promise<File>((resolve, reject) => {
+  return new Promise<{encFile: File, signatureBase64: string}>((resolve, reject) => {
     reader.onload = async (ev) => {
       let data = reader.result as ArrayBuffer;
 
-      let encData = await key.encrypt(data, "arraybuffer");
+      let encData = await encKey.encrypt(data, "arraybuffer");
 
-      resolve(new File([encData], "file"));
+      let sig = await signingKey.sign(encData, "base64");
+      resolve({
+        encFile: new File([encData], "file"),
+        signatureBase64: sig
+      });
     }
 
     reader.onerror = (ev) => {
@@ -32,24 +36,14 @@ export async function encryptFile(file: File, key: AesGcmKey) {
   
 }
 
-export async function encryptFileAsStream(file: File, key: AesGcmKey) {
-  let reader = new FileReader();
+export function downloadFile(file: File, filename?: string) {
+  let fileUrl = URL.createObjectURL(file);
+  let link = document.createElement('a');
 
-  reader.readAsArrayBuffer(file);
+  link.setAttribute('href',fileUrl);
+  link.setAttribute('download', filename ? filename : file.name);
 
-  return new Promise<File>((resolve, reject) => {
-    reader.onload = async (ev) => {
-      let data = reader.result as ArrayBuffer;
+  link.click(); //download file
 
-      let encData = await key.encrypt(data, "arraybuffer");
-
-      resolve(new File([encData], "file"));
-    }
-
-    reader.onerror = (ev) => {
-      reject(reader.error);
-    }
-  });
-
-  
+  URL.revokeObjectURL(fileUrl);
 }

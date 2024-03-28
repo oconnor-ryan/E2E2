@@ -2,8 +2,9 @@ import * as fetcher from "./util/EasyFetch.js";
 import { StorageHandler, getDatabase } from "./util/StorageHandler.js";
 
 import { EncryptedMessageDecoder, decryptPrevMessages, formatAndSaveMessage, formatMessage, saveLastReadMessageUUID } from "./util/MessageHandler.js";
-import { chatSocketBuilder } from "./websocket/ChatSocketProtocol.js";
+import { ChatSocketHandler, chatSocketBuilder } from "./websocket/ChatSocketProtocol.js";
 import { encryptFile } from "./util/FileUpload.js";
+import { KeyType } from "./shared/Constants.js";
 
 const chatHeader = document.getElementById('chatroom-name') as HTMLHeadingElement;
 
@@ -27,6 +28,9 @@ let fileBeingUploaded: File | null = null;
 const messageReceiveCallbacks = {
   "message": (data: {senderId: string, message: string}) => {
     renderMessage(data.senderId, data.message)
+  },
+  "file": (data: {senderId: string, message: string, filename: string, fileuuid: string}) => {
+    renderMessageWithFile(data.senderId, data.message, data.filename, data.fileuuid);
   }
 };
 
@@ -108,6 +112,58 @@ function renderMessage(userId: string, message: string) {
   messagesContainer?.appendChild(messageBox);
 }
 
+function renderMessageWithFile(userId: string, message: string, filename: string, fileuuid: string) {
+  let messageBox = document.createElement('p');
+  let button = document.createElement('button');
+  button.textContent = 'Download ' + filename;
+  button.onclick = (ev) => fetcher.getFile(fileuuid, CHAT_ID, filename);
+
+  messageBox.textContent = `${userId} said: ${message}`;
+  messageBox.appendChild(button);
+  messagesContainer?.appendChild(messageBox);
+}
+
+async function sendMessage(chatSocket: ChatSocketHandler, storageHandler: StorageHandler) {
+  let messageType : "message" | "file" = "message";
+  let fileSig = undefined;
+  let filename = undefined;
+
+  let fileUUID = undefined;
+  if(fileBeingUploaded) {
+    messageType = "file";
+
+    //encrypt file
+    let encKey = (await storageHandler.getChat(CHAT_ID)).secretKey!;
+    let sigKey = (await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR))!.privateKey;
+
+    let {encFile, signatureBase64} = await encryptFile(fileBeingUploaded, encKey, sigKey);
+
+    fileSig = signatureBase64;
+    filename = fileBeingUploaded.name; //use original name, not name set on encrypted file.
+
+
+    
+    fileUUID = await fetcher.uploadFile(encFile, CHAT_ID);
+  }
+
+
+  fileBeingUploaded = null; //no longer needed
+  
+  let result = await formatAndSaveMessage(CHAT_ID, messageType, messageBox.value, filename, fileSig, fileUUID);
+    
+  chatSocket.sendMessage(result.formattedMessage)
+    .then(() => {
+      //@ts-ignore
+      messageReceiveCallbacks[result.formattedMessage.type](result.formattedMessage);
+    })
+    .catch(e => {
+      console.error(e);
+      renderMessage("ERROR: FAILED TO SEND FOLLOWING MESSAGE", result.formattedMessage.message);
+    });
+
+  messageBox.value = '';
+}
+
 
 async function main() {
   if(Number.isNaN(CHAT_ID)) {
@@ -132,9 +188,8 @@ async function main() {
     let oldMessages = await storageHandler.getMessages(CHAT_ID, undefined, false);
     console.log("Number of old messages", oldMessages.length);
     for(let message of oldMessages) {
-      if(message.data.type === "message") {
-        renderMessage(message.data.senderId, message.data.message);
-      }
+      //@ts-ignore
+      messageReceiveCallbacks[message.data.type](message.data);
     }
 
     console.log("Old messages rendered!");
@@ -142,55 +197,32 @@ async function main() {
     console.error(e);
   }
 
+  let chatSocket: ChatSocketHandler;
+
   //retrieve new messages, decrypt them, and render them!
   try {
     await decryptPrevMessages(CHAT_ID, DECODER);
 
     
 
-    let chatSocket = await chatSocketBuilder(
+    chatSocket = await chatSocketBuilder(
       CHAT_ID, 
       messageReceiveCallbacks,
       serverMessageReceiveCallbacks
     );
 
-    let sendMessageCallback = async () => {
-      let messageType : "message" | "file" = "message";
-      if(fileBeingUploaded) {
-        messageType = "file";
-
-        //encrypt file
-        let key = (await storageHandler.getChat(CHAT_ID)).secretKey!;
-        let encFile = await encryptFile(fileBeingUploaded, key);
-
-        
-      }
-      
-      let result = await formatAndSaveMessage(CHAT_ID, messageType, messageBox.value, fileBeingUploaded ? fileBeingUploaded.name : undefined);
-        
-      chatSocket.sendMessage(result.formattedMessage)
-        .then(() => {
-          renderMessage((result.savedMessageId ? "" : "FAILED TO SAVE MESSAGE: ") + storageHandler.getUsername() ?? "You", result.formattedMessage.message)
-        })
-        .catch(e => {
-          console.error(e);
-          renderMessage("ERROR: FAILED TO SEND FOLLOWING MESSAGE", result.formattedMessage.message);
-        });
-
-      messageBox.value = '';
-    };
-
-    messageBox.onkeyup = (ev) => {
-      if(ev.key.toLowerCase() == "enter") {
-        sendMessageCallback();
-      }
-    }
-    messageButton.onclick = (e) => {
-      sendMessageCallback();
-    }
-
   } catch(e) {
     console.error(e);
+    return;
+  }
+
+  messageBox.onkeyup = (ev) => {
+    if(ev.key.toLowerCase() == "enter") {
+      sendMessage(chatSocket, storageHandler);
+    }
+  }
+  messageButton.onclick = (e) => {
+    sendMessage(chatSocket, storageHandler);
   }
   
 }

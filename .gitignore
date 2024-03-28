@@ -5,6 +5,7 @@ dist/
 
 #Custom
 ignored/
+chat_file_uploads/
 
 
 # OS-Specific Files

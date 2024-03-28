@@ -1,6 +1,7 @@
 export enum ErrorCode {
   NO_AUTH_HEADER = "NoAuthHeader",
   INVALID_AUTH_SCHEME = "InvalidAuthScheme",
+  MISSING_QUERY_PARAMETER = "MissingQueryParameter",
   NOT_LOGGED_IN = "NotLoggedIn",
   WRONG_PASSWORD = "WrongPassword",
   NO_USER_EXISTS = "NoUserExists",

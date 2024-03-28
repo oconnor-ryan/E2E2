@@ -70,6 +70,8 @@ export async function chatSocketBuilder(
   return new ChatSocketHandler(chatId, username, signature, chatSenderKey, keyExchangeId, userMessageParsedCallbacks, serverMessageParsedCallbacks);
 }
 
+export type {ChatSocketHandler}
+
 class ChatSocketHandler {
   private ws: WebSocket;
   private senderKey: AesGcmKey;

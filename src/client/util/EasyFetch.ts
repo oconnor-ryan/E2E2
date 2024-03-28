@@ -6,6 +6,20 @@ import { getDatabase } from './StorageHandler.js';
 import { ErrorCode, KeyType, UserInfo } from '../shared/Constants.js';
 import { initKeyExchange } from './KeyExchange.js';
 import { arrayBufferToBase64 } from './Base64.js';
+import { downloadFile } from './FileUpload.js';
+
+
+function getAuthHeader(storageHandler: storage.StorageHandler) {
+  let userId = storageHandler.getUsername();
+  let password = storageHandler.getPassword();
+
+  if(!userId || !password) {
+    throw new Error("No user ID and/or password found!");
+  }
+
+  let authHeader = "Basic " + btoa(userId + ":" + password);
+  return authHeader;
+}
 
 export async function createAccount(username: string) {
   let storageHandler = await getDatabase();
@@ -70,9 +84,6 @@ export async function createAccount(username: string) {
  * @returns 
  */
 export async function ezFetch(url: string, jsonData?: any, method: string = "POST") {
-  if(!jsonData) {
-    jsonData = {};
-  }
 
   let storageHandler = await storage.getDatabase();
   let keyPair = await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR);
@@ -80,14 +91,7 @@ export async function ezFetch(url: string, jsonData?: any, method: string = "POS
     throw new Error("No signing key found! Might want to restore to a backup account!");
   }
   
-  let userId = storageHandler.getUsername();
-  let password = storageHandler.getPassword();
-
-  if(!userId || !password) {
-    throw new Error("No user ID and/or password found!");
-  }
-
-  let authHeader = "Basic " + btoa(userId + ":" + password);
+  let authHeader = getAuthHeader(storageHandler);
 
   let jsonStr = JSON.stringify(jsonData);
   let res = await fetch(
@@ -279,54 +283,64 @@ export async function uploadFile(file: File, chatId: number) {
   formData.append("uploadedFile", file);
   formData.append('chatId', String(chatId));
 
-  let fileReader = new FileReader();
-  fileReader.readAsArrayBuffer(file);
+  let authHeader = getAuthHeader(storageHandler);
 
-  return new Promise<string>((resolve, reject) => {
-    fileReader.onload = async (ev) => {
-      let contents = fileReader.result as ArrayBuffer;
   
-      let signingKeyPair = await storageHandler.getKey(KeyType.IDENTITY_KEY_PAIR);
-      if(!signingKeyPair) {
-        throw new Error("No key found!");
-      }
-  
-      //sign the contents of the file to verify that it has not been tampered with
-      let signature = await signingKeyPair.privateKey.sign(contents);
-  
-  
-      let response = await fetch("/api/chat/uploadfile", {
-        method: 'POST',
-        headers: {
-          //do not explicity set multipart/form-data header
-          //since Fetch API needs to add the boundary property to that header
-          //'Content-Type': 'multipart/form-data',
-          'E2E2-File-Signature': signature,
-          'E2E2-User-Id': storageHandler.getUsername() ?? ""
-        },
-        body: formData
-      });
-  
-      let json = await response.json();
-  
-      if(json.error) {
-        return reject(json.error);
-      }
-
-      //if file upload succeeds, a filename is given to the client
-      resolve(json.filename as string);
-    }
-  
-    fileReader.onerror = (ev) => {
-      let error = fileReader.error;
-      reject(error);
-    }
+  let response = await fetch(`/api/chat/uploadfile?chatId=${chatId}`, {
+    method: 'POST',
+    headers: {
+      //do not explicity set multipart/form-data header
+      //since Fetch API needs to add the boundary property to that header
+      //'Content-Type': 'multipart/form-data',
+      'Authorization': authHeader
+    },
+    body: formData
   });
 
-  
+  let json = await response.json();
 
-  
+  if(json.error) {
+    throw new Error(json.error);
+  }
 
-
+  return json.fileuuid as string;
 }
 
+export async function getFile(fileUUID: string, chatId: number, filename: string) {
+  const url = `/api/chat/getfile?chatId=${chatId}&fileuuid=${fileUUID}`;
+
+  let storageHandler = await getDatabase();
+
+  let authHeader = getAuthHeader(storageHandler);
+
+  let res = await fetch(
+    url, 
+    {
+      method: "GET",
+      headers: {
+        'Content-Type': 'application/json',
+        //custom HTTP headers for storing the signature of the HTTP request body
+        //and the user who claims to have sent the request
+        'Authorization': authHeader
+      },
+    }
+    
+  )
+
+  if(res.headers.get('Content-Type') === "application/json") {
+    throw new Error((await res.json()).error);
+  }
+
+  let encFile = await res.blob();
+
+  let encKey = (await storageHandler.getChat(chatId)).secretKey!;
+
+  let decryptBuffer = await encKey.decrypt(await encFile.arrayBuffer(), "arraybuffer");
+
+  let decryptFile = new File([decryptBuffer], filename);
+
+  //download file (this is a hacky solution)
+
+  downloadFile(decryptFile);
+
+}

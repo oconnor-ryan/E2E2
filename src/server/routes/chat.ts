@@ -82,71 +82,19 @@ router.post("/acceptinvite", async (req, res) => {
   return res.json({error: null, chat: chatInfo});
 });
 
-router.post("/uploadfile", async (req, res) => {
-  const chatId = res.locals.chatId as number;
 
-  let filename;
-  try {
-    filename = await (async () => {
-      return new Promise<string>((resolve, reject) => {
-
-        //Multer does not have use Promises for async operations, so
-        //I used this wrapper.
-        upload.single('uploadedFile')(req, res, (err) => {
-          /*
-          if (err instanceof multer.MulterError) {
-            // A Multer error occurred when uploading.
-            reject(err);
-          } else if (err) {
-            // An unknown error occurred when uploading.
-            reject(err)
-          }
-          */
-          if(err) {
-            return reject(err);
-          }
-      
-          //file was saved successfully
-          let filename = req.file?.filename;
-          if(!filename) {
-            return reject(new Error("File not saved!"));
-          }
-  
-          resolve(filename);
-        });
-      });
-    })();
-  } catch(e) {
-    console.error(e);
-    return res.json({error: ErrorCode.FAILED_TO_PROCESS_FILE_DURING_UPLOAD});
-  }
-  
-  let savedDBEntry = await saveFileToDatabase(filename, chatId);
-
-
-  if(savedDBEntry) {
-    return res.json({error: null, filename: filename})
-  } else {
-    res.json({error: ErrorCode.FAILED_TO_SAVE_FILE_INFO_DATABASE});
-  }
-
-});
 
 //middleware to check if a user belongs to the chat
 //they claim to be a part of.
 router.use("/", async (req, res, next) => {
-  let currentUser = res.locals.username;
+  let currentUser = res.locals.username as string;
 
-  let chatId;
-  if(req.method === "GET") {
-    chatId = req.query.chatId;
-  } else {
-    chatId = req.body.chatId;
-  }
+  let chatId = req.query.chatId ? req.query.chatId : req.body.chatId;
 
   if(!chatId) {
     return res.json({error: ErrorCode.NO_CHAT_ID_PROVIDED});
   }
+
 
   try {
     let isMember = await userInChat(chatId, currentUser);
@@ -257,16 +205,26 @@ router.post("/getkeyexchangeforchat", async (req, res) => {
   return res.json({error: null, result: result});
 });
 
-router.post("/getfile", async (req, res) => {
+router.get("/getfile", async (req, res) => {
   const chatId = res.locals.chatId as number;
 
-  let { filename } = req.body;
+  let fileuuid = req.query.fileuuid as string;
+  
+  //replace _ with -
 
-  if(!(await fileInChat(filename, chatId))) {
+  res.setHeader('Content-Type', 'application/json');
+
+  if(!fileuuid) {
+    return res.json({error: ErrorCode.MISSING_QUERY_PARAMETER});
+  }
+
+  if(!(await fileInChat(fileuuid, chatId))) {
     return res.json({error: ErrorCode.NOT_MEMBER_OF_CHAT});
   }
 
-  let fileStream = fs.createReadStream(path.resolve(global.CHAT_UPLOAD_DIR + path.sep + filename));
+  res.setHeader('Content-Type', 'application/octet-stream');
+
+  let fileStream = fs.createReadStream(path.resolve(global.CHAT_UPLOAD_DIR + path.sep + fileuuid));
 
   //this may be called multiple times when new data is written to the buffer
   fileStream.on('readable', () => {
@@ -277,9 +235,58 @@ router.post("/getfile", async (req, res) => {
   });
   
   fileStream.on('end', () => {
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.status(200).end();
+    res.end();
   });
+
+});
+
+router.post("/uploadfile", async (req, res) => {
+  const chatId = res.locals.chatId as number;
+  let fileuuid;
+  try {
+    fileuuid = await (async () => {
+      return new Promise<string>((resolve, reject) => {
+
+        //Multer does not have use Promises for async operations, so
+        //I used this wrapper.
+        upload.single('uploadedFile')(req, res, (err) => {
+          /*
+          if (err instanceof multer.MulterError) {
+            // A Multer error occurred when uploading.
+            reject(err);
+          } else if (err) {
+            // An unknown error occurred when uploading.
+            reject(err)
+          }
+          */
+          if(err) {
+            return reject(err);
+          }
+  
+          let fileuuid = req.file?.filename;
+          if(!fileuuid) {
+            return reject(new Error(ErrorCode.FAILED_TO_PROCESS_FILE_DURING_UPLOAD));
+          }
+          
+          resolve(fileuuid);
+        });
+      });
+    })();
+  } catch(e) {
+    console.error(e);
+    return res.json({error: ErrorCode.FAILED_TO_PROCESS_FILE_DURING_UPLOAD});
+  }
+
+  console.log(fileuuid);
+  
+  let savedDBEntry = await saveFileToDatabase(fileuuid, chatId);
+
+
+  if(savedDBEntry) {
+    return res.json({error: null, fileuuid: fileuuid})
+  } else {
+    res.json({error: ErrorCode.FAILED_TO_SAVE_FILE_INFO_DATABASE});
+  }
 
 });
 

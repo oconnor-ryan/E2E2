@@ -10,8 +10,10 @@ import { ECDHPublicKey, AesGcmKey } from "../encryption/encryption.js";
 export interface Message {
   message: string, 
   type: string, 
-  senderId: string
-  filename?: string
+  senderId: string,
+  fileuuid?: string,
+  filename?: string,
+  filesig?: string
 }
 
 export class EncryptedMessageDecoder {
@@ -76,15 +78,17 @@ export class EncryptedMessageDecoder {
 
 //format message in the format other clients will expect
 export async function formatMessage(type: "message", message: string) : Promise<Message>
-export async function formatMessage(type: "file", message: string, filename: string) : Promise<Message>
-export async function formatMessage(type: "message" | "file", message: string, filename?: string) : Promise<Message> {
+export async function formatMessage(type: "file", message: string, filename: string, filesig: string, fileuuid: string) : Promise<Message>
+export async function formatMessage(type: "message" | "file", message: string, filename?: string, filesig?: string, fileuuid?: string) : Promise<Message> {
   let storageHandler = await getDatabase();
 
   let data = {
     type: type,
     senderId: storageHandler.getUsername() ?? "",
     message: message,
-    filename: filename
+    filename: filename,
+    filesig: filesig,
+    fileuuid: fileuuid
   };
 
   return data;
@@ -106,8 +110,8 @@ export async function saveLastReadMessageUUID(chatId: number, uuid: string) {
 
 
 //helper function used only by a sender of a message to simplify formatting and saving a message
-export async function formatAndSaveMessage(chatId: number, type: "message" | "file", message: string, filename?: string) : Promise<{formattedMessage: Message, savedMessageId: number | null}> {
-  let formattedMessage = type === 'file' ? await formatMessage(type, message, filename!) : await formatMessage(type, message);
+export async function formatAndSaveMessage(chatId: number, type: "message" | "file", message: string, filename?: string, filesig?: string, fileuuid?: string) : Promise<{formattedMessage: Message, savedMessageId: number | null}> {
+  let formattedMessage = type === 'file' ? await formatMessage(type, message, filename!, filesig!, fileuuid!) : await formatMessage(type, message);
   let messageId;
   try {
     messageId = await saveMessage(formattedMessage, chatId);

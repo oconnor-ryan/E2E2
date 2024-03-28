@@ -90,7 +90,9 @@ export class AesGcmKey extends CryptoKeyWrapper {
 
   }
 
-  async decrypt(data: ArrayBuffer | string) : Promise<string> {
+  async decrypt(data: ArrayBuffer | string, outputType: "arraybuffer") : Promise<ArrayBuffer>
+  async decrypt(data: ArrayBuffer | string, outputType?: "string") : Promise<string>
+  async decrypt(data: ArrayBuffer | string, outputType: "arraybuffer" | "string" = "string") : Promise<string | ArrayBuffer> {
     let encData: ArrayBuffer;
     if(data instanceof ArrayBuffer) {
       encData = data;
@@ -108,8 +110,9 @@ export class AesGcmKey extends CryptoKeyWrapper {
       this.key,
       ciphertext
     );
+
   
-    return new TextDecoder().decode(decrypted);
+    return outputType === 'arraybuffer' ? decrypted : new TextDecoder().decode(decrypted);
   }
 
   async wrapKeyAesGcmKey(keyToExport: AesGcmKey) {
