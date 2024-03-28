@@ -9,11 +9,21 @@ A instant-messaging web application where users can send encrypted messages to e
 > messages.
 
 ## Current Objectives
-1. Implement user signatures for messages and key exchanges. Save public keys of users you chat with in order to verify that each message sent was sent by them (this way, you no longer need to attach a senderId to each message, it can be signed with a user's signing key). When first connecting to user, save their keys so that if it changes, you have the option to use their new signing key uploaded to the server.
-2. Delete messages and key exchanges once all users in a chat room receive all previous messages
+1. Include key list for storing older keys so that new users who join can request to decrypt old messages and so the user can continue to download files from the server. 
+
+OR
+
+Automatically download all files sent by users once a message is received and save it either to IndexedDB or Downloads folder. This removes the need to save old keys. Users downloading files can be given a prompt that asks what files they want to download. Whatsapp and Signal both automatically save files when they are sent to clients.
+
+2. Work on Voice-Over-IP using WebRTC
+
+3. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
+
+
+
 
 ## Current Bugs
-1. When a key exchange is performed, the person who sent the previous key exchange will lose any messages encrypted with their key because their key exchange is not stored on the database.
+
 
 ## Objectives to Consider
 1. Try encrypting the members of a chat such that the server does not know who the users in a chat room are (similar to Signal's private group feature)
@@ -36,7 +46,11 @@ A instant-messaging web application where users can send encrypted messages to e
   - When the user begins to recover an account, they must drop the encrypted file and the password-salt combination into the Recover Account form to retrieve their backup private key, authenticate with server, and login.
   - A new backup keypair is generated using the above steps after logging in.
 
-2. Figure out how users setup shared key in case of bad clients
+2. Implement user signatures for messages and key exchanges. Save public keys of users you chat with in order to verify that each message sent was sent by them (this way, you no longer need to attach a senderId to each message, it can be signed with a user's signing key). When first connecting to user, save their keys so that if it changes, you have the option to use their new signing key uploaded to the server.
+
+3. Delete messages and key exchanges once all users in a chat room receive all previous messages
+
+4. Figure out how users setup shared key in case of bad clients
   - Right now, a client can claim to have generated a shared key without proof, which currently prevents all group members from communicating on that chat until everyone in the chat leaves. 
   - This acts as a small scale denial-of-service attack and forces other users to create a new chat.
   - In addition, a client can claim to have accepted a shared key even if it was invalid. It prevents us from assuming that if every recipient of the shared key accepts it, that the key must be correct. If we do assume this and 2 users do this before everyone else joins a group chat, everyone else will be unable to speak in the chat.
