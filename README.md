@@ -19,7 +19,9 @@ Automatically download all files sent by users once a message is received and sa
 
 3. Work on Voice-Over-IP using WebRTC
 
-4. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
+4. For WebSocket auth, replaced signed userId with a one-time access token retrieved by the server. This token can be stored in memory for 1 minute before being deleted and forcing a user to get another one-time token with their credentials.
+
+5. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
 
 
 
