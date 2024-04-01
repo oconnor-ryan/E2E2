@@ -71,8 +71,11 @@ export function negotiateP2PConnection(signalServer: SignalingServerMessageHandl
   //when a video or audio track was successfully retrieved from remote peer,
   //append the media stream to the remoteVideo HTMLElement
   peerConnection.ontrack = (e) => {
-    console.log(e.streams);
     console.log(e.track);
+
+    //once this point is reached, a p2p connection has successfully
+    //been established and we are now receiving the other peer's media
+    //stream
 
     e.track.onunmute = () => {
       //add stream(s)
