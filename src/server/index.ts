@@ -15,7 +15,7 @@ import * as publicSocketHandler from "./socket-handlers/public-key/PublicKeySock
 import * as asyncSocketHandler from "./socket-handlers/async/SocketHandler.js";
 
 import * as sharedKeySocketHandler from "./socket-handlers/shared-key/SocketHandlerSharedKey.js";
-
+import * as callSocketHandler from "./socket-handlers/rtc-calls/SocketHandler.js";
 
 //GLOBALS HERE
 
@@ -80,6 +80,9 @@ wss.on('connection', (ws, req) => {
     //public key
     case 'public':
       publicSocketHandler.onConnection(ws, req);
+      break;
+    case 'call':
+      callSocketHandler.onConnection(ws, req, url.searchParams);
       break;
     default:
       console.log("ASync")
@@ -151,8 +154,8 @@ app.get("/test/chatroom", (req, res) => {
   res.sendFile("chat-room.html", {root: HTML_ROOT});
 });
 
-app.get("/test/hkdf-test", (req, res) => {
-  res.sendFile("hkdf-test.html", {root: HTML_ROOT});
+app.get("/test/callroom", (req, res) => {
+  res.sendFile("call-room.html", {root: HTML_ROOT});
 });
 
 server.listen(3000, () => {

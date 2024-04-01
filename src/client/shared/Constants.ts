@@ -5,6 +5,8 @@ export enum ErrorCode {
   NOT_LOGGED_IN = "NotLoggedIn",
   WRONG_PASSWORD = "WrongPassword",
   NO_USER_EXISTS = "NoUserExists",
+  USER_ALREADY_EXISTS = "UserAlreadyExists",
+  USER_NOT_AVAILABLE = "UserNotAvailable",
   NO_USER_PROVIDED = "NoUserProvided",
   INVALID_USERNAME_FOR_ACCOUNT = "InvalidUsernameForAccount",
   INVALID_SIGNATURE = "InvalidSignature",

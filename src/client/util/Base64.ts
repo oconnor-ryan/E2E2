@@ -12,14 +12,14 @@ function ab2str(buf: ArrayBuffer) {
 //https://developer.mozilla.org/en-US/docs/Glossary/Base64
 //https://base64.guru/standards/base64url
 //Use this when putting a base64 message inside a URL
-function base64ToBase64URL(base64: string) {
+export function base64ToBase64URL(base64: string) {
   //replace + with -
   //replace / with _ 
   //omit padding character = at end of string (can end with ==, =, or zero =)
   return base64.replace(/(\+)/g, "-").replace(/(\/)/g, "_").replace(/(=)/g, "");
 }
 
-function base64URLToBase64(base64URL: string) {
+export function base64URLToBase64(base64URL: string) {
   //replace - with +
   //replace _ with /
   //no need to add = for padding since Javascript's atob function can
