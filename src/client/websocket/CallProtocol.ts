@@ -1,4 +1,3 @@
-import { base64ToBase64URL } from "../util/Base64.js";
 import { getDatabase } from "../util/StorageHandler.js";
 import { negotiateP2PConnection } from "../webrtc/P2P-Connect.js";
 import { SignalingServerMessageHandler } from "../webrtc/SignalingServerMessageHandler.js";
@@ -71,6 +70,8 @@ class CallSocketHandler extends SignalingServerMessageHandler{
   async startCall(otherId: string, isPolite?: boolean) : Promise<MediaStream | null> {
     this.otherId = otherId;
     try {
+      //ask to use webcam and mic (only call this once. If using multiple P2P,
+      //use the same MediaStream reference to set the tracks of each connection)
       let userCamAndMic = await window.navigator.mediaDevices.getUserMedia({
         audio: true,
         video: true

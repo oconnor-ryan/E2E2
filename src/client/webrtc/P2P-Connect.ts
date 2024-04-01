@@ -10,7 +10,6 @@ import { SignalingServerMessageHandler } from "./SignalingServerMessageHandler.j
  * Establish a peer-to-peer WebRTC connection between two users using the 
  * "Perfect Negotiation" pattern. Because of this pattern, this function can be
  * called regardless of whether the client is calling someone or receiving a call.
- * @param isPolite - impolite clients will always ignore offers on a offer collision and send their own offer, polite clients will always accept offers
  * @param signalServer - the intermediary server needed to help establish a direct connection between peers
  * @param remoteVideo - the video element to display video data from a remote peer
  * @param mediaTracks - this user's video and audio tracks from their webcam and microphone
@@ -25,9 +24,11 @@ export function negotiateP2PConnection(signalServer: SignalingServerMessageHandl
 
   let ignoreOffer = false; //track whether or not the last offer processed was ignored
 
-  let isPolite = true;
+  //impolite clients will always ignore offers on a offer collision, while polite clients will always accept offers incoming offers regardless of if there is a offer collision
+  let isPolite = true; //value for isPolite is arbitrary; just ensure that one client is polite while the other is impolite
 
-  //add media tracks
+  //add media tracks from local user's webcam/mic to peer connection
+  //so they can be sent to the remote peer
   try {
     let tracks = mediaStream.getTracks();
     for(const track of tracks) {
@@ -88,6 +89,8 @@ export function negotiateP2PConnection(signalServer: SignalingServerMessageHandl
    
   }
 
+  //setup callbracks for signal server
+
   //when the intermediary server receives a RTCSessionDescription from 
   //remote client, check its type and perform appropriate logic
   signalServer.onReceiveSessionDescription = async (sdp) => {
@@ -126,7 +129,8 @@ export function negotiateP2PConnection(signalServer: SignalingServerMessageHandl
     }
   };
 
-  //return callback to modify isPolite variable
+  //return callback to modify isPolite variable. This is because the signaling server
+  //is responsible for assigning which client is polite or impolite
   return (polite: boolean) => {
     isPolite = polite;
   }
