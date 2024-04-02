@@ -9,18 +9,22 @@ A instant-messaging web application where users can send encrypted messages to e
 > messages.
 
 ## Current Objectives
-1. Include key list for storing older keys so that new users who join can request to decrypt old messages and so the user can continue to download files from the server. 
+
+1. For WebSocket auth, replaced signed userId with a one-time access token retrieved by the server. This token can be stored in memory for 1 minute before being deleted and forcing a user to get another one-time token with their credentials if their WebSocket connection gets terminated.
+
+2. Use a persistant WebSocket connection for each client in order to send notifications, take video calls, and chat in chatrooms. May need to either make app a single page or reconnect to a WebSocket after each page load. Persistant WS connections are better in terms of bandwidth than HTTP long polling
+
+
+3. Include key list for storing older keys so that new users who join can request to decrypt old messages and so the user can continue to download files from the server. 
 
 OR
 
 Automatically download all files sent by users once a message is received and save it either to IndexedDB or Downloads folder. This removes the need to save old keys. Users downloading files can be given a prompt that asks what files they want to download. Whatsapp and Signal both automatically save files when they are sent to clients.
 
-2. Display storage quota and usage using window.navigator.storage.estimate() in order to prompt the user to clean out some data. This also helps avoid the browser from automatically deleting data when Persistance is not available.
+4. Display storage quota and usage using window.navigator.storage.estimate() in order to prompt the user to clean out some data. This also helps prevent the browser from automatically deleting data when Persistance is not available.
 
 
-3. For WebSocket auth, replaced signed userId with a one-time access token retrieved by the server. This token can be stored in memory for 1 minute before being deleted and forcing a user to get another one-time token with their credentials.
-
-4. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
+5. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
 
 
 
@@ -50,19 +54,8 @@ Automatically download all files sent by users once a message is received and sa
 
 3. Delete messages and key exchanges once all users in a chat room receive all previous messages
 
-4. Figure out how users setup shared key in case of bad clients
-  - Right now, a client can claim to have generated a shared key without proof, which currently prevents all group members from communicating on that chat until everyone in the chat leaves. 
-  - This acts as a small scale denial-of-service attack and forces other users to create a new chat.
-  - In addition, a client can claim to have accepted a shared key even if it was invalid. It prevents us from assuming that if every recipient of the shared key accepts it, that the key must be correct. If we do assume this and 2 users do this before everyone else joins a group chat, everyone else will be unable to speak in the chat.
+4. Implement remaining parts of Signal Protocol (Double Ratchet Algorithm and Sesame Algorithm for session handling)
 
-  - This can be fixed by:
-    - When a user first connects to the WebSocket Server, a unmodified client should send its encrypted shared key to all other clients connected.
-    - If all of the recipients of the shared key are unable to import the shared key, wait until another client sends their generated shared key.
-    - This repeats until at least 1 client accepts a shared key. However, the sender of that key is told that only 1 client can read their messages.
-    - However, if another client generates a shared key and more clients accept the new shared key, then all users who join will receive this key and the users with the old shared key are asked to import the new shared key to join the conversation with everyone else.
-    - If a client does not accept the most popular shared key, then the next most popular shared key is used.
-
-  - This fixes the problem by allowing all members with unmodified clients to communicate with each other and prevents those with compromised or malicious clients from locking out communication between these unmodified clients.
 
 
 ## Project Structure
