@@ -17,11 +17,10 @@ Automatically download all files sent by users once a message is received and sa
 
 2. Display storage quota and usage using window.navigator.storage.estimate() in order to prompt the user to clean out some data. This also helps avoid the browser from automatically deleting data when Persistance is not available.
 
-3. Work on Voice-Over-IP using WebRTC
 
-4. For WebSocket auth, replaced signed userId with a one-time access token retrieved by the server. This token can be stored in memory for 1 minute before being deleted and forcing a user to get another one-time token with their credentials.
+3. For WebSocket auth, replaced signed userId with a one-time access token retrieved by the server. This token can be stored in memory for 1 minute before being deleted and forcing a user to get another one-time token with their credentials.
 
-5. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
+4. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
 
 
 
@@ -33,11 +32,8 @@ Automatically download all files sent by users once a message is received and sa
 1. Try encrypting the members of a chat such that the server does not know who the users in a chat room are (similar to Signal's private group feature)
 2. Similar to the first consideration, a server can figure out who is part of a chat based on the initial HTTP upgrade request used to join a chat room via WebSocket. A alternative to this is to provide a unique access token to each user that is not linked to their account. Note that current invite method will not work since when an invite is accepted, the request is verified by the user's ID and signature. 
 
-3. Currently, you can only send POST requests to server because each request body is signed by the user's identity key. Maybe consider using JWT token for authentication and authorization for requests that do not have a body (note that setting cookie does not work because we want to use client's private signing key to sign data, but you cannot set cookies on a client's HTTP request. Try keeping auth data and signatures in custom HTTP headers or in query in GET request).
+3. Federated Communication (Server-To-Server). Users chatting on one server instance can form chats with users from a different server as long as their userId and server domain name are known.
 
-4. Federated Communication (Server-To-Server). Users chatting on one server instance can form chats with users from a different server as long as their userId and server domain name are known.
-
-5. WebRTC for peer-to-peer connections for syncronous chats and voice/video calls
 
 ## Future Objectives
 1. Add method to backup account in case they accidentally clear their browser.

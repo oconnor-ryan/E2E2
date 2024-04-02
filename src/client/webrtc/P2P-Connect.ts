@@ -6,6 +6,33 @@ import { SignalingServerMessageHandler } from "./SignalingServerMessageHandler.j
 //https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Perfect_negotiation
 
 
+
+
+function logSelectedIceCandidate(peerConnection: RTCPeerConnection) {
+  peerConnection.getStats().then((stats) => {
+    let localCandId = "";
+    let remoteCandId = "";
+
+    stats.forEach(stat => {
+      console.log(stat);
+      if(stat.type === 'candidate-pair') {
+        //@ts-ignore
+        localCandId = stat.localCandidateId;
+        remoteCandId = stat.remoteCandidateId;
+      }
+    });
+
+    console.log(localCandId);
+    console.log(remoteCandId);
+
+    stats.forEach(stat => {
+      if(stat.id === localCandId || stat.id === remoteCandId) {
+        console.log(stat);
+      }
+    });
+
+  });
+}
 /**
  * Establish a peer-to-peer WebRTC connection between two users using the 
  * "Perfect Negotiation" pattern. Because of this pattern, this function can be
@@ -16,9 +43,21 @@ import { SignalingServerMessageHandler } from "./SignalingServerMessageHandler.j
  */
 export function negotiateP2PConnection(signalServer: SignalingServerMessageHandler, remoteVideo: HTMLVideoElement, mediaStream: MediaStream) {
   //TODO: Use local STUN/TURN server since there are very few public TURN servers
-  //urls: 'stun3.l.google.com', //use public STUN server provided by google.
+  //PUBLIC STUN Servers:
+  //https://gist.github.com/zziuni/3741933
+
+  //Network bug???
+  // Chromium-based browsers ON SCHOOL WIFI require a STUN server to establish a P2P
+  // connection, even though both clients are on the same local network.
+  // This does not occur on home network and does not occur on Safari/Firefox
   const peerConnection = new RTCPeerConnection({
+    iceServers: [
+      {
+        urls: 'stun:stun3.l.google.com:19302'
+      }
+    ]
   });
+
 
   let makingOffer = false; //since creating an offer is asyncronous, use this to check whether an offer is currently being made
 
@@ -37,6 +76,8 @@ export function negotiateP2PConnection(signalServer: SignalingServerMessageHandl
   } catch(e) {
     console.error(e);
   }
+
+  
 
   //add event listeners for peerConnection
 
@@ -62,17 +103,45 @@ export function negotiateP2PConnection(signalServer: SignalingServerMessageHandl
   };
 
   peerConnection.oniceconnectionstatechange = (e) => {
+    console.log("ICE CONNECTION STATE", peerConnection.iceConnectionState);
+
+    
     //if something went wrong when retrieving ICE candidates,
     //try retrieving ICE candidates again
-    if(peerConnection.iceConnectionState === 'failed') {
-      peerConnection.restartIce();
+    switch(peerConnection.iceConnectionState) {
+      //failed to find suitable ice candidate pair, try restarting ICE to 
+      //fix this issue
+      case 'failed':
+        console.log("RESTARTING ICE CONNECTION");
+        peerConnection.restartIce();
+        break;
+      //when a connection is established, though ice candidate pairs may continue to
+      //be gathered and checked to see if there is a better connection
+      case 'connected':
+        //logIceConnection(peerConnection);
+        logSelectedIceCandidate(peerConnection);
+        break;
+
+      //the best possible ICE candidate pair has been selected
+      //and a connection has been established
+      case 'completed': 
+        break;
+
+      //when a connection disconnects (due to bad network, remote client closes tab without closing peer connection, etc).
+      //note that on a bad network, a connection can be reestablished automatically
+      //and go back to the 'connected' state
+      case 'disconnected':
+        break;
     }
+    
+
   };
 
   //when a video or audio track was successfully retrieved from remote peer,
   //append the media stream to the remoteVideo HTMLElement
   peerConnection.ontrack = (e) => {
     console.log(e.track);
+    console.log(e.streams);
 
     //once this point is reached, a p2p connection has successfully
     //been established and we are now receiving the other peer's media

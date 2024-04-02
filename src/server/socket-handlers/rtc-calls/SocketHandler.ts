@@ -122,6 +122,7 @@ export async function onConnection(ws: WebSocket, req: http.IncomingMessage, req
         //whoever joined the server first must be polite.
         jsonData.bePolite = ownerObjectIndex > otherObjectIndex;
 
+        console.log(jsonData.otherId, "is", jsonData.bePolite);
         receiverSocket.send(JSON.stringify(jsonData), {binary: false});
         break;
     }
