@@ -6,6 +6,7 @@ dist/
 #Custom
 ignored/
 chat_file_uploads/
+webrtc-test/
 
 
 # OS-Specific Files
