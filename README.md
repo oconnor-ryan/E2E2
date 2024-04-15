@@ -10,21 +10,17 @@ A instant-messaging web application where users can send encrypted messages to e
 
 ## Current Objectives
 
-1. For WebSocket auth, replaced signed userId with a one-time access token retrieved by the server. This token can be stored in memory for 1 minute before being deleted and forcing a user to get another one-time token with their credentials if their WebSocket connection gets terminated.
+1. Use a persistant WebSocket connection for each client in order to send notifications, take video calls, and chat in chatrooms. Persistant WS connections are better in terms of bandwidth than HTTP long polling
 
-2. Use a persistant WebSocket connection for each client in order to send notifications, take video calls, and chat in chatrooms. May need to either make app a single page or reconnect to a WebSocket after each page load. Persistant WS connections are better in terms of bandwidth than HTTP long polling
+2. Implement new chat system that reduces how much the server knows about each user by keeping user accounts client-side only and allowing chat members to share the same credentials when accessing chats.
 
+3. When files are sent in a chat room, automatically download them and store them in IndexedDB.
 
-3. Include key list for storing older keys so that new users who join can request to decrypt old messages and so the user can continue to download files from the server. 
+4. Display storage quota and usage using window.navigator.storage.estimate() in order to prompt the user to clean out some data (messages, files, etc). This also helps prevent the browser from automatically deleting data when Persistance is not available.
 
-OR
+5. Delete messages and files older than 30 days on the server. 
 
-Automatically download all files sent by users once a message is received and save it either to IndexedDB or Downloads folder. This removes the need to save old keys. Users downloading files can be given a prompt that asks what files they want to download. Whatsapp and Signal both automatically save files when they are sent to clients.
-
-4. Display storage quota and usage using window.navigator.storage.estimate() in order to prompt the user to clean out some data. This also helps prevent the browser from automatically deleting data when Persistance is not available.
-
-
-5. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
+6. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
 
 
 
@@ -33,14 +29,15 @@ Automatically download all files sent by users once a message is received and sa
 
 
 ## Objectives to Consider
-1. Try encrypting the members of a chat such that the server does not know who the users in a chat room are (similar to Signal's private group feature)
-2. Similar to the first consideration, a server can figure out who is part of a chat based on the initial HTTP upgrade request used to join a chat room via WebSocket. A alternative to this is to provide a unique access token to each user that is not linked to their account. Note that current invite method will not work since when an invite is accepted, the request is verified by the user's ID and signature. 
 
-3. Federated Communication (Server-To-Server). Users chatting on one server instance can form chats with users from a different server as long as their userId and server domain name are known.
+
+1.. Federated Communication (Server-To-Server). Users chatting on one server instance can form chats with users from a different server as long as their userId and server domain name are known (similar to user@server.com).
 
 
 ## Future Objectives
-1. Add method to backup account in case they accidentally clear their browser.
+1. Implement Double Ratchet Algorithm in order to complete the bare-minimum of the Signal Protocol in the application (while Sesame Session is somewhat part of the Signal Protocol, it is used more for session-handling of accounts with multiple devices. Because account and device information are not stored server-side and chat requests and invitations are used to perform session setup, the Sesame algorithm cannot be used here).
+
+2. Add method to backup account in case they accidentally clear their browser.
   - Do this by generating another ECDSA keypair as backup.
   - Put backup public key on server
   - Generate a password via crypto.getRandomValues() with over 80 bits of entropy (Note that Entropy = log2 ((number of unique symbols) ^ (length of password)))
@@ -49,13 +46,6 @@ Automatically download all files sent by users once a message is received and sa
   - Once the user accepts this password, the encrypted backup key is written into a file and put into the downloads folder.
   - When the user begins to recover an account, they must drop the encrypted file and the password-salt combination into the Recover Account form to retrieve their backup private key, authenticate with server, and login.
   - A new backup keypair is generated using the above steps after logging in.
-
-2. Implement user signatures for messages and key exchanges. Save public keys of users you chat with in order to verify that each message sent was sent by them (this way, you no longer need to attach a senderId to each message, it can be signed with a user's signing key). When first connecting to user, save their keys so that if it changes, you have the option to use their new signing key uploaded to the server.
-
-3. Delete messages and key exchanges once all users in a chat room receive all previous messages
-
-4. Implement remaining parts of Signal Protocol (Double Ratchet Algorithm and Sesame Algorithm for session handling)
-
 
 
 ## Project Structure
