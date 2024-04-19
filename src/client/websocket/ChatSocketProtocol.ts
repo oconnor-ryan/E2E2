@@ -1,4 +1,4 @@
-import { getDatabase } from "../util/StorageHandler.js";
+import { getDatabase } from "../util/storage/StorageHandler.js";
 import { KeyType } from "../shared/Constants.js";
 import { EncryptedMessageDecoder, Message, encryptMessage, formatAndSaveMessage } from "../util/MessageHandler.js";
 import { AesGcmKey } from "../encryption/encryption.js";

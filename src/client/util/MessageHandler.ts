@@ -1,5 +1,5 @@
 import * as fetcher from  "./EasyFetch.js";
-import { getDatabase } from "./StorageHandler.js";
+import { getDatabase } from "./storage/StorageHandler.js";
 
 import { UserMessageCompleteCallbacks } from "../websocket/ChatSocketProtocol.js";
 import { KeyType } from "../shared/Constants.js";

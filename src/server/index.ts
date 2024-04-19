@@ -158,6 +158,9 @@ app.get("/test/callroom", (req, res) => {
   res.sendFile("call-room.html", {root: HTML_ROOT});
 });
 
-server.listen(3000, () => {
+//use port 3000 to have client use indexeddb for old service
+//use port 3100 to have client use indexeddb for new service
+
+server.listen(3100, () => {
   console.log("Server Started!");
 })

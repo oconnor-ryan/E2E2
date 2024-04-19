@@ -1,5 +1,5 @@
 import { arrayBufferToBase64, base64ToArrayBuffer } from "../util/Base64.js";
-import { CryptoKeyWrapper } from "./CryptoKeyWrapper.js";
+import { CryptoKeyPairWrapper, CryptoKeyPairWrapperBuilder, CryptoKeyWrapper } from "./CryptoKeyWrapper.js";
 
 const cryptoSubtle = window.crypto.subtle;
 
@@ -64,18 +64,27 @@ export class ECDHPrivateKey extends CryptoKeyWrapper {
   }
 }
 
-export async function createECDHKeyPair() {
-  let keyPair = await cryptoSubtle.generateKey(
-    {
-      name: "ECDH",
-      namedCurve: "P-521"
-    },
-    false,
-    ['deriveKey', 'deriveBits']
-  );
 
-  return {
-    publicKey: new ECDHPublicKey(keyPair.publicKey),
-    privateKey: new ECDHPrivateKey(keyPair.privateKey)
+
+export class ECDHKeyPair extends CryptoKeyPairWrapper<ECDHPrivateKey, ECDHPublicKey>{};
+export class ECDHKeyPairBuilder extends CryptoKeyPairWrapperBuilder<ECDHKeyPair> {
+  async generateKeyPairWrapper(): Promise<ECDHKeyPair> {
+    let keyPair = await cryptoSubtle.generateKey(
+      {
+        name: "ECDH",
+        namedCurve: "P-521"
+      },
+      false,
+      ['deriveKey', 'deriveBits']
+    );
+
+    return this.getKeyPairWrapperFromCryptoKeyPair(keyPair);
+  }
+  
+  getKeyPairWrapperFromCryptoKeyPair(pair: CryptoKeyPair): ECDHKeyPair {
+    return new ECDHKeyPair(new ECDHPrivateKey(pair.privateKey), new ECDHPublicKey(pair.publicKey));
   }
 }
+
+
+

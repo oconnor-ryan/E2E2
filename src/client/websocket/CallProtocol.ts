@@ -1,4 +1,4 @@
-import { getDatabase } from "../util/StorageHandler.js";
+import { getDatabase } from "../util/storage/StorageHandler.js";
 import { negotiateP2PConnection } from "../webrtc/P2P-Connect.js";
 import { SignalingServerMessageHandler } from "../webrtc/SignalingServerMessageHandler.js";
 

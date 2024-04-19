@@ -1,7 +1,7 @@
-import * as storage from './StorageHandler.js'
+import * as storage from './storage/StorageHandler.js'
 import * as encrypt from '../encryption/encryption.js';
 
-import { getDatabase } from './StorageHandler.js';
+import { getDatabase } from './storage/StorageHandler.js';
 
 import { ErrorCode, KeyType, UserInfo } from '../shared/Constants.js';
 import { initKeyExchange } from './KeyExchange.js';

@@ -1,6 +1,6 @@
 import * as fetcher from "./util/EasyFetch.js";
-import * as storage from './util/StorageHandler.js';
-import { StorageHandler } from "./util/StorageHandler.js";
+import * as storage from './util/storage/StorageHandler.js';
+import { StorageHandler } from "./util/storage/StorageHandler.js";
 
 const accountForm = document.getElementById('create-account-form') as HTMLFormElement;
 const messageElement = document.getElementById('result-message') as HTMLParagraphElement;

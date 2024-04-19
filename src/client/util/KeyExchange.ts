@@ -1,5 +1,5 @@
 import { KeyType, UserInfo } from "../shared/Constants.js";
-import { getDatabase } from "./StorageHandler.js";
+import { getDatabase } from "./storage/StorageHandler.js";
 
 import { ECDHPublicKey, AesGcmKey, createECDHKeyPair } from "../encryption/encryption.js";
 import * as x3dh from "./X3DH.js";

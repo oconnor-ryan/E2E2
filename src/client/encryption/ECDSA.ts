@@ -1,5 +1,5 @@
 import { arrayBufferToBase64, base64ToArrayBuffer } from "../util/Base64.js";
-import { CryptoKeyWrapper } from "./CryptoKeyWrapper.js";
+import { CryptoKeyPairWrapper, CryptoKeyPairWrapperBuilder, CryptoKeyWrapper } from "./CryptoKeyWrapper.js";
 
 const cryptoSubtle = window.crypto.subtle;
 
@@ -86,18 +86,24 @@ export class ECDSAPrivateKey extends CryptoKeyWrapper {
   }
 }
 
-export async function createECDSAKeyPair() {
-  let keyPair = await cryptoSubtle.generateKey(
-    {
-      name: "ECDSA",
-      namedCurve: "P-521"
-    },
-    false, //note that public key can be exported even if extractable is false, but private key is not
-    ['sign', 'verify']
-  );
 
-  return {
-    publicKey: new ECDSAPublicKey(keyPair.publicKey),
-    privateKey: new ECDSAPrivateKey(keyPair.privateKey)
-  };
+export class ECDSAKeyPair extends CryptoKeyPairWrapper<ECDSAPrivateKey, ECDSAPublicKey>{};
+export class ECDSAKeyPairBuilder extends CryptoKeyPairWrapperBuilder<ECDSAKeyPair> {
+  async generateKeyPairWrapper(): Promise<ECDSAKeyPair> {
+    let keyPair = await cryptoSubtle.generateKey(
+      {
+        name: "ECDSA",
+        namedCurve: "P-521"
+      },
+      false, //note that public key can be exported even if extractable is false, but private key is not
+      ['sign', 'verify']
+    );
+
+    return this.getKeyPairWrapperFromCryptoKeyPair(keyPair);
+  }
+  
+  getKeyPairWrapperFromCryptoKeyPair(pair: CryptoKeyPair): ECDSAKeyPair {
+    return new ECDSAKeyPair(new ECDSAPrivateKey(pair.privateKey), new ECDSAPublicKey(pair.publicKey));
+  }
 }
+

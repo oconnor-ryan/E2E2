@@ -1,5 +1,5 @@
 import * as fetcher from "./util/EasyFetch.js";
-import { StorageHandler, getDatabase } from "./util/StorageHandler.js";
+import { StorageHandler, getDatabase } from "./util/storage/StorageHandler.js";
 
 import { EncryptedMessageDecoder, decryptPrevMessages, formatAndSaveMessage, formatMessage, saveLastReadMessageUUID } from "./util/MessageHandler.js";
 import { ChatSocketHandler, chatSocketBuilder } from "./websocket/ChatSocketProtocol.js";

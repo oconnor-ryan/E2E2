@@ -1,15 +1,17 @@
 import { AesGcmKey } from "./AES-GCM.js";
-import { ECDHPrivateKey, ECDHPublicKey, createECDHKeyPair } from "./ECDH.js";
-import { ECDSAPrivateKey, ECDSAPublicKey, createECDSAKeyPair } from "./ECDSA.js";
+import { ECDHPrivateKey, ECDHPublicKey, ECDHKeyPairBuilder, ECDHKeyPair } from "./ECDH.js";
+import { ECDSAPrivateKey, ECDSAPublicKey, ECDSAKeyPairBuilder, ECDSAKeyPair } from "./ECDSA.js";
 import { HKDFKey } from "./HKDF.js";
 
 export {
   AesGcmKey,
   ECDHPrivateKey, 
   ECDHPublicKey,
-  createECDHKeyPair,
+  ECDHKeyPairBuilder,
+  ECDHKeyPair,
   ECDSAPrivateKey,
   ECDSAPublicKey, 
-  createECDSAKeyPair,
+  ECDSAKeyPairBuilder,
+  ECDSAKeyPair,
   HKDFKey
 }

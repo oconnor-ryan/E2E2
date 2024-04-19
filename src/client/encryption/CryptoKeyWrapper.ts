@@ -22,3 +22,28 @@ export abstract class CryptoKeyWrapper {
   }
 
 }
+
+export abstract class CryptoKeyPairWrapper<Private extends CryptoKeyWrapper, Public extends CryptoKeyWrapper> {
+  public readonly privateKey: Private;
+  public readonly publicKey: Public;
+
+
+  constructor(privateKey: Private, publicKey: Public) {
+    this.privateKey = privateKey;
+    this.publicKey = publicKey;
+
+
+  }
+
+  getCryptoKeyPair() : Readonly<CryptoKeyPair> {
+    return {
+      privateKey: this.privateKey.getCryptoKey(),
+      publicKey: this.publicKey.getCryptoKey()
+    };
+  }
+}
+
+export abstract class CryptoKeyPairWrapperBuilder<Pair>{
+  abstract getKeyPairWrapperFromCryptoKeyPair(pair: CryptoKeyPair): Pair;
+  abstract generateKeyPairWrapper(): Promise<Pair>;
+}
