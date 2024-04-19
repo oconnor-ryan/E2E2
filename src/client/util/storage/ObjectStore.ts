@@ -33,7 +33,7 @@ abstract class ObjectStorePromise<Identifier extends IDBValidKey | IDBKeyRange, 
   }
 
   //used to migrate between different versions of this object store
-  abstract migrateData(oldVersion: number): Promise<void>;
+  abstract migrateData(oldVersion: number): void;
 
   protected abstract getStoreOptions(): IDBObjectStoreParameters;
   protected abstract setStoreIndices(objStore: IDBObjectStore): void;
@@ -108,6 +108,7 @@ abstract class ObjectStorePromise<Identifier extends IDBValidKey | IDBKeyRange, 
 
 export interface AccountEntry {
   id: string,
+  password: string,
   identityKeyPair: ECDSAKeyPair
   exchangeIdKeyPair: ECDHKeyPair,
   exchangeIdPreKeyPair: ECDHKeyPair,
@@ -117,6 +118,7 @@ export interface AccountEntry {
 
 interface AccountEntryRaw {
   id: string,
+  password: string,
   identityKeyPair: CryptoKeyPair
   exchangeIdKeyPair: CryptoKeyPair,
   exchangeIdPreKeyPair: CryptoKeyPair,
@@ -149,6 +151,7 @@ export class AccountStore extends ObjectStorePromise<string, AccountEntry, Accou
   convertEntryToRaw(entry: AccountEntry) : AccountEntryRaw {
     return {
       id: entry.id,
+      password: entry.password,
       identityKeyPair: entry.identityKeyPair.getCryptoKeyPair(),
       exchangeIdKeyPair: entry.exchangeIdKeyPair.getCryptoKeyPair(),
       exchangeIdPreKeyPair: entry.exchangeIdPreKeyPair.getCryptoKeyPair(),
@@ -164,6 +167,7 @@ export class AccountStore extends ObjectStorePromise<string, AccountEntry, Accou
 
     return {
       id: entry.id,
+      password: entry.password,
       identityKeyPair: ecdsaKeyBuilder.getKeyPairWrapperFromCryptoKeyPair(entry.identityKeyPair),
       exchangeIdKeyPair: ecdhKeyBuilder.getKeyPairWrapperFromCryptoKeyPair(entry.exchangeIdKeyPair),
       exchangeIdPreKeyPair: ecdhKeyBuilder.getKeyPairWrapperFromCryptoKeyPair(entry.exchangeIdPreKeyPair),
@@ -382,7 +386,7 @@ export class MessageStore extends ObjectStorePromise<string, Message, Message> {
 
   }
 
-  async migrateData(oldVersion: number) {}
+  migrateData(oldVersion: number) {}
 
   convertEntryToRaw(entry: Message): Message {return entry;}
   convertRawToEntry(raw: Message): Message {return raw;}

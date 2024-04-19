@@ -5,18 +5,18 @@ WARNING:
   even if they tell the browser that this website's data should persist.
 */
 
-import { AccountStore, GroupChatRequestStore, GroupChatStore, KnownUserStore, MessageRequestStore, MessageStore, PendingInviteStore } from "./ObjectStore.js";
+import { Database } from "./Database.js";
 
-const DB_NAME = "e2e2";
-const DB_VERSION = 1;
-
-
+//consider this
+//let cb = await Database.initDB();
 
 //using function closure in order to hide storageHandler variable
 //and assure that only one instance of storageHandler is ever initialized
 //per page load.
+//using syncronous function since not all browsers allow top-level code
+//to use async-await
 export const getDatabase = (() => {
-  let storageHandler: StorageHandler | undefined;
+  let database: Database | undefined;
 
 
   //this allows you to make sure that data in IndexedDB is only deleted
@@ -42,8 +42,8 @@ export const getDatabase = (() => {
   //
   return async () => {
     //
-    if(storageHandler) {
-      return storageHandler;
+    if(database) {
+      return database;
     }
 
     if(!window.isSecureContext) {
@@ -58,9 +58,8 @@ export const getDatabase = (() => {
     console.log("Allow persistance: " + persistData);
 
     if(persistData) {
-      let db = await initDB();
-      storageHandler = new StorageHandler(db);
-      return storageHandler;
+      database = await Database.initDB();
+      return database;
     }
     
         
@@ -77,9 +76,8 @@ export const getDatabase = (() => {
       //persistance will only be true after next page reload,
       //but database will still work
       if(notePermission === 'granted') {
-        let db = await initDB();
-        storageHandler = new StorageHandler(db);
-        return storageHandler;
+        database = await Database.initDB();
+        return database;
       }
     } 
     
@@ -93,89 +91,10 @@ export const getDatabase = (() => {
 })();
 
 
-async function deleteDB() {
-  let request = window.indexedDB.deleteDatabase(DB_NAME);
-
-  return new Promise<void>((resolve, reject) => {
-    request.onsuccess = (e) => resolve();
-    request.onerror = (e) => reject(request.error);
-  });
-}
-
-async function initDB() {
-  //MAKE SURE TO COMMENT THIS TO PERSIST DB AFTER TESTING!!!!
-  //await deleteDB();
 
 
-  let DBOpenRequest = window.indexedDB.open(DB_NAME, DB_VERSION);
-
-  //list of active stores
-  let accountStore: AccountStore;
-  let knownUserStore: KnownUserStore;
-  let groupChatStore: GroupChatStore;
-  let messageStore: MessageStore;
-  let pendingInviteStore: PendingInviteStore;
-  let messageRequestStore: MessageRequestStore;
-  let groupChatRequestStore: GroupChatRequestStore;
-
-  
-
-
-  // This event handles the event whereby a new version of the database needs to be created
-  // Either one has not been created before, or a new version number has been submitted via the
-  // window.indexedDB.open line above
-  DBOpenRequest.onupgradeneeded = (event) => {
-    //@ts-ignore
-    let db: IDBDatabase = event.target.result;
-  
-    console.log(`Upgrade Needed from ${event.oldVersion} to ${event.newVersion}`);
-  
-    console.log(db.objectStoreNames);
-
-    accountStore = new AccountStore(db);
-    knownUserStore = new KnownUserStore(db);
-    groupChatStore = new GroupChatStore(db);
-    messageStore = new MessageStore(db);
-    pendingInviteStore = new PendingInviteStore(db);
-    messageRequestStore = new MessageRequestStore(db);
-    groupChatRequestStore = new GroupChatRequestStore(db);
-
-    accountStore.initObjectStore();
-    knownUserStore.initObjectStore();
-    groupChatStore.initObjectStore();
-    messageStore.initObjectStore();
-    pendingInviteStore.initObjectStore();
-    messageRequestStore.initObjectStore();
-    groupChatRequestStore.initObjectStore();
-  };
-  
-  
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    DBOpenRequest.onerror = (event) => {
-      console.error("Failed to open database", DBOpenRequest.error);
-      reject(DBOpenRequest.error);
-    };
-    
-    DBOpenRequest.onsuccess = (event) => {
-      console.log("Open Success");  
-      let db = DBOpenRequest.result;
-
-    };  
-  });
-  
-}
-
-export type { StorageHandler };
-
-
-class StorageHandler {
-  private readonly db: IDBDatabase;
+class LocalStorageHandler {
   private readonly localStorage = window.localStorage;
-
-
-  constructor(db: IDBDatabase) {
-    this.db = db;
-  }
 
   updateUsername(username: string) : boolean {
     try {
@@ -210,6 +129,8 @@ class StorageHandler {
 
   
 }
+
+export const LOCAL_STORAGE_HANDLER = new LocalStorageHandler();
 
 
 
