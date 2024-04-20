@@ -21,6 +21,10 @@ export function hashPassword(password: string, salt?: Buffer) {
   
 }
 
+export function combineSaltAndHash(hashBase64: string, saltBase64: string) {
+  return saltBase64 + hashBase64;
+}
+
 export async function passwordCorrect(plaintextPassword: string, hashBase64: string, saltBase64: string) {
   try {
     let {hash} = await hashPassword(plaintextPassword, Buffer.from(saltBase64, 'base64'));

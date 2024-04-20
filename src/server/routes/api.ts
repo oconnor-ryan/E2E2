@@ -30,7 +30,8 @@ router.post("/create-account", async (req, res) => {
     exchange_pubkey_base64,
     exchange_pubkey_sig_base64,
     exchange_prekey_pubkey_base64,
-    exchange_prekey_pubkey_sig_base64
+    exchange_prekey_pubkey_sig_base64,
+    mailbox_id
   } = req.body;
 
   //validate username format

@@ -344,9 +344,11 @@ export interface FileUploadMessageData extends MessageData {
   type: "file",
   data: {
     message: string,
-    fileSignature: string,
-    fileId: string,
-    fileName: string
+    fileSignature: string, //sign contents of file or its hash
+    fileHash: string,
+    fileId: string, //the file ID used on server to fetch the file
+    fileName: string, //the plaintext name of the original file
+    remoteDomainName: string | undefined //used to retrieve uploaded file from another server
   }
 }
 
@@ -357,8 +359,7 @@ export interface FileUploadMessageData extends MessageData {
 
 
 export interface Message {
-  id: string,
-  insertId: number,
+  uuid: string,
   senderId: string,
   groupId: string | null,
   fromTrustedUser: boolean, //does the senderPublicKey match a key of a user we know?
@@ -376,13 +377,16 @@ export class MessageStore extends ObjectStorePromise<string, Message, Message> {
 
   protected getStoreOptions(): IDBObjectStoreParameters {
     return {
-      keyPath: 'id'
+      //note that insertId is the order that the message is inserted into client database, not server database
+      keyPath: 'insertId', //insert id is automatically appended
+      autoIncrement: true
     }
   }
 
   protected setStoreIndices(objectStore: IDBObjectStore): void {
     objectStore.createIndex('groupId', 'groupId');
     objectStore.createIndex('senderId', 'senderId');
+    objectStore.createIndex('uuid', 'uuid');
 
   }
 
