@@ -1,4 +1,5 @@
 import express from "express";
+import type {ErrorRequestHandler} from "express";
 import https from 'https';
 import fs from 'fs';
 import path from 'path';
@@ -157,6 +158,18 @@ app.get("/test/chatroom", (req, res) => {
 app.get("/test/callroom", (req, res) => {
   res.sendFile("call-room.html", {root: HTML_ROOT});
 });
+
+// 404 error handler
+app.use((req, res, next) => {
+  res.status(404).sendFile("404.html", {root: HTML_ROOT});
+});
+
+// 500 server error handler
+const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
+  console.error(err);
+  res.status(500).sendFile("index.html", {root: HTML_ROOT});
+}
+app.use(errorHandler);
 
 //use port 3000 to have client use indexeddb for old service
 //use port 3100 to have client use indexeddb for new service

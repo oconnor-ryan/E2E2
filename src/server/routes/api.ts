@@ -1,13 +1,32 @@
 import express from 'express';
+import multer from 'multer';
+import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import type {ErrorRequestHandler} from "express";
+
 
 //local files
-import {createAccount, searchUsers, getUserKeys, getUserPasswordHashAndSalt } from '../util/database.js';
+import * as db from '../util/database-handler.js';
+
 import { ErrorCode } from '../../client/shared/Constants.js';
 
 //routes
-import testRoute from './tests.js';
-import chatRoute from "./chat.js";
-import { hashPassword, passwordCorrect } from '../util/password-hash.js';
+import { passwordCorrect } from '../util/password-hash.js';
+
+const uploadStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, global.CHAT_UPLOAD_DIR);
+  },
+
+  //every filename becomes a random uuid
+  filename: (req, file, cb) => {
+    const uuid = crypto.randomUUID();
+    cb(null, uuid);
+  }
+});
+
+const upload = multer({storage: uploadStorage});
 
 const router = express.Router();
 
@@ -15,57 +34,92 @@ const router = express.Router();
 
 //routes
 
-router.use("/test", testRoute)
 
 
 //these route handlers do not require a JWT since users not logged in
 //must be able to create accounts and/or log in.
 
-
-router.post("/create-account", async (req, res) => {
-  const {
-    username, 
-    password,
-    id_pubkey_base64, 
-    exchange_pubkey_base64,
-    exchange_pubkey_sig_base64,
-    exchange_prekey_pubkey_base64,
-    exchange_prekey_pubkey_sig_base64,
-    mailbox_id
-  } = req.body;
-
-  //validate username format
-
-  //required since Basic scheme for Authorization HTTP header
-  //concatenates: username + ":" + password. 
-  //Thus, username cannot contain any colons, otherwise the username
-  //and password cannot be found.
-  if((username as string).includes(":")) {
-    return res.json({error: ErrorCode.INVALID_USERNAME_FOR_ACCOUNT});
-  }
-
-  let {hash, salt} = await hashPassword(password);
-
+//note that async route handlers in Express 4 will prevent thrown errors from using the 
+//defined error handling middleware you made UNLESS you call next(err) manually during the 
+//async call. Thus, make sure to try-catch or use Promise.catch to call next(err) explicitly
+router.post("/create-account", async (req, res, next) => {
   //if unable to create account
-  if(!(await createAccount(
-    username, 
-    hash,
-    salt,
-    id_pubkey_base64, 
-    exchange_pubkey_base64, 
-    exchange_pubkey_sig_base64, 
-    exchange_prekey_pubkey_base64, 
-    exchange_prekey_pubkey_sig_base64
-  ))) {
-    return res.json({error: ErrorCode.ACCOUNT_CREATION_FAILED});
+  try {
+    await db.createAccount(req.body)
+  } catch(e) {
+    return next(e);
   }
 
-
-
-  res.json({error: null, success: true})
-
-
+  res.json({error: null})
 });
+
+//allow these endpoints to stay unauthenticated to allow remote servers to use them
+
+router.get("/getuserkeysforexchange", async (req, res, next) => {
+  const {username} = req.body;
+
+  if(!username) {
+    return next(new Error(ErrorCode.NO_USER_PROVIDED));
+  }
+
+  let accountInfo;
+  try {
+    accountInfo = await db.getAccountInfoForExchange(username);
+    if(!accountInfo) {
+      return next(new Error(ErrorCode.CANNOT_GET_USER_KEYS))
+    }
+    return res.json(accountInfo);
+
+  } catch(e) {
+    next(e);
+  }
+});
+
+router.post("/searchusers", async (req, res, next) => {
+  let currentUser = res.locals.username as string;
+
+  try {
+    let searchResults = await db.searchForUsers(req.body.search, 10, currentUser);
+    res.json(searchResults);
+  } catch(e) {
+    next(e);
+  }
+  
+});
+
+router.get("/getfile", async (req, res, next) => {
+  let fileuuid = req.query.fileuuid as string;
+  let accessToken = req.query.accesstoken as string;
+  
+  if(!fileuuid || !accessToken) {
+    return next(new Error(ErrorCode.MISSING_QUERY_PARAMETER));
+  }
+
+  try {
+    let hasAccess = await db.verifyAccessToFile({fileUUID: fileuuid, accessToken: accessToken});
+    if(!hasAccess) {
+      throw new Error(ErrorCode.NOT_ALLOWED_TO_VIEW_FILE)
+    }
+  } catch(e) {
+    return next(e);
+  }
+
+  res.setHeader('Content-Type', 'application/octet-stream');
+
+  let fileStream = fs.createReadStream(path.resolve(global.CHAT_UPLOAD_DIR + path.sep + fileuuid));
+
+  //this may be called multiple times when new data is written to the buffer
+  fileStream.on('readable', () => {
+    let chunk;
+    while((chunk = fileStream.read()) !== null) {
+      res.write(chunk);
+    }
+  });
+  
+  fileStream.on('end', () => {
+    res.end();
+  });
+})
 
 
 //all route handlers after this one must have a valid JWT to be used,
@@ -73,7 +127,7 @@ router.post("/create-account", async (req, res) => {
 router.use("/", async (req, res, next) => {
   let authHeader = req.get('authorization');
   if(!authHeader) {
-    return res.status(403).json({error: ErrorCode.NO_AUTH_HEADER});
+    return next(new Error(ErrorCode.NO_AUTH_HEADER));
   }
 
 
@@ -83,7 +137,7 @@ router.use("/", async (req, res, next) => {
   let authScheme = authHeader.substring(0, spaceDelimIndex).trim();
 
   if(authScheme.toLowerCase() !== 'basic') {
-    return res.status(403).json({error: ErrorCode.INVALID_AUTH_SCHEME});
+    return next(new Error(ErrorCode.INVALID_AUTH_SCHEME));
   }
 
   let userAndPasswordBase64 = authHeader.substring(spaceDelimIndex+1).trim();
@@ -91,62 +145,139 @@ router.use("/", async (req, res, next) => {
 
 
   let colonDelimIndex = userAndPasswordDecoded.indexOf(":");
-  let userId = userAndPasswordDecoded.substring(0, colonDelimIndex);
+  let username = userAndPasswordDecoded.substring(0, colonDelimIndex);
   let password = userAndPasswordDecoded.substring(colonDelimIndex+1);
 
   //get user password hash and salt
-  let creds = await getUserPasswordHashAndSalt(userId);
-  if(!creds) {
-    return res.json({error: ErrorCode.NO_USER_EXISTS});
+  let creds;
+
+  try {
+    creds = await db.getPasswordHashAndSalt(username);
+    if(!creds) {
+      throw new Error(ErrorCode.NO_USER_EXISTS);
+    }
+  } catch(e) {
+    return next(e);
   }
 
   //if invalid password
-  if(!(await passwordCorrect(password, creds.hashBase64, creds.saltBase64))) {
-    return res.json({error: ErrorCode.WRONG_PASSWORD});
+  if(!(await passwordCorrect(password, creds.hash, creds.salt))) {
+    return next(new Error(ErrorCode.WRONG_PASSWORD));
   }
 
   //user is now authenticated!
 
+  let identityKey;
+  try {
+    let info = await db.getUserIdentity(username);
+    if(!info) {
+      throw new Error(ErrorCode.CANNOT_GET_USER_KEYS);
+    }
+    identityKey = info.identityKeyPublic;
+  } catch(e) {
+    return next(e);
+  }
+
   //res.locals can be used to pass parameters down from this middleware
   //to the next one. This variable will remain alive until a response is sent
-  res.locals.username = userId;
+  res.locals.username = username;
+  res.locals.identityKey = identityKey;
 
-  //now that JWT was checked to be valid,
   //move on to next middleware below this route handler
   next();
 });
 
 //since user is logged in, they are now allowed to access
-//chat route
-router.use("/chat", chatRoute);
+//these endpoints
 
-router.post("/searchusers", async (req, res) => {
-  let currentUser = res.locals.username as string;
+router.post("/uploadfile", async (req, res, next) => {
+  const currentUser = res.locals.username;
+  let accessToken = crypto.randomBytes(20).toString('utf-8');
 
-  console.log(currentUser);
+  let fileuuid;
+  try {
+    fileuuid = await (async () => {
+      return new Promise<string>((resolve, reject) => {
 
-  let searchResults = await searchUsers(req.body.search, 10, currentUser);
-
-  res.json({error: null, users: searchResults});
-});
-
-
-
-router.get("/getuserkeys", async (req, res) => {
-  const {username} = req.body;
-
-  if(!username) {
-    return res.json({error: ErrorCode.NO_USER_PROVIDED});
-  }
-
-  let keys = await getUserKeys(username);
-  if(!keys) {
-    return res.json({error: ErrorCode.CANNOT_GET_USER_KEYS});
-  }
+        //Multer does not have use Promises for async operations, so
+        //I used this wrapper.
+        upload.single('uploadedFile')(req, res, (err) => {
+          /*
+          if (err instanceof multer.MulterError) {
+            // A Multer error occurred when uploading.
+            reject(err);
+          } else if (err) {
+            // An unknown error occurred when uploading.
+            reject(err)
+          }
+          */
+          if(err) {
+            return reject(err);
+          }
   
-  return res.json({error: null, keys: keys});
+          let fileuuid = req.file?.filename;
+          if(!fileuuid) {
+            return reject(new Error("File UUID not made!"));
+          }
+          
+          resolve(fileuuid);
+        });
+      });
+    })();
+  } catch(e) {
+    console.error(e);
+    return next(new Error(ErrorCode.FAILED_TO_PROCESS_FILE_DURING_UPLOAD))
+  }
+
+  try {
+    await db.saveFile({fileUUID: fileuuid, accessToken: accessToken});
+    return res.json({fileUUID: fileuuid, accessToken: accessToken});
+  } catch(e) {
+    next(e);
+  }
+
+})
+
+router.post("/addprekeys", async (req, res, next) => {
+  const currentUser = res.locals.username;
+  const identityKey = res.locals.identityKey;
+
+  try {
+    await db.addPrekeys(identityKey, req.body as string[]);
+    return res.json({error: null});
+  } catch(e) {
+    return next(e);
+  }
+});
+
+router.get("/getnumprekeys", async (req, res, next) => {
+  const currentUser = res.locals.username;
+  const identityKey = res.locals.identityKey;
+
+  try {
+    let numPrekeys = await db.getNumPrekeys(identityKey);
+    return res.json({numPrekeys: numPrekeys});
+  } catch(e) {
+    return next(e);
+  }
 });
 
 
+
+
+
+
+//404 error handler
+router.use((req, res, next) => {
+  res.status(404).send();
+});
+
+//error handler for API
+const errorHandler: ErrorRequestHandler = (err: Error, req, res, next) => {
+  console.error(err.stack);
+  res.setHeader('Content-Type', 'application/json');
+  res.json({error: err.message});
+};
+router.use(errorHandler);
 
 export default router;

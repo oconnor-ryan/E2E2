@@ -1,5 +1,8 @@
 import crypto from 'crypto';
 
+
+const SALT_LENGTH = 20;
+
 export function hashPassword(password: string, salt?: Buffer) {
   //if no salt is provided, randomly generate it
   if(!salt) {
@@ -21,9 +24,6 @@ export function hashPassword(password: string, salt?: Buffer) {
   
 }
 
-export function combineSaltAndHash(hashBase64: string, saltBase64: string) {
-  return saltBase64 + hashBase64;
-}
 
 export async function passwordCorrect(plaintextPassword: string, hashBase64: string, saltBase64: string) {
   try {
@@ -34,3 +34,4 @@ export async function passwordCorrect(plaintextPassword: string, hashBase64: str
   }
 
 }
+
