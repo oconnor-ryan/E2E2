@@ -42,6 +42,10 @@ class WebSocketConnectionList {
 
 const authClientList = new WebSocketConnectionList();
 
+export function getAuthSocketList() : Readonly<WebSocketConnectionList> {
+  return authClientList;
+}
+
 //at this point, the user has already been authenticated
 export function onConnection(ws: WebSocket, req: IncomingMessage, client: AccountIdentityWebSocket) {
 
