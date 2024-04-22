@@ -30,7 +30,8 @@ export enum ErrorCode {
   FAILED_TO_PROCESS_FILE_DURING_UPLOAD = "FailedToProcessFileDuringUpload",
   FAILED_TO_SAVE_FILE_INFO_DATABASE = "FailedToSaveFileInfoDatabase",
   FAILED_TO_UPLOAD_FILE = "FailedToUploadFile",
-  NOT_ALLOWED_TO_VIEW_FILE = "NotAllowedToViewFile"
+  NOT_ALLOWED_TO_VIEW_FILE = "NotAllowedToViewFile",
+  SERVER_ERROR = "ServerError"
 
 }
 

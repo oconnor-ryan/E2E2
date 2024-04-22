@@ -10,13 +10,13 @@ import 'dotenv/config';
 
 import {fileURLToPath} from "url";
 
+import { onConnection } from "./socket-handlers/MainSocketHandler.js";
+
 import apiRoute from './routes/api.js';
 
-import * as publicSocketHandler from "./socket-handlers/public-key/PublicKeySocketHandler.js";
-import * as asyncSocketHandler from "./socket-handlers/async/SocketHandler.js";
 
-import * as sharedKeySocketHandler from "./socket-handlers/shared-key/SocketHandlerSharedKey.js";
-import * as callSocketHandler from "./socket-handlers/rtc-calls/SocketHandler.js";
+import { getUsernameAndPasswordFromWebSocketQuery } from "./util/auth-parser.js";
+import { checkIfUserPasswordCorrect, getUserIdentityForWebSocket } from "./util/database-handler.js";
 
 //GLOBALS HERE
 
@@ -46,13 +46,9 @@ const PRIVATE_KEY = fs.readFileSync("./https-keys/MyKey.key");
 const CERTIFICATE = fs.readFileSync("./https-keys/MyCertificate.crt");
 
 const app = express();
+
 const server = new https.Server({key: PRIVATE_KEY, cert: CERTIFICATE}, app);
 const wss = new WebSocketServer({server});
-
-
-//set public folder for getting website assets(CSS, Images, Javascript)
-app.use("/js", express.static(JS_ROOT));
-app.use("/static", express.static(STATIC_ROOT));
 
 //convert request body to JSON automatically
 app.use(express.json());
@@ -65,35 +61,7 @@ app.use(express.urlencoded({extended: true}));
 
 //websocket server. handle when new websocket connects to server
 //Note that req parameter is the request from ws:// protocol, not http:// protocol
-wss.on('connection', (ws, req) => {
-
-  //weird way to get query parameters, but that's how the NodeJS docs stated to parse this url.
-  //the protocol can be any value (http:// ws:// etc) since we only care about the search parametes in the URL
-  let url = new URL(req.url!, "ws://" + req.headers.host);
-  let chatType = url.searchParams.get('enc_type');
-
-  switch(chatType) {
-    //shared key
-    case 'shared':
-      sharedKeySocketHandler.onConnection(ws, req, url.searchParams);
-      break;
-
-    //public key
-    case 'public':
-      publicSocketHandler.onConnection(ws, req);
-      break;
-    case 'call':
-      callSocketHandler.onConnection(ws, req, url.searchParams);
-      break;
-    default:
-      console.log("ASync")
-      asyncSocketHandler.onConnection(ws, req, url.searchParams);
-      break;
-
-  }
-  
-});
-
+wss.on('connection', onConnection);
 
 wss.on('error', (error) => {
   console.error("failed to create web socket server!");
@@ -103,25 +71,52 @@ wss.on('error', (error) => {
 //Warning!, upgrades via HTTP can only be done via GET requests
 // authenticate user here for websocket
 server.on('upgrade', (request, socket, head) => {
-  //let user = new URL(request.url!, request.headers.host).searchParams.get('user') as string;
-  /*
-  if(!auth) {
+  let searchParams = new URL(request.url!, request.headers.host).searchParams;
+
+  const onSocketError = (e: Error) => {console.error(e)}; 
+
+  socket.on('error', onSocketError);
+
+  const destroySocket = () => {
+    //https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html
     socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     socket.destroy();
-    return;
   }
-  */
-  console.log(`upgrading to socket`);
+
+  //immediately invoked async function allows us to use async await syntax without
+  //worry about syncrounous event handler
+  (async () => {
+    let {username, password} = getUsernameAndPasswordFromWebSocketQuery(searchParams.get('credential') as string);
+
+    let isCorrect = await checkIfUserPasswordCorrect(username, password);
+    if(!isCorrect) {
+      return destroySocket();
+    }
+
+    let acc = await getUserIdentityForWebSocket(username);
+
+    socket.removeListener('error', onSocketError);
+
+    wss.handleUpgrade(request, socket, head, function (ws) {
+      wss.emit('connection', ws, request, acc);
+      console.log(`upgrading to websocket`);
+    });
+
+  })().catch(e => {
+    console.error(e);
+    destroySocket();
+  });
 });
 
 //routes
 app.use("/api", apiRoute);
 
 
-app.use("/", (req, res, next) => {
-  console.log("Request Made");
-  next();
-});
+//webpages and static resources
+
+//set public folder for getting website assets(CSS, Images, Javascript)
+app.use("/js", express.static(JS_ROOT));
+app.use("/static", express.static(STATIC_ROOT));
 
 app.get("/favicon.ico", (req, res) => {
   res.sendFile("favicon.ico", {root: STATIC_ROOT});

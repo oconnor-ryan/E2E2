@@ -10,9 +10,10 @@ import type {ErrorRequestHandler} from "express";
 import * as db from '../util/database-handler.js';
 
 import { ErrorCode } from '../../client/shared/Constants.js';
+import federatedRoute from './federated.js';
 
 //routes
-import { passwordCorrect } from '../util/password-hash.js';
+import { getUsernameAndPasswordFromAuthHeader } from '../util/auth-parser.js';
 
 const uploadStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -33,7 +34,7 @@ const router = express.Router();
 
 
 //routes
-
+router.use("/federated", federatedRoute);
 
 
 //these route handlers do not require a JWT since users not logged in
@@ -122,6 +123,8 @@ router.get("/getfile", async (req, res, next) => {
 })
 
 
+
+
 //all route handlers after this one must have a valid JWT to be used,
 //so we check the validity of the JWT here
 router.use("/", async (req, res, next) => {
@@ -130,61 +133,34 @@ router.use("/", async (req, res, next) => {
     return next(new Error(ErrorCode.NO_AUTH_HEADER));
   }
 
-
-  //parse Authorization header using Basic scheme 
-  // Authorization: Basic Base64-Encoded(<username>:<password>)
-  let spaceDelimIndex = authHeader.indexOf(' ');
-  let authScheme = authHeader.substring(0, spaceDelimIndex).trim();
-
-  if(authScheme.toLowerCase() !== 'basic') {
-    return next(new Error(ErrorCode.INVALID_AUTH_SCHEME));
-  }
-
-  let userAndPasswordBase64 = authHeader.substring(spaceDelimIndex+1).trim();
-  let userAndPasswordDecoded = Buffer.from(userAndPasswordBase64, 'base64').toString('utf-8');
-
-
-  let colonDelimIndex = userAndPasswordDecoded.indexOf(":");
-  let username = userAndPasswordDecoded.substring(0, colonDelimIndex);
-  let password = userAndPasswordDecoded.substring(colonDelimIndex+1);
-
-  //get user password hash and salt
-  let creds;
-
   try {
-    creds = await db.getPasswordHashAndSalt(username);
-    if(!creds) {
-      throw new Error(ErrorCode.NO_USER_EXISTS);
+    const {username, password} = getUsernameAndPasswordFromAuthHeader(authHeader);
+
+    //if invalid password
+    if(!(await db.checkIfUserPasswordCorrect(username, password))) {
+      throw new Error(ErrorCode.WRONG_PASSWORD);
     }
-  } catch(e) {
-    return next(e);
-  }
 
-  //if invalid password
-  if(!(await passwordCorrect(password, creds.hash, creds.salt))) {
-    return next(new Error(ErrorCode.WRONG_PASSWORD));
-  }
+    //user is now authenticated!
 
-  //user is now authenticated!
-
-  let identityKey;
-  try {
+    let identityKey;
     let info = await db.getUserIdentity(username);
     if(!info) {
       throw new Error(ErrorCode.CANNOT_GET_USER_KEYS);
     }
     identityKey = info.identityKeyPublic;
+    //res.locals can be used to pass parameters down from this middleware
+    //to the next one. This variable will remain alive until a response is sent
+    res.locals.username = username;
+    res.locals.identityKey = identityKey;
+
+    //move on to next middleware below this route handler
+    next();
+
   } catch(e) {
     return next(e);
   }
-
-  //res.locals can be used to pass parameters down from this middleware
-  //to the next one. This variable will remain alive until a response is sent
-  res.locals.username = username;
-  res.locals.identityKey = identityKey;
-
-  //move on to next middleware below this route handler
-  next();
+  
 });
 
 //since user is logged in, they are now allowed to access
