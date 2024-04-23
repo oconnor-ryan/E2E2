@@ -9,21 +9,23 @@ A instant-messaging web application where users can send encrypted messages to e
 > messages.
 
 ## Current Objectives
+1. Implement new chat system that fixes some server-side vulnerabilities as well as perform more client-side features such as signing and verifying messages, more secure group chat that utilizes one-to-one connections rather than sharing a key amoung all members, and ability to receive notifications in real-time.
 
-1. Use a persistant WebSocket connection for each client in order to send notifications, take video calls, and chat in chatrooms. Persistant WS connections are better in terms of bandwidth than HTTP long polling
+2. Implement 4 Primary Screens for Web App.
+  - Create Account
+  - Invite List / Chat List (both One-to-One chats with KnownUsers and Group Chats)
+  - Chat Room
+  - Call Room
 
-2. Implement new chat system that reduces how much the server knows about each user by keeping user accounts client-side only and allowing chat members to share the same credentials when accessing chats.
+  If making SPA, setting innerHTML alone is insecure and does not prevent XSS. To solve this, make sure that any HTML strings passed into innerHTML do not require user-generated content. Use textContent for user-generated content. 
 
-3. When files are sent in a chat room, automatically download them and store them in IndexedDB.
+3. Add Double Ratchet Algorithm.
 
 4. Display storage quota and usage using window.navigator.storage.estimate() in order to prompt the user to clean out some data (messages, files, etc). This also helps prevent the browser from automatically deleting data when Persistance is not available.
 
 5. Delete messages and files older than 30 days on the server. 
 
 6. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
-
-
-
 
 ## Current Bugs
 
@@ -35,9 +37,8 @@ A instant-messaging web application where users can send encrypted messages to e
 
 
 ## Future Objectives
-1. Implement Double Ratchet Algorithm in order to complete the bare-minimum of the Signal Protocol in the application (while Sesame Session is somewhat part of the Signal Protocol, it is used more for session-handling of accounts with multiple devices. Because account and device information are not stored server-side and chat requests and invitations are used to perform session setup, the Sesame algorithm cannot be used here).
 
-2. Add method to backup account in case they accidentally clear their browser.
+1. Add method to backup account in case they accidentally clear their browser.
   - Do this by generating another ECDSA keypair as backup.
   - Put backup public key on server
   - Generate a password via crypto.getRandomValues() with over 80 bits of entropy (Note that Entropy = log2 ((number of unique symbols) ^ (length of password)))
