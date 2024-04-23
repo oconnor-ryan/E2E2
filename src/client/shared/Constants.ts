@@ -35,18 +35,4 @@ export enum ErrorCode {
 
 }
 
-export type UserInfo = {
-  id: string,
-  identity_key_base64: string,
-  exchange_key_base64: string,
-  exchange_key_sig_base64: string,
-  exchange_prekey_base64: string,
-  exchange_prekey_sig_base64: string
-};
 
-export enum KeyType {
-  IDENTITY_KEY_PAIR = "id_keypair",
-  EXCHANGE_ID_PAIR = "exchange_keypair",
-  EXCHANGE_PREKEY_PAIR = "exchange_prekey_keypair",
-
-}

@@ -57,7 +57,7 @@ router.post("/create-account", async (req, res, next) => {
 //allow these endpoints to stay unauthenticated to allow remote servers to use them
 
 router.get("/getuserkeysforexchange", async (req, res, next) => {
-  const {username} = req.body;
+  const {username} = req.query;
 
   if(!username) {
     return next(new Error(ErrorCode.NO_USER_PROVIDED));
@@ -65,7 +65,7 @@ router.get("/getuserkeysforexchange", async (req, res, next) => {
 
   let accountInfo;
   try {
-    accountInfo = await db.getAccountInfoForExchange(username);
+    accountInfo = await db.getAccountInfoForExchange(String(username));
     if(!accountInfo) {
       return next(new Error(ErrorCode.CANNOT_GET_USER_KEYS))
     }
@@ -76,11 +76,15 @@ router.get("/getuserkeysforexchange", async (req, res, next) => {
   }
 });
 
-router.post("/searchusers", async (req, res, next) => {
+router.get("/searchusers", async (req, res, next) => {
   let currentUser = res.locals.username as string;
 
+  if(!req.query.search) {
+    return next(new Error(ErrorCode.MISSING_QUERY_PARAMETER));
+  }
+
   try {
-    let searchResults = await db.searchForUsers(req.body.search, 10, currentUser);
+    let searchResults = await db.searchForUsers(String(req.query.search), 10, currentUser);
     res.json(searchResults);
   } catch(e) {
     next(e);

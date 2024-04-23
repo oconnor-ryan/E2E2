@@ -5,6 +5,7 @@ WARNING:
   even if they tell the browser that this website's data should persist.
 */
 
+import { base64ToBase64URL } from "../Base64.js";
 import { Database } from "./Database.js";
 
 //consider this
@@ -90,15 +91,18 @@ export const getDatabase = (() => {
   
 })();
 
+export type {Database}
+
 
 
 
 class LocalStorageHandler {
   private readonly localStorage = window.localStorage;
 
-  updateUsername(username: string) : boolean {
+  updateUsernameAndPassword(username: string, password: string) : boolean {
     try {
       this.localStorage.setItem("username", username);
+      this.localStorage.setItem("password", password);
       return true;
 
     } catch(e) {
@@ -108,10 +112,6 @@ class LocalStorageHandler {
   
   }
   
-  getUsername() {
-    return this.localStorage.getItem("username");
-  }
-
   updatePassword(password: string) {
     try {
       this.localStorage.setItem("password", password);
@@ -123,8 +123,30 @@ class LocalStorageHandler {
     }
   }
 
+  getUsername() {
+    return this.localStorage.getItem("username");
+  }
+
   getPassword() {
     return this.localStorage.getItem('password');
+  }
+
+  getAuthHeader() {
+    let userId = this.getUsername();
+    let password = this.getPassword();
+
+    if(!userId || !password) {
+      throw new Error("No user ID and/or password found!");
+    }
+
+    let authHeader = "Basic " + btoa(userId + ":" + password);
+    return authHeader;
+  }
+
+  getWebSocketCred() {
+    let authHeader = this.getAuthHeader();
+
+    return base64ToBase64URL(authHeader);
   }
 
   

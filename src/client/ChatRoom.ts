@@ -1,4 +1,4 @@
-import * as fetcher from "./util/EasyFetch.js";
+import * as fetcher from "./util/ApiRepository.js";
 import { StorageHandler, getDatabase } from "./util/storage/StorageHandler.js";
 
 import { EncryptedMessageDecoder, decryptPrevMessages, formatAndSaveMessage, formatMessage, saveLastReadMessageUUID } from "./util/MessageHandler.js";

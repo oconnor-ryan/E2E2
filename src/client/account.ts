@@ -1,4 +1,4 @@
-import * as fetcher from "./util/EasyFetch.js";
+import * as fetcher from "./util/ApiRepository.js";
 import * as storage from './util/storage/StorageHandler.js';
 import { StorageHandler } from "./util/storage/StorageHandler.js";
 

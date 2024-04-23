@@ -1,4 +1,4 @@
-import { AccountStore, GroupChatRequestStore, GroupChatStore, KnownUserStore, MessageRequestStore, MessageStore, PendingInviteStore } from "./ObjectStore.js";
+import { AccountStore, FileStore, GroupChatRequestStore, GroupChatStore, KnownUserStore, MessageRequestStore, MessageStore, PendingInviteStore } from "./ObjectStore.js";
 
 const DB_NAME = 'e2e2';
 const DB_VERSION = 1;
@@ -11,7 +11,8 @@ const GROUP_CHAT_STORE = "group_chats";
 const MESSAGE_STORE = "messages";
 const PENDING_INVITE_STORE = "pending_invites";
 const MESSAGE_REQUEST_STORE = "message_requests";
-const GROUP_CHAT_REQUEST_STORE = "group_chat_requests"
+const GROUP_CHAT_REQUEST_STORE = "group_chat_requests";
+const FILE_STORE = 'file_store'
 
 //Deleted Stores
 
@@ -35,6 +36,7 @@ export class Database {
   public readonly pendingInviteStore: PendingInviteStore;
   public readonly messageRequestStore: MessageRequestStore;
   public readonly groupChatRequestStore: GroupChatRequestStore;
+  public readonly fileStore: FileStore;
 
   private constructor(
     accountStore: AccountStore,
@@ -43,7 +45,8 @@ export class Database {
     messageStore: MessageStore,
     pendingInviteStore: PendingInviteStore,
     messageRequestStore: MessageRequestStore,
-    groupChatRequestStore: GroupChatRequestStore
+    groupChatRequestStore: GroupChatRequestStore,
+    fileStore: FileStore
   ) {
     this.accountStore = accountStore;
     this.knownUserStore = knownUserStore;
@@ -52,6 +55,7 @@ export class Database {
     this.pendingInviteStore = pendingInviteStore;
     this.messageRequestStore = messageRequestStore;
     this.groupChatRequestStore = groupChatRequestStore;
+    this.fileStore = fileStore
   }
 
   
@@ -88,6 +92,7 @@ export class Database {
       let pendingInviteStore = new PendingInviteStore(PENDING_INVITE_STORE, db);
       let messageRequestStore = new MessageRequestStore(MESSAGE_REQUEST_STORE, db);
       let groupChatRequestStore = new GroupChatRequestStore(GROUP_CHAT_REQUEST_STORE, db);
+      let fileEntryStore = new FileStore(FILE_STORE, db);
 
       switch(event.oldVersion) {
         case 0:
@@ -100,6 +105,7 @@ export class Database {
           pendingInviteStore.initObjectStore();
           messageRequestStore.initObjectStore();
           groupChatRequestStore.initObjectStore();
+          fileEntryStore.initObjectStore();
         case 1:
           //can change individual object stores here
           //accountStore.migrateData(event.oldVersion)
@@ -136,7 +142,8 @@ export class Database {
           new MessageStore(MESSAGE_STORE, db),
           new PendingInviteStore(PENDING_INVITE_STORE, db),
           new MessageRequestStore(MESSAGE_REQUEST_STORE, db),
-          new GroupChatRequestStore(GROUP_CHAT_REQUEST_STORE, db)
+          new GroupChatRequestStore(GROUP_CHAT_REQUEST_STORE, db),
+          new FileStore(FILE_STORE, db)
         ));
       };  
     });

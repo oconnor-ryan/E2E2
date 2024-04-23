@@ -80,6 +80,17 @@ export class ECDHKeyPairBuilder extends CryptoKeyPairWrapperBuilder<ECDHKeyPair>
 
     return this.getKeyPairWrapperFromCryptoKeyPair(keyPair);
   }
+
+  async generateMultipleKeyPairs(count: number = 1): Promise<ECDHKeyPair[]> {
+    let keys: Promise<ECDHKeyPair>[] = [];
+    for(let i = 0; i < count; i++) {
+      keys.push(this.generateKeyPairWrapper());
+    }
+
+    return await Promise.all(keys);
+
+
+  }
   
   getKeyPairWrapperFromCryptoKeyPair(pair: CryptoKeyPair): ECDHKeyPair {
     return new ECDHKeyPair(new ECDHPrivateKey(pair.privateKey), new ECDHPublicKey(pair.publicKey));

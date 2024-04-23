@@ -44,18 +44,19 @@ export interface Message extends BaseMessage {
   receiverMailboxId: string,
   senderIdentityKeyPublic: string,
   encryptedPayload: string,
-  receiverServer: string | undefined //string=outgoing message, undefined=incoming message
+  receiverServer: string //if local, use empty string
 }
 
 interface MessageInvite extends BaseMessage{
-  type: 'message-invite'
+  type: 'message-invite',
+  id: string,
   receiverUsername: string,
   senderUsername: string,
   encryptedPayload: string,
 }
 
 export interface MessageInviteIncoming extends MessageInvite {
-  senderServer: string | undefined 
+  senderServer: string //if local, set as empty string
 }
 
 export interface MessageInviteOutgoing extends MessageInvite {
@@ -266,7 +267,7 @@ export async function getIncomingMessages(mailboxId: string, lastUUIDRead: strin
       senderIdentityKeyPublic: row.sender_identity_key_public,
       id: row.id,
       encryptedPayload: row.encrypted_payload,
-      receiverServer: undefined
+      receiverServer: "" //message is sent to client of local server, so use empty string
     }
   })
 }
@@ -314,7 +315,7 @@ export async function saveInvite(params: MessageInviteIncoming | MessageInviteOu
 }
 
 export async function getIncomingInvites(receiverUsername: string) : Promise<MessageInviteIncoming[]> {
-  let res = await db`select sender_username, encrypted_payload, sender_server from message_invite_incoming where receiver_username=${receiverUsername}`;
+  let res = await db`select sender_username, encrypted_payload, sender_server, id from message_invite_incoming where receiver_username=${receiverUsername}`;
 
   return res.map(row => {
     return {
@@ -322,6 +323,7 @@ export async function getIncomingInvites(receiverUsername: string) : Promise<Mes
       receiverUsername: receiverUsername,
       encryptedPayload: row.encrypted_payload,
       senderServer: row.sender_server,
+      id: row.id,
       type: 'message-invite'
     }
   });
@@ -330,13 +332,14 @@ export async function getIncomingInvites(receiverUsername: string) : Promise<Mes
 
 
 export async function getOutgoingInvites(remoteServer: string) : Promise<MessageInviteOutgoing[]>{
-  let res = await db`select receiver_username, sender_username, encrypted_payload from message_invite_remote_incoming where receiver_server=${remoteServer}`;
+  let res = await db`select receiver_username, sender_username, encrypted_payload, id from message_invite_remote_incoming where receiver_server=${remoteServer}`;
   return res.map(row => {
     return {
       receiverServer: remoteServer,
       senderUsername: row.sender_username,
       receiverUsername: row.receiver_username,
       encryptedPayload: row.encrypted_payload,
+      id: row.id,
       type: 'message-invite'
     }
   });

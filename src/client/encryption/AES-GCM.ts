@@ -50,6 +50,21 @@ export class AesGcmKey extends CryptoKeyWrapper {
     return this.key;
   }
 
+  async extractKey(outputType?: 'base64') : Promise<string>
+  async extractKey(outputType: 'arraybuffer') : Promise<ArrayBuffer>
+  async extractKey(outputType: 'base64' | 'arraybuffer' = 'base64') : Promise<string | ArrayBuffer> {
+    if(!this.isExtractable()) {
+      throw new Error("Cannot extract this key!");
+    }
+
+    let output = await window.crypto.subtle.exportKey('raw', this.getCryptoKey());
+    if(outputType === 'arraybuffer') {
+      return output;
+    }
+
+    return arrayBufferToBase64(output);
+  }
+
   /**
    * 
    * @param data 

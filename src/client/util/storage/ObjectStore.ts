@@ -1,4 +1,4 @@
-import { ECDHKeyPair, ECDSAKeyPair, ECDSAKeyPairBuilder, ECDHKeyPairBuilder, ECDSAPublicKey, ECDHPublicKey } from "../../encryption/encryption.js";
+import { ECDHKeyPair, ECDSAKeyPair, ECDSAKeyPairBuilder, ECDHKeyPairBuilder, ECDSAPublicKey, ECDHPublicKey, AesGcmKey } from "../../encryption/encryption.js";
 
 /**
  * Used to remove boilerplate for basic CRUD operations in object stores.
@@ -50,6 +50,10 @@ abstract class ObjectStorePromise<Identifier extends IDBValidKey | IDBKeyRange, 
       request.onsuccess = (e) => resolve(this.convertRawToEntry(request.result));
       request.onerror = (e) => reject(request.error);
     }) 
+  }
+
+  async has(id: Identifier) : Promise<boolean> {
+    return !!(await this.get(id)); 
   }
 
   async getAll() : Promise<Entry[]> {
@@ -107,31 +111,53 @@ abstract class ObjectStorePromise<Identifier extends IDBValidKey | IDBKeyRange, 
 
 
 export interface AccountEntry {
-  id: string,
+  username: string,
   password: string,
   identityKeyPair: ECDSAKeyPair
   exchangeIdKeyPair: ECDHKeyPair,
   exchangeIdPreKeyPair: ECDHKeyPair,
   exchangeIdPreKeyBundlePair: ECDHKeyPair[],
   mailboxId: string,
+  lastReadMessageUUID: string | undefined,
+  lastReadMessageInviteUUID: string | undefined,
 }
 
 interface AccountEntryRaw {
-  id: string,
+  username: string,
   password: string,
   identityKeyPair: CryptoKeyPair
   exchangeIdKeyPair: CryptoKeyPair,
   exchangeIdPreKeyPair: CryptoKeyPair,
   exchangeIdPreKeyBundlePair: CryptoKeyPair[],
   mailboxId: string,
+  lastReadMessageUUID: string | undefined,
+  lastReadMessageInviteUUID: string | undefined,
 }
 
 export class AccountStore extends ObjectStorePromise<string, AccountEntry, AccountEntryRaw> {
 
   protected getStoreOptions(): IDBObjectStoreParameters {
     return {
-      keyPath: 'id'
+      keyPath: 'username'
     }
+  }
+
+  async setLastReadMessage(username: string, messageUUID: string) {
+    let acc = await this.get(username);
+    
+    acc.lastReadMessageUUID = messageUUID;
+
+    return this.update(acc);
+
+  }
+
+  async setLastReadMessageInvite(username: string, messageInviteUUID: string) {
+    let acc = await this.get(username);
+    
+    acc.lastReadMessageUUID = messageInviteUUID;
+
+    return this.update(acc);
+
   }
 
   protected setStoreIndices(objectStore: IDBObjectStore): void {}
@@ -150,13 +176,16 @@ export class AccountStore extends ObjectStorePromise<string, AccountEntry, Accou
 
   convertEntryToRaw(entry: AccountEntry) : AccountEntryRaw {
     return {
-      id: entry.id,
+      username: entry.username,
       password: entry.password,
       identityKeyPair: entry.identityKeyPair.getCryptoKeyPair(),
       exchangeIdKeyPair: entry.exchangeIdKeyPair.getCryptoKeyPair(),
       exchangeIdPreKeyPair: entry.exchangeIdPreKeyPair.getCryptoKeyPair(),
       exchangeIdPreKeyBundlePair: entry.exchangeIdPreKeyBundlePair.map((val) => val.getCryptoKeyPair()),
-      mailboxId: entry.mailboxId
+      mailboxId: entry.mailboxId,
+      lastReadMessageInviteUUID: entry.lastReadMessageInviteUUID,
+      lastReadMessageUUID: entry.lastReadMessageUUID,
+
     };
   }
 
@@ -166,69 +195,84 @@ export class AccountStore extends ObjectStorePromise<string, AccountEntry, Accou
 
 
     return {
-      id: entry.id,
+      username: entry.username,
       password: entry.password,
       identityKeyPair: ecdsaKeyBuilder.getKeyPairWrapperFromCryptoKeyPair(entry.identityKeyPair),
       exchangeIdKeyPair: ecdhKeyBuilder.getKeyPairWrapperFromCryptoKeyPair(entry.exchangeIdKeyPair),
       exchangeIdPreKeyPair: ecdhKeyBuilder.getKeyPairWrapperFromCryptoKeyPair(entry.exchangeIdPreKeyPair),
       exchangeIdPreKeyBundlePair: entry.exchangeIdPreKeyBundlePair.map((val) => ecdhKeyBuilder.getKeyPairWrapperFromCryptoKeyPair(val)),
-      mailboxId: entry.mailboxId
+      mailboxId: entry.mailboxId,
+      lastReadMessageInviteUUID: entry.lastReadMessageInviteUUID,
+      lastReadMessageUUID: entry.lastReadMessageUUID,
     };
   }
 }
 
 export interface KnownUserEntry {
-  id: string,
+  identityKeyPublicString: string,
+  username: string,
+  remoteServer: string,
   identityKeyPublic: ECDSAPublicKey
   exchangeIdKeyPublic: ECDHPublicKey,
-  exchangeIdPreKeyPublic: ECDHPublicKey,
-  exchangeIdPreKeyBundlePublic: ECDHPublicKey[],
-  mailboxId: string | undefined,
+  exchangePreKeyPublic: ECDHPublicKey,
+  exchangeOneTimePreKeyPublic: ECDHPublicKey,
+  mailboxId: string,
+  currentEncryptionKey: AesGcmKey
+
 }
 
 interface KnownUserEntryRaw {
-  id: string,
+  identityKeyPublicString: string,
+  username: string,
+  remoteServer: string,
   identityKeyPublic: CryptoKey
   exchangeIdKeyPublic: CryptoKey,
-  exchangeIdPreKeyPublic: CryptoKey,
-  exchangeIdPreKeyBundlePublic: CryptoKey[],
-  mailboxId: string | undefined,
+  exchangePreKeyPublic: CryptoKey,
+  exchangeOneTimePreKeyPublic: CryptoKey,
+  mailboxId: string,
+  currentEncryptionKey: CryptoKey
 }
 
 export class KnownUserStore extends ObjectStorePromise<string, KnownUserEntry, KnownUserEntryRaw> {
 
   protected getStoreOptions(): IDBObjectStoreParameters {
     return {
-      keyPath: 'id'
+      keyPath: 'identityKeyPublicString'
     }
   }
 
   protected setStoreIndices(objectStore: IDBObjectStore): void {
-    objectStore.createIndex('identityKeyPublic', 'identityKeyPublic', {unique: true});
+    objectStore.createIndex('username-domain', ['username', 'remoteServer'])
   }
 
   async migrateData(oldVersion: number) {}
   
   convertEntryToRaw(entry: KnownUserEntry) : KnownUserEntryRaw {
     return {
-      id: entry.id,
+      username: entry.username,
+      identityKeyPublicString: entry.identityKeyPublicString,
       identityKeyPublic: entry.identityKeyPublic.getCryptoKey(),
       exchangeIdKeyPublic: entry.exchangeIdKeyPublic.getCryptoKey(),
-      exchangeIdPreKeyPublic: entry.exchangeIdPreKeyPublic.getCryptoKey(),
-      exchangeIdPreKeyBundlePublic: entry.exchangeIdPreKeyBundlePublic.map((val) => val.getCryptoKey()),
-      mailboxId: entry.mailboxId
+      exchangePreKeyPublic: entry.exchangePreKeyPublic.getCryptoKey(),
+      exchangeOneTimePreKeyPublic: entry.exchangeOneTimePreKeyPublic.getCryptoKey(),
+      mailboxId: entry.mailboxId,
+      currentEncryptionKey: entry.currentEncryptionKey.getCryptoKey(),
+      remoteServer: entry.remoteServer
     };
   }
 
   convertRawToEntry(entry: KnownUserEntryRaw) : KnownUserEntry {
 
     return {
-      id: entry.id,
+      username: entry.username,
+      identityKeyPublicString: entry.identityKeyPublicString,
       identityKeyPublic: new ECDSAPublicKey(entry.identityKeyPublic),
       exchangeIdKeyPublic: new ECDHPublicKey(entry.exchangeIdKeyPublic),
-      exchangeIdPreKeyPublic: new ECDHPublicKey(entry.exchangeIdPreKeyPublic),
-      exchangeIdPreKeyBundlePublic: entry.exchangeIdPreKeyBundlePublic.map((val) => new ECDHPublicKey(val)),
-      mailboxId: entry.mailboxId
+      exchangePreKeyPublic: new ECDHPublicKey(entry.exchangePreKeyPublic),
+      exchangeOneTimePreKeyPublic: new ECDHPublicKey(entry.exchangeOneTimePreKeyPublic),
+      mailboxId: entry.mailboxId,
+      currentEncryptionKey: new AesGcmKey(entry.currentEncryptionKey),
+      remoteServer: entry.remoteServer
     };
   }
 }
@@ -236,6 +280,7 @@ export class KnownUserStore extends ObjectStorePromise<string, KnownUserEntry, K
 
 interface GroupChatEntry {
   groupId: string,
+  //contains identity keys of each user in KnownUser
   members: string[]
 }
 
@@ -305,16 +350,19 @@ export class GroupChatRequestStore extends ObjectStorePromise<[string, string], 
 }
 
 export interface MessageRequest {
-  senderId: string,
-  mailboxId: string,
-  comment: string
+  id: string,
+  receiverUsername: string,
+  senderUsername: string,
+  senderServer: string,
+  encryptedPayload: string,
 }
+
 
 export class MessageRequestStore extends ObjectStorePromise<string, MessageRequest, MessageRequest> {
 
   protected getStoreOptions(): IDBObjectStoreParameters {
     return {
-      keyPath: 'senderId'
+      keyPath: ['senderUsername', 'senderServer']
     }
   }
 
@@ -326,51 +374,28 @@ export class MessageRequestStore extends ObjectStorePromise<string, MessageReque
   convertRawToEntry(entry: MessageRequest) : MessageRequest {return entry;}
 }
 
-export interface MessageData {
-  type: string,
-  senderIdKeyPublic: string,
-  groupId: string | null,
-  data: any
-}
 
-export interface RegularMessageData extends MessageData {
-  type: "message",
-  data: {
-    message: string
-  }
-}
 
-export interface FileUploadMessageData extends MessageData {
-  type: "file",
-  data: {
-    message: string,
-    fileSignature: string, //sign contents of file or its hash
-    fileHash: string,
-    fileId: string, //the file ID used on server to fetch the file
-    fileName: string, //the plaintext name of the original file
-    remoteDomainName: string | undefined //used to retrieve uploaded file from another server
-  }
-}
 
 //Call Data is ephemeral and should not be stored, so bdont define them here
 //Invitations and ChatRequests also should not be stored in messages since
 //they have their own dedicated object stores
 
 
+export interface MessageDataForSocket {
+  signature: string,
+  signed_data: any
+}
 
 export interface Message {
   uuid: string,
   senderId: string,
   groupId: string | null,
-  fromTrustedUser: boolean, //does the senderPublicKey match a key of a user we know?
   isVerified: boolean //was the message signed with the correct public key
 
   //for the sake of simplicity, we are storing messages the same way that the encrypted payloads
   //of messages are formatted. Note that messages that cannot be decrypted are discarded
-  data: {
-    signature: string,
-    signed_data: MessageData
-  }
+  data: MessageDataForSocket
 }
 
 export class MessageStore extends ObjectStorePromise<string, Message, Message> {
@@ -394,6 +419,7 @@ export class MessageStore extends ObjectStorePromise<string, Message, Message> {
 
   convertEntryToRaw(entry: Message): Message {return entry;}
   convertRawToEntry(raw: Message): Message {return raw;}
+
 
 
   getMessages(id: string, idType: 'group' | 'individual', newestToOldest: boolean = false) {
@@ -424,4 +450,29 @@ export class MessageStore extends ObjectStorePromise<string, Message, Message> {
     })
   }
   
+}
+
+export interface FileEntry {
+  fileUUID: string,
+  file: File | undefined, //file has not been retrieved yet if undefined
+  accessToken: string,
+  remoteServer: string | undefined,
+}
+
+export class FileStore extends ObjectStorePromise<string, FileEntry, FileEntry> {
+
+  protected getStoreOptions(): IDBObjectStoreParameters {
+    return {
+      keyPath: 'fileUUID', 
+    }
+  }
+
+  protected setStoreIndices(objectStore: IDBObjectStore): void {
+    objectStore.createIndex('accessToken', 'accessToken');
+  }
+
+  async migrateData(oldVersion: number) {}
+
+  convertEntryToRaw(entry: FileEntry) : FileEntry {return entry;}
+  convertRawToEntry(entry: FileEntry) : FileEntry {return entry;}
 }
