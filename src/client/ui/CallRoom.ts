@@ -1,4 +1,4 @@
-import { callSocketBuilder } from "./websocket/CallProtocol.js";
+import { callSocketBuilder } from "../webrtc/VideoCaller.js";
 
 const userList = document.getElementById('user-list') as HTMLDivElement;
 const localVideo = document.getElementById('localCam') as HTMLVideoElement;
@@ -9,7 +9,7 @@ const remoteVideo = document.getElementById('remoteCam') as HTMLVideoElement;
 (async () => {
 
 
-  let socketHandler = await callSocketBuilder(localVideo, remoteVideo, (updatedUserList) => {
+  let socketHandler = callSocketBuilder(localVideo, remoteVideo, (updatedUserList) => {
 
     while(userList.firstChild) {
       userList.removeChild(userList.firstChild);

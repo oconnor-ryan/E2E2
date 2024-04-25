@@ -5,7 +5,7 @@ WARNING:
   even if they tell the browser that this website's data should persist.
 */
 
-import { base64ToBase64URL } from "../Base64.js";
+import { base64ToBase64URL } from "../util/Base64.js";
 import { Database } from "./Database.js";
 
 //consider this

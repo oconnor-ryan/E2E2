@@ -1,16 +1,15 @@
-import * as storage from './storage/StorageHandler.js'
 import * as encrypt from '../encryption/encryption.js';
 
-import { getDatabase, Database } from './storage/StorageHandler.js';
+import { getDatabase, LOCAL_STORAGE_HANDLER } from '../storage/StorageHandler.js';
 
 import { ErrorCode } from '../shared/Constants.js';
-import { initKeyExchange } from './KeyExchange.js';
 import { arrayBufferToBase64 } from './Base64.js';
 import { downloadFile } from './FileUpload.js';
+import { formatError } from './ClientError.js';
 
 
 
-export async function createAccount(username: string) {
+export async function createAccount(username: string) : Promise<boolean> {
   const db = await getDatabase();
   const ecdhKeyBuilder = new encrypt.ECDHKeyPairBuilder();
   
@@ -61,11 +60,12 @@ export async function createAccount(username: string) {
     }
   );
 
-  let jsonRes = await response.json();
+  try {
+    let jsonRes = await response.json();
 
-
-
-  if(!jsonRes.error) {
+    if(jsonRes.error) {
+      throw formatError(jsonRes.error, "Failed to make account!");
+    }
     await db.accountStore.add({
       username: username,
       password: password,
@@ -78,8 +78,13 @@ export async function createAccount(username: string) {
       lastReadMessageUUID: undefined
     });
 
-    storage.LOCAL_STORAGE_HANDLER.updateUsernameAndPassword(username, password);
+    LOCAL_STORAGE_HANDLER.updateUsernameAndPassword(username, password);
+    return true;
+  } catch(e) {
+    let err = e as Error;
+    throw formatError(err.name, err.message);
   }
+
 }
 
 async function ezFetchJSON(url: string, method: string = "GET", queryParams?: Record<string, any>, jsonBody?: any, headers?: HeadersInit) {
@@ -109,7 +114,7 @@ async function ezFetchJSON(url: string, method: string = "GET", queryParams?: Re
  * @returns 
  */
 export async function authFetch(url: string, method: string = "GET", queryParams?: Record<string, any>, jsonData?: any) {
-  const authHeader = storage.LOCAL_STORAGE_HANDLER.getAuthHeader();
+  const authHeader = LOCAL_STORAGE_HANDLER.getAuthHeader();
   const res = await ezFetchJSON(url, method, queryParams, jsonData, {'Authorization': authHeader});
 
   const jsonRes = await res.json();
@@ -169,7 +174,7 @@ export async function uploadFile(file: File) {
   let formData = new FormData();
   formData.append("uploadedFile", file);
 
-  let authHeader = storage.LOCAL_STORAGE_HANDLER.getAuthHeader();
+  let authHeader = LOCAL_STORAGE_HANDLER.getAuthHeader();
 
   let response = await fetch(`/api/uploadfile`, {
     method: 'POST',

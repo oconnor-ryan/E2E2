@@ -1,4 +1,5 @@
-import { ECDHKeyPair, ECDSAKeyPair, ECDSAKeyPairBuilder, ECDHKeyPairBuilder, ECDSAPublicKey, ECDHPublicKey, AesGcmKey } from "../../encryption/encryption.js";
+import { Message, StoredMessageBase } from "../message-handler/MessageType.js";
+import { ECDHKeyPair, ECDSAKeyPair, ECDSAKeyPairBuilder, ECDHKeyPairBuilder, ECDSAPublicKey, ECDHPublicKey, AesGcmKey } from "../encryption/encryption.js";
 
 /**
  * Used to remove boilerplate for basic CRUD operations in object stores.
@@ -216,9 +217,8 @@ export interface KnownUserEntry {
   exchangeIdKeyPublic: ECDHPublicKey,
   exchangePreKeyPublic: ECDHPublicKey,
   exchangeOneTimePreKeyPublic: ECDHPublicKey,
-  mailboxId: string,
+  mailboxId: string | undefined, //if undefined, user has not accepted invite
   currentEncryptionKey: AesGcmKey
-
 }
 
 interface KnownUserEntryRaw {
@@ -229,7 +229,7 @@ interface KnownUserEntryRaw {
   exchangeIdKeyPublic: CryptoKey,
   exchangePreKeyPublic: CryptoKey,
   exchangeOneTimePreKeyPublic: CryptoKey,
-  mailboxId: string,
+  mailboxId: string | undefined,
   currentEncryptionKey: CryptoKey
 }
 
@@ -276,6 +276,8 @@ export class KnownUserStore extends ObjectStorePromise<string, KnownUserEntry, K
     };
   }
 }
+
+
 
 
 interface GroupChatEntry {
@@ -352,6 +354,7 @@ export class GroupChatRequestStore extends ObjectStorePromise<[string, string], 
 export interface MessageRequest {
   id: string,
   receiverUsername: string,
+  receiverServer: string,
   senderUsername: string,
   senderServer: string,
   encryptedPayload: string,
@@ -382,23 +385,10 @@ export class MessageRequestStore extends ObjectStorePromise<string, MessageReque
 //they have their own dedicated object stores
 
 
-export interface MessageDataForSocket {
-  signature: string,
-  signed_data: any
-}
 
-export interface Message {
-  uuid: string,
-  senderId: string,
-  groupId: string | null,
-  isVerified: boolean //was the message signed with the correct public key
 
-  //for the sake of simplicity, we are storing messages the same way that the encrypted payloads
-  //of messages are formatted. Note that messages that cannot be decrypted are discarded
-  data: MessageDataForSocket
-}
 
-export class MessageStore extends ObjectStorePromise<string, Message, Message> {
+export class MessageStore extends ObjectStorePromise<string, StoredMessageBase, StoredMessageBase> {
 
   protected getStoreOptions(): IDBObjectStoreParameters {
     return {
@@ -417,8 +407,8 @@ export class MessageStore extends ObjectStorePromise<string, Message, Message> {
 
   migrateData(oldVersion: number) {}
 
-  convertEntryToRaw(entry: Message): Message {return entry;}
-  convertRawToEntry(raw: Message): Message {return raw;}
+  convertEntryToRaw(entry: StoredMessageBase): StoredMessageBase {return entry;}
+  convertRawToEntry(raw: StoredMessageBase): StoredMessageBase {return raw;}
 
 
 

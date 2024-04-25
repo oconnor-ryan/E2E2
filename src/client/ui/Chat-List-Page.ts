@@ -1,4 +1,4 @@
-import * as fetcher from "./util/ApiRepository.js";
+import * as fetcher from "../util/ApiRepository.js";
 
 
 const chatlistContainer = document.getElementById("chat-list") as HTMLUListElement;

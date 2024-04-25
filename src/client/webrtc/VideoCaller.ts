@@ -1,13 +1,11 @@
-import { getDatabase } from "../util/storage/StorageHandler.js";
-import { negotiateP2PConnection } from "../webrtc/P2P-Connect.js";
-import { SignalingServerMessageHandler } from "../webrtc/SignalingServerMessageHandler.js";
+import { getDatabase, LOCAL_STORAGE_HANDLER } from "../storage/StorageHandler.js";
+import { negotiateP2PConnection } from "./P2P-Connect.js";
+import { SignalingServerMessageHandler } from "./SignalingServerMessageHandler.js";
 
 
-export async function callSocketBuilder(localVideo: HTMLVideoElement, remoteVideo: HTMLVideoElement, userListCallback: (userList: {callerId: string}[]) => void) {
-  const storageHandler = await getDatabase();
-
-  let username = storageHandler.getUsername();
-  let password = storageHandler.getPassword();
+export function callSocketBuilder(localVideo: HTMLVideoElement, remoteVideo: HTMLVideoElement, userListCallback: (userList: {callerId: string}[]) => void) {
+  let username = LOCAL_STORAGE_HANDLER.getUsername();
+  let password = LOCAL_STORAGE_HANDLER.getPassword();
   if(!username || !password) {
     throw new Error("Not logged in!");
   }

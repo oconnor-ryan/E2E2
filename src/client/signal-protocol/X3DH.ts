@@ -1,4 +1,4 @@
-import { base64ToArrayBuffer } from "./Base64.js";
+import { base64ToArrayBuffer } from "../util/Base64.js";
 import { ECDHPrivateKey, ECDHPublicKey, HKDFKey } from "../encryption/encryption.js";
 
 export async function x3dh_sender(
