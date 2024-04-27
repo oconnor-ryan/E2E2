@@ -1,3 +1,4 @@
+import { LOCAL_STORAGE_HANDLER } from "../../storage/StorageHandler.js";
 import { searchUsers } from "../../util/ApiRepository.js";
 
 
@@ -68,7 +69,7 @@ export class UserSearchElement extends AutoCompleteElement {
   constructor(onSearch: () => void) {
     super(async (search) => {
       let res = await searchUsers(search);
-      this.updateChoices(res);
+      this.updateChoices(res.map(u => u.username).filter(u => u !== LOCAL_STORAGE_HANDLER.getUsername()));
     });
 
     let searchButton = document.createElement('button') as HTMLButtonElement;

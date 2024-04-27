@@ -77,15 +77,13 @@ router.get("/getuserkeysforexchange", async (req, res, next) => {
 });
 
 router.get("/searchusers", async (req, res, next) => {
-  let currentUser = res.locals.username as string;
-
   console.log(req.query);
   if(!req.query.search) {
-    return next(new Error(ErrorCode.MISSING_QUERY_PARAMETER));
+    return res.json([]);
   }
 
   try {
-    let searchResults = await db.searchForUsers(String(req.query.search), 10, currentUser);
+    let searchResults = await db.searchForUsers(String(req.query.search), 10);
     res.json(searchResults);
   } catch(e) {
     next(e);

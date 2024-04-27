@@ -133,18 +133,22 @@ export async function authFetch(url: string, method: string = "GET", queryParams
   return jsonRes;
 }
 
-
+export interface UserSearchResult {
+  username: string,
+  identityKeyPublic: string,
+  exchangeIdKeyPublic: string
+}
 
 //you can put typed functions that use ezFetch so that you know exactly what
 //responses you receive
 
-export async function searchUsers(searchString: string) : Promise<string[]> {
+export async function searchUsers(searchString: string) : Promise<UserSearchResult[]> {
   let res = await ezFetchJSON('/api/searchusers', 'GET', {search: searchString});
   if(res.error) {
     throw new Error(res.error);
   }
 
-  return res.users;
+  return res as UserSearchResult[];
 }
 
 export async function getInvites() : Promise<{sender: string, chat_id: number}[]> {

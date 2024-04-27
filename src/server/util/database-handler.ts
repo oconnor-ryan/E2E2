@@ -9,7 +9,6 @@ const db = postgres({
   database: process.env.DB_NAME,
   username: process.env.DB_USER,
   password: process.env.DB_PSWD,
-  transform: undefined
 });
 
 export interface AccountDetailsForExchange {
@@ -187,10 +186,13 @@ export async function getUserIdentityForWebSocket(username: string) : Promise<Ac
 
 export async function searchForUsers(searchString: string, limit: number, ...excludeUsers: string[]) : Promise<AccountIdentity[]> {
   //if any username starts with searchString, retrieve it
-  let pattern = `'${searchString}%'`
+  let pattern = `${searchString}%`
+  console.log(pattern);
 
-  let res = await db`select username, identity_key_public, exchange_id_key_public from account where username ilike ${pattern} and username not in ${db(excludeUsers)} ORDER BY username LIMIT ${limit}`;
+  //and username not in ${db(excludeUsers)} 
+  let res = await db`select username, identity_key_public, exchange_id_key_public from account where username ilike ${pattern} ORDER BY username LIMIT ${limit}`;
 
+  console.log(res);
   return res.map(row => {
     return {
       username: row.username,
