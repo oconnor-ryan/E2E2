@@ -144,9 +144,16 @@ class LocalStorageHandler {
   }
 
   getWebSocketCred() {
-    let authHeader = this.getAuthHeader();
+    let userId = this.getUsername();
+    let password = this.getPassword();
 
-    return base64ToBase64URL(authHeader);
+    if(!userId || !password) {
+      throw new Error("No user ID and/or password found!");
+    }
+
+    let base64UserAndPass = btoa(userId + ":" + password);
+
+    return base64ToBase64URL(base64UserAndPass);
   }
 
   

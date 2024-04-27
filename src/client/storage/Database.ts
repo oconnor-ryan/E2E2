@@ -1,4 +1,4 @@
-import { AccountStore, FileStore, GroupChatRequestStore, GroupChatStore, KnownUserStore, MessageRequestStore, MessageStore, PendingInviteStore } from "./ObjectStore.js";
+import { AccountStore, FileStore, GroupChatStore, KnownUserStore, KeyExchangeRequestStore, MessageStore } from "./ObjectStore.js";
 
 const DB_NAME = 'e2e2';
 const DB_VERSION = 1;
@@ -9,9 +9,7 @@ const ACCOUNT_STORE = "accounts";
 const KNOWN_USER_STORE = "known_users";
 const GROUP_CHAT_STORE = "group_chats";
 const MESSAGE_STORE = "messages";
-const PENDING_INVITE_STORE = "pending_invites";
-const MESSAGE_REQUEST_STORE = "message_requests";
-const GROUP_CHAT_REQUEST_STORE = "group_chat_requests";
+const KEY_EXCHANGE_STORE = "key_exchanges";
 const FILE_STORE = 'file_store'
 
 //Deleted Stores
@@ -33,9 +31,7 @@ export class Database {
   public readonly knownUserStore: KnownUserStore;
   public readonly groupChatStore: GroupChatStore;
   public readonly messageStore: MessageStore;
-  public readonly pendingInviteStore: PendingInviteStore;
-  public readonly messageRequestStore: MessageRequestStore;
-  public readonly groupChatRequestStore: GroupChatRequestStore;
+  public readonly messageInviteStore: KeyExchangeRequestStore;
   public readonly fileStore: FileStore;
 
   private constructor(
@@ -43,18 +39,14 @@ export class Database {
     knownUserStore: KnownUserStore,
     groupChatStore: GroupChatStore,
     messageStore: MessageStore,
-    pendingInviteStore: PendingInviteStore,
-    messageRequestStore: MessageRequestStore,
-    groupChatRequestStore: GroupChatRequestStore,
+    messageInviteStore: KeyExchangeRequestStore,
     fileStore: FileStore
   ) {
     this.accountStore = accountStore;
     this.knownUserStore = knownUserStore;
     this.groupChatStore = groupChatStore;
     this.messageStore = messageStore;
-    this.pendingInviteStore = pendingInviteStore;
-    this.messageRequestStore = messageRequestStore;
-    this.groupChatRequestStore = groupChatRequestStore;
+    this.messageInviteStore = messageInviteStore;
     this.fileStore = fileStore
   }
 
@@ -89,9 +81,7 @@ export class Database {
       let knownUserStore = new KnownUserStore(KNOWN_USER_STORE, db);
       let groupChatStore = new GroupChatStore(GROUP_CHAT_STORE, db);
       let messageStore = new MessageStore(MESSAGE_STORE, db);
-      let pendingInviteStore = new PendingInviteStore(PENDING_INVITE_STORE, db);
-      let messageRequestStore = new MessageRequestStore(MESSAGE_REQUEST_STORE, db);
-      let groupChatRequestStore = new GroupChatRequestStore(GROUP_CHAT_REQUEST_STORE, db);
+      let messageRequestStore = new KeyExchangeRequestStore(KEY_EXCHANGE_STORE, db);
       let fileEntryStore = new FileStore(FILE_STORE, db);
 
       switch(event.oldVersion) {
@@ -102,9 +92,7 @@ export class Database {
           knownUserStore.initObjectStore();
           groupChatStore.initObjectStore();
           messageStore.initObjectStore();
-          pendingInviteStore.initObjectStore();
           messageRequestStore.initObjectStore();
-          groupChatRequestStore.initObjectStore();
           fileEntryStore.initObjectStore();
         case 1:
           //can change individual object stores here
@@ -140,9 +128,7 @@ export class Database {
           new KnownUserStore(KNOWN_USER_STORE, db),
           new GroupChatStore(GROUP_CHAT_STORE, db),
           new MessageStore(MESSAGE_STORE, db),
-          new PendingInviteStore(PENDING_INVITE_STORE, db),
-          new MessageRequestStore(MESSAGE_REQUEST_STORE, db),
-          new GroupChatRequestStore(GROUP_CHAT_REQUEST_STORE, db),
+          new KeyExchangeRequestStore(KEY_EXCHANGE_STORE, db),
           new FileStore(FILE_STORE, db)
         ));
       };  

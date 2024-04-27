@@ -5,20 +5,17 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
   </head>
   <body>
-    <h1>Test Create Account and Login</h1>
-    <a href="/">Back to Home</a>
 
     <h2>Create Account</h2>
     <form id="create-account-form" action="" method="post">
       <input name="username" placeholder="username"/>
       <input type="submit" value="submit"/>
     </form>
+
+    <h2>Select Account to Use:</h2>
+    <div id="account-list"></div>
   
-    <button id="login-button">Check Login Status</button>
-
-    <p id="result-message"></p>
-
-    <script type="module" src="/js/account.js"></script>
+    <script type="module" src="/js/ui/account.js"></script>
 
   </body>
 </html>

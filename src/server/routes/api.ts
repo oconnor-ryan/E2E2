@@ -67,7 +67,7 @@ router.get("/getuserkeysforexchange", async (req, res, next) => {
   try {
     accountInfo = await db.getAccountInfoForExchange(String(username));
     if(!accountInfo) {
-      return next(new Error(ErrorCode.CANNOT_GET_USER_KEYS))
+      return res.json({}); //return empty json
     }
     return res.json(accountInfo);
 
@@ -79,6 +79,7 @@ router.get("/getuserkeysforexchange", async (req, res, next) => {
 router.get("/searchusers", async (req, res, next) => {
   let currentUser = res.locals.username as string;
 
+  console.log(req.query);
   if(!req.query.search) {
     return next(new Error(ErrorCode.MISSING_QUERY_PARAMETER));
   }

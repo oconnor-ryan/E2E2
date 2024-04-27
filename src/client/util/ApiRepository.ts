@@ -1,4 +1,3 @@
-import * as encrypt from '../encryption/encryption.js';
 
 import { getDatabase, LOCAL_STORAGE_HANDLER } from '../storage/StorageHandler.js';
 
@@ -6,16 +5,17 @@ import { ErrorCode } from '../shared/Constants.js';
 import { arrayBufferToBase64 } from './Base64.js';
 import { downloadFile } from './FileUpload.js';
 import { formatError } from './ClientError.js';
+import { AesGcmKey, ECDHKeyPairBuilder, ECDHPublicKey, ECDSAKeyPairBuilder, ECDSAPublicKey } from '../encryption/encryption.js';
 
 
 
 export async function createAccount(username: string) : Promise<boolean> {
   const db = await getDatabase();
-  const ecdhKeyBuilder = new encrypt.ECDHKeyPairBuilder();
+  const ecdhKeyBuilder = new ECDHKeyPairBuilder();
   
   //using Promise.all so that all three keys are generated concurrently
   const [idKeyPair, exchangeKeyPair, preKey] = await Promise.all([
-    new encrypt.ECDSAKeyPairBuilder().generateKeyPairWrapper(), 
+    new ECDSAKeyPairBuilder().generateKeyPairWrapper(), 
     ecdhKeyBuilder.generateKeyPairWrapper(), 
     ecdhKeyBuilder.generateKeyPairWrapper()
   ])
@@ -74,7 +74,7 @@ export async function createAccount(username: string) : Promise<boolean> {
       exchangeIdKeyPair: exchangeKeyPair,
       exchangeIdPreKeyPair: preKey,
       exchangeIdPreKeyBundlePair: oneTimePrekeys,
-      lastReadMessageInviteUUID: undefined,
+      lastReadKeyExchangeRequestUUID: undefined,
       lastReadMessageUUID: undefined
     });
 
@@ -88,15 +88,17 @@ export async function createAccount(username: string) : Promise<boolean> {
 }
 
 async function ezFetchJSON(url: string, method: string = "GET", queryParams?: Record<string, any>, jsonBody?: any, headers?: HeadersInit) {
-  let urlObj = new URL(url);
+  let urlObj = new URL(url, document.baseURI);
   if(queryParams) {
     urlObj.search = new URLSearchParams(queryParams).toString();
+    
   }
+  console.log(urlObj);
 
   let myHeaders: Headers = new Headers(headers)
   myHeaders.append('Content-Type', 'application/json');
 
-  let res = await (await fetch(url, {
+  let res = await (await fetch(urlObj, {
     method: method,
     headers: myHeaders,
     body: JSON.stringify(jsonBody)
@@ -155,17 +157,58 @@ export async function getInvites() : Promise<{sender: string, chat_id: number}[]
 
 
 
+export interface UserKeysForExchangeRaw {
+  error: string | undefined,
+  username: string,
+  identityKeyPublic: string,
+  exchangeIdKeyPublic: string,
+  exchangePrekeyPublic: string,
+  exchangeIdKeySignature: string,
+  exchangePrekeySignature: string,
+  exchangeOneTimePrekeyPublic: string
+}
 
+export interface UserKeysForExchange {
+  username: string,
+  identityKeyPublic: ECDSAPublicKey,
+  exchangeIdKeyPublic: ECDHPublicKey,
+  exchangePrekeyPublic: ECDHPublicKey,
+  exchangeIdKeySignature: string,
+  exchangePrekeySignature: string,
+  exchangeOneTimePrekeyPublic: ECDHPublicKey
+}
 
+export async function getUserKeysForExchange(user: string) : Promise<UserKeysForExchange | null> {
 
-export async function getUserKeysForExchange(user: string) : Promise<any | null> {
-
-  let res = await ezFetchJSON("/api/getuserkeysforexchange", 'GET', {username: user});
+  let res: UserKeysForExchangeRaw = await ezFetchJSON("/api/getuserkeysforexchange", 'GET', {username: user});
   if(res.error) {
     throw new Error(res.error);
   }
 
-  return res.keys;
+  if(!res.identityKeyPublic) {
+    return null;
+  }
+
+  let identityKeyPublic = await ECDSAPublicKey.importKey(res.identityKeyPublic);
+
+  if(!identityKeyPublic.verify(res.exchangeIdKeySignature, res.exchangeIdKeyPublic)
+  || !identityKeyPublic.verify(res.exchangePrekeySignature, res.exchangePrekeyPublic)) {
+    throw new Error("Key signatures do not match included signing key!");
+    
+  }
+
+  let rtn: UserKeysForExchange = {
+    username: res.username,
+    identityKeyPublic: identityKeyPublic,
+    exchangeIdKeyPublic: await ECDHPublicKey.importKey(res.exchangeIdKeyPublic),
+    exchangePrekeyPublic: await ECDHPublicKey.importKey(res.exchangePrekeyPublic),
+    exchangeOneTimePrekeyPublic: await ECDHPublicKey.importKey(res.exchangeOneTimePrekeyPublic),
+    exchangeIdKeySignature: res.exchangeIdKeySignature,
+    exchangePrekeySignature: res.exchangePrekeySignature
+
+  } 
+
+  return rtn;
 }
 
 
@@ -196,7 +239,7 @@ export async function uploadFile(file: File) {
   return {fileUUID: json.fileUUID as string, accessToken: json.accessToken as string};
 }
 
-export async function getFile(fileUUID: string, filename: string, accessToken: string, encKey: encrypt.AesGcmKey) {
+export async function getFile(fileUUID: string, filename: string, accessToken: string, encKey: AesGcmKey) {
   const url = new URL('/api/getfile');
   url.search = new URLSearchParams({fileuuid: fileUUID, accesstoken: accessToken}).toString();
 

@@ -1,23 +1,33 @@
-import * as fetcher from "../util/ApiRepository.js";
-import * as storage from './util/storage/StorageHandler.js';
-import { StorageHandler } from "./util/storage/StorageHandler.js";
+import { Database } from "../storage/Database.js";
+import { LOCAL_STORAGE_HANDLER, getDatabase } from "../storage/StorageHandler.js";
+import * as api from "../util/ApiRepository.js";
+import { displayError } from "../util/ClientError.js";
 
 const accountForm = document.getElementById('create-account-form') as HTMLFormElement;
-const messageElement = document.getElementById('result-message') as HTMLParagraphElement;
+const accountListElement = document.getElementById('account-list') as HTMLDivElement;
 
-async function main() {
-  messageElement.innerHTML = "Start";
-  let storageHandler: StorageHandler;
-  try {
-    storageHandler = await storage.getDatabase();
-    window.alert("Success! Got IndexedDB!");
-  } catch(e: any) {
-    messageElement.innerHTML = e.message;
-    window.alert(e.name);
-    return;
+
+function renderAccount(username: string, password: string) {
+  let div = document.createElement('div');
+  div.className = "account-box";
+  div.textContent = username;
+  div.style.color = 'black';
+  div.onclick = (ev) => {
+    LOCAL_STORAGE_HANDLER.updateUsernameAndPassword(username, password);
+    window.location.href = "/home"; //redirect to home page
   }
+  accountListElement.appendChild(div);
+}
 
-  messageElement.innerHTML = `${await window.navigator.storage.persisted()}`;
+async function renderAccounts(db: Database) {
+  let accounts = await db.accountStore.getAll();
+  for(let acc of accounts) {
+    renderAccount(acc.username, acc.password);
+  }
+}
+async function main() {
+  const db = await getDatabase();
+  await renderAccounts(db);
 
   accountForm.onsubmit = async (e) => {
     e.preventDefault(); //dont allow post request to go through
@@ -27,11 +37,16 @@ async function main() {
   
     console.log(username);
   
-    let jsonRes = await fetcher.createAccount(username);
-  
-    messageElement.innerHTML = `Create Account Result: ${JSON.stringify(jsonRes)}`;
-  }
+    try {
+      await api.createAccount(username);
+      //username and password are kept in local storage after account creation
+      renderAccount(username, LOCAL_STORAGE_HANDLER.getPassword()!);
 
+    } catch(e) {
+      displayError(e as Error);
+    }
+  
+  }
 }
 
 main();

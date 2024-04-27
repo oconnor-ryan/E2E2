@@ -9,7 +9,7 @@ export interface StoredMessageBase {
 }
 
 export interface BaseMessage {
-  type: 'message' | 'message-invite' | 'queued-invites-and-messages' | 'error'
+  type: 'message' | 'key-exchange-request' | 'queued-exchanges-and-messages' | 'error'
 }
 
 export interface ErrorMessage extends BaseMessage {
@@ -27,33 +27,36 @@ export interface Message extends BaseMessage {
   receiverServer: string
 }
 
-export interface MessageInvite extends BaseMessage{
-  type: 'message-invite',
+export interface KeyExchangeRequest extends BaseMessage{
+  type: 'key-exchange-request',
   id: string
   receiverUsername: string,
   receiverServer: string 
   senderUsername: string,
-  senderServer: string 
+  senderServer: string,
   encryptedPayload: string,
+  ephemeralPublicKey: string,
+  ephemeralSalt: string
 
 }
 
 export interface EncryptedPayloadBase {
-  signed_data: EncryptedMessageData | EncryptedMessageInvitePayload
+  signed_data: EncryptedMessageData | EncryptedKeyExchangeRequestPayload
   signature: string
 }
 
-
-export interface EncryptedMessageInvitePayload {
+export interface EncryptedKeyExchangeRequestPayload {
+  type: 'one-to-one-invite' | 'group-key-exchange',
   mailboxId: string,
   comment: string,
   groupId: string | undefined
 }
 
+
 export interface QueuedMessagesAndInvitesObj extends BaseMessage {
-  type: 'queued-invites-and-messages',
+  type: 'queued-exchanges-and-messages',
   messages: Message[],
-  invites: MessageInvite[]
+  exchanges: KeyExchangeRequest[]
 }
 
 
@@ -64,12 +67,15 @@ export interface EncryptedMessageData {
     | 'call-accept' 
     | 'call-signaling'
     | 'accept-invite'
+    | 'group-invite'
+    | 'join-group'
     | 'leave-group'
     | 'change-mailbox-id',
   
   groupId: string | undefined,
   data: any
 }
+
 
 export interface EncryptedRegularMessageData extends EncryptedMessageData {
   type: 'text-message',
@@ -116,8 +122,28 @@ export interface EncryptedAcceptInviteMessageData extends EncryptedMessageData {
   }
 }
 
+//for group invites, the group owner can only invite KnownUsers. This is similar
+//to Discord where you can only invite friends in group DMs 
+export interface EncryptedMessageGroupInvitePayload extends EncryptedMessageData {
+  type: 'group-invite';
+  groupId: string,
+  data: {
+    members: {
+      identityKeyPublic: string,
+      server: string,
+      mailboxId: string //include mailboxId so that each member does not have to exchange them
+    }[]
+  }
+}
+
+export interface EncryptedMessageJoinGroupPayload extends EncryptedMessageData {
+  type: 'join-group';
+  groupId: string
+}
+
 export interface EncryptedLeaveGroupMessageData extends EncryptedMessageData {
   type: 'leave-group',
+  groupId: string
   data: undefined
 }
 

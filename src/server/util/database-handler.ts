@@ -34,7 +34,7 @@ export interface AccountIdentityWebSocket extends AccountIdentity {
 
 
 export interface BaseMessage {
-  type: 'message' | 'message-invite'
+  type: 'message' | 'key-exchange-request'
 }
 
 //GET RID OF MESSAGE LOCAL since it has the same columns as MESSAGE INCOMING
@@ -47,19 +47,21 @@ export interface Message extends BaseMessage {
   receiverServer: string //if local, use empty string
 }
 
-interface MessageInvite extends BaseMessage{
-  type: 'message-invite',
+interface KeyExchangeRequest extends BaseMessage{
+  type: 'key-exchange-request',
   id: string,
   receiverUsername: string,
   senderUsername: string,
   encryptedPayload: string,
+  ephemeralKeyPublic: string,
+  ephemeralSalt: string
 }
 
-export interface MessageInviteIncoming extends MessageInvite {
+export interface KeyExchangeRequestIncoming extends KeyExchangeRequest {
   senderServer: string //if local, set as empty string
 }
 
-export interface MessageInviteOutgoing extends MessageInvite {
+export interface KeyExchangeRequestOutgoing extends KeyExchangeRequest {
   receiverServer: string 
 }
 
@@ -185,9 +187,9 @@ export async function getUserIdentityForWebSocket(username: string) : Promise<Ac
 
 export async function searchForUsers(searchString: string, limit: number, ...excludeUsers: string[]) : Promise<AccountIdentity[]> {
   //if any username starts with searchString, retrieve it
-  let pattern = `${searchString}%`
+  let pattern = `'${searchString}%'`
 
-  let res = await db`select username, identity_key_public, exchange_id_key_public from account where username ilike ${pattern} and id not in ${db(excludeUsers)} ORDER BY username LIMIT ${limit}`;
+  let res = await db`select username, identity_key_public, exchange_id_key_public from account where username ilike ${pattern} and username not in ${db(excludeUsers)} ORDER BY username LIMIT ${limit}`;
 
   return res.map(row => {
     return {
@@ -256,9 +258,9 @@ export async function saveMessage(params: Message) : Promise<void> {
 
 export async function getIncomingMessages(mailboxId: string, lastUUIDRead: string | undefined) : Promise<Message[]> {
 
-  let latestMessagesOnlyQuery = lastUUIDRead ? db`insert_id > COALESCE((SELECT insert_id FROM message_incoming WHERE id=${lastUUIDRead}), -1)` : db``;
+  let latestMessagesOnlyQuery = lastUUIDRead ? db`and insert_id > COALESCE((SELECT insert_id FROM message_incoming WHERE id=${lastUUIDRead ?? null}), -1)` : db``;
 
-  let res = await db`select id, encrypted_payload, sender_identity_key_public from message_incoming where receiver_mailbox_id=${mailboxId} AND ${latestMessagesOnlyQuery} ORDER BY insert_id ASC`;
+  let res = await db`select id, encrypted_payload, sender_identity_key_public from message_incoming where receiver_mailbox_id=${mailboxId} ${latestMessagesOnlyQuery} ORDER BY insert_id ASC`;
 
   return res.map(row => {
     return {
@@ -274,9 +276,9 @@ export async function getIncomingMessages(mailboxId: string, lastUUIDRead: strin
 
 export async function getOutgoingMessages(remoteServer: string, lastUUIDRead: string | undefined) : Promise<Message[]> {
 
-  let latestMessagesOnlyQuery = lastUUIDRead ? db`insert_id > COALESCE((SELECT insert_id FROM message_outgoing WHERE id=${lastUUIDRead}), -1)` : db``;
+  let latestMessagesOnlyQuery = lastUUIDRead ? db`and insert_id > COALESCE((SELECT insert_id FROM message_outgoing WHERE id=${lastUUIDRead ?? null}), -1)` : db``;
 
-  let res = await db`select id, encrypted_payload, date_sent, receiver_mailbox_id from message_outgoing where receiver_server=${remoteServer} AND ${latestMessagesOnlyQuery} ORDER BY insert_id ASC`;
+  let res = await db`select id, encrypted_payload, date_sent, receiver_mailbox_id from message_outgoing where receiver_server=${remoteServer} ${latestMessagesOnlyQuery} ORDER BY insert_id ASC`;
 
   return res.map(row => {
     return {
@@ -290,32 +292,40 @@ export async function getOutgoingMessages(remoteServer: string, lastUUIDRead: st
   })
 }
 
-export async function saveInvite(params: MessageInviteIncoming | MessageInviteOutgoing) {
+export async function saveKeyExchangeRequest(params: KeyExchangeRequestIncoming | KeyExchangeRequestOutgoing) {
 
   //if this is an outgoing invite
-  if((params as MessageInviteOutgoing).receiverServer) {
-    params = params as MessageInviteOutgoing;
-    await db`insert into message_invite_incoming ${db([{
+  if((params as KeyExchangeRequestOutgoing).receiverServer) {
+    params = params as KeyExchangeRequestOutgoing;
+    await db`insert into key_exchange_request_outgoing ${db([{
       receiver_username: params.receiverUsername,
       sender_username: params.senderUsername,
       sender_server: params.receiverServer,
-      encrypted_payload: params.encryptedPayload
+      encrypted_payload: params.encryptedPayload,
+      ephemeral_key_public: params.ephemeralKeyPublic,
+      ephemeral_salt: params.ephemeralSalt,
+      id: params.id
     }])}`;
   } else {
-    params = params as MessageInviteIncoming;
+    params = params as KeyExchangeRequestIncoming;
 
-    await db`insert into message_invite_incoming ${db([{
+    await db`insert into key_exchange_request_incoming ${db([{
       receiver_username: params.receiverUsername,
       sender_username: params.senderUsername,
       sender_server: params.senderServer,
-      encrypted_payload: params.encryptedPayload
+      encrypted_payload: params.encryptedPayload,
+      ephemeral_key_public: params.ephemeralKeyPublic,
+      ephemeral_salt: params.ephemeralSalt,
+      id: params.id
     }])}`;
   }
   
 }
 
-export async function getIncomingInvites(receiverUsername: string) : Promise<MessageInviteIncoming[]> {
-  let res = await db`select sender_username, encrypted_payload, sender_server, id from message_invite_incoming where receiver_username=${receiverUsername}`;
+export async function getIncomingKeyExchangeRequests(receiverUsername: string, lastReadKeyExchangeUUID?: string) : Promise<KeyExchangeRequestIncoming[]> {
+  let latestMessagesOnlyQuery = lastReadKeyExchangeUUID ? db`and insert_id > COALESCE((SELECT insert_id FROM key_exchange_request_incoming WHERE id=${lastReadKeyExchangeUUID ?? null}), -1)` : db``;
+
+  let res = await db`select sender_username, encrypted_payload, sender_server, id, ephemeral_key_public, ephemeral_salt from key_exchange_request_incoming where receiver_username=${receiverUsername} ${latestMessagesOnlyQuery}`;
 
   return res.map(row => {
     return {
@@ -324,15 +334,19 @@ export async function getIncomingInvites(receiverUsername: string) : Promise<Mes
       encryptedPayload: row.encrypted_payload,
       senderServer: row.sender_server,
       id: row.id,
-      type: 'message-invite'
+      ephemeralKeyPublic: row.ephemeral_key_public,
+      ephemeralSalt: row.ephemeral_salt,
+      type: 'key-exchange-request'
     }
   });
   
 }
 
 
-export async function getOutgoingInvites(remoteServer: string) : Promise<MessageInviteOutgoing[]>{
-  let res = await db`select receiver_username, sender_username, encrypted_payload, id from message_invite_remote_incoming where receiver_server=${remoteServer}`;
+export async function getOutgoingKeyExchangeRequests(remoteServer: string, lastReadKeyExchangeUUID?: string) : Promise<KeyExchangeRequestOutgoing[]>{
+  let latestMessagesOnlyQuery = lastReadKeyExchangeUUID ? db`and insert_id > COALESCE((SELECT insert_id FROM key_exchange_request_outgoing WHERE id=${lastReadKeyExchangeUUID ?? null}), -1)` : db``;
+
+  let res = await db`select receiver_username, sender_username, encrypted_payload, id, ephemeral_key_public, ephemeral_salt from key_exchange_request_outgoing where receiver_server=${remoteServer} ${latestMessagesOnlyQuery}`;
   return res.map(row => {
     return {
       receiverServer: remoteServer,
@@ -340,7 +354,9 @@ export async function getOutgoingInvites(remoteServer: string) : Promise<Message
       receiverUsername: row.receiver_username,
       encryptedPayload: row.encrypted_payload,
       id: row.id,
-      type: 'message-invite'
+      ephemeralKeyPublic: row.ephemeral_key_public,
+      ephemeralSalt: row.ephemeral_salt,
+      type: 'key-exchange-request'
     }
   });
 }

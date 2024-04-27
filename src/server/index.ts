@@ -68,45 +68,10 @@ wss.on('error', (error) => {
   console.error(error);
 });
 
-//Warning!, upgrades via HTTP can only be done via GET requests
-// authenticate user here for websocket
-server.on('upgrade', (request, socket, head) => {
-  let searchParams = new URL(request.url!, request.headers.host).searchParams;
-
-  const onSocketError = (e: Error) => {console.error(e)}; 
-
-  socket.on('error', onSocketError);
-
-  const destroySocket = () => {
-    //https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    socket.destroy();
-  }
-
-  //immediately invoked async function allows us to use async await syntax without
-  //worry about syncrounous event handler
-  (async () => {
-    let {username, password} = getUsernameAndPasswordFromWebSocketQuery(searchParams.get('credential') as string);
-
-    let isCorrect = await checkIfUserPasswordCorrect(username, password);
-    if(!isCorrect) {
-      return destroySocket();
-    }
-
-    let acc = await getUserIdentityForWebSocket(username);
-
-    socket.removeListener('error', onSocketError);
-
-    wss.handleUpgrade(request, socket, head, function (ws) {
-      wss.emit('connection', ws, request, acc);
-      console.log(`upgrading to websocket`);
-    });
-
-  })().catch(e => {
-    console.error(e);
-    destroySocket();
-  });
-});
+//This does not work for authenticating users because the 'connection' event is called
+//BEFORE this upgrade request (which will only work in HTTP/1.1)
+//Use 'connection' event for authentication, not this server 'upgrade' event
+server.on('upgrade', (request, socket, head) => {});
 
 //routes
 app.use("/api", apiRoute);
@@ -123,36 +88,13 @@ app.get("/favicon.ico", (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.sendFile("index.html", {root: HTML_ROOT});
-});
-
-app.get("/test/chat", (req, res) => {
-  res.sendFile("chat.html", {root: HTML_ROOT});
-});
-
-app.get("/test/key-derivation", (req, res) => {
-  res.sendFile("PBKDF2.html", {root: HTML_ROOT});
-});
-
-app.get("/test/public-key", (req, res) => {
-  res.sendFile("Public-Key.html", {root: HTML_ROOT});
-});
-
-app.get("/test/account", (req, res) => {
   res.sendFile("account.html", {root: HTML_ROOT});
 });
 
-app.get("/test/chatlist", (req, res) => {
-  res.sendFile("chat-list.html", {root: HTML_ROOT});
+app.get("/home", (req, res) => {
+  res.sendFile("home.html", {root: HTML_ROOT});
 });
 
-app.get("/test/chatroom", (req, res) => {
-  res.sendFile("chat-room.html", {root: HTML_ROOT});
-});
-
-app.get("/test/callroom", (req, res) => {
-  res.sendFile("call-room.html", {root: HTML_ROOT});
-});
 
 // 404 error handler
 app.use((req, res, next) => {
@@ -162,7 +104,7 @@ app.use((req, res, next) => {
 // 500 server error handler
 const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   console.error(err);
-  res.status(500).sendFile("index.html", {root: HTML_ROOT});
+  res.status(500).sendFile("home.html", {root: HTML_ROOT});
 }
 app.use(errorHandler);
 

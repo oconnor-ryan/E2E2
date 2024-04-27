@@ -1,13 +1,16 @@
-import { parse } from "dotenv";
-import { AesGcmKey, ECDSAPrivateKey } from "../encryption/encryption.js";
+import { ECDHPublicKey } from "../encryption/ECDH.js";
+import { x3dh_receiver } from "../signal-protocol/X3DH.js";
 import { Database, LOCAL_STORAGE_HANDLER } from "../storage/StorageHandler.js";
-import { EncryptedMessageData, EncryptedPayloadBase, ErrorMessage, Message, MessageInvite, QueuedMessagesAndInvitesObj, StoredMessageBase } from "./MessageType.js";
+import { EncryptedMessageData, EncryptedPayloadBase, ErrorMessage, Message, KeyExchangeRequest, QueuedMessagesAndInvitesObj, StoredMessageBase, EncryptedKeyExchangeRequestPayload, EncryptedMessageGroupInvitePayload } from "./MessageType.js";
+import { UserKeysForExchange, getUserKeysForExchange } from "../util/ApiRepository.js";
+import { addFriend, addGroup, addPendingGroupMember } from "../util/Actions.js";
+import { AesGcmKey } from "../encryption/encryption.js";
 
 export class MessageReceivedEventHandler {
   public onmessage: (message: StoredMessageBase, payload: EncryptedMessageData | null, messageSaved: boolean, error: Error | null) => void = () => {};
-  public onmessageinvite: (invite: MessageInvite, inviteSaved: boolean, error: Error | null) => void = () => {};
+  public onkeyexchangerequest: (request: KeyExchangeRequest, requestSaved: boolean, error: Error | null) => void = () => {};
   public onerror: (error: ErrorMessage) => void = () => {}
-  public onbatchedmessageerror: (numMessagesMissed: number, numInvitesMissed: number) => void = () => {}
+  public onbatchedmessageerror: (numMessagesReceived: number, numInvitesReceived: number) => void = () => {}
 }
 
 
@@ -30,6 +33,16 @@ export function convertMessageForStorage(message: Message, isVerified: boolean, 
 export async function parseMessage(data: Message, db: Database, emitter: MessageReceivedEventHandler | null, updateLastMessageRead: boolean = true) : Promise<boolean> {
   let storedMessageData: StoredMessageBase;
   let decryptedMessageData: EncryptedMessageData;
+  const updateLastReadUUID = async () => {
+    try {
+      if(updateLastMessageRead) {
+        await db.accountStore.setLastReadMessage(LOCAL_STORAGE_HANDLER.getUsername()!, data.id);
+      }
+    } catch(e) {
+      //do nothing since database will never store messages with duplicate keys
+    }
+  };
+
   try {
     let sender = await db.knownUserStore.get(data.senderIdentityKeyPublic);
     if(!sender) {
@@ -50,6 +63,7 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
   } catch(e) {
     //the error can only be thrown if the message failed to be decrypted or its
     //payload is not a properly formatted JSON
+    await updateLastReadUUID();
     emitter?.onmessage(convertMessageForStorage(data, false), null, false, e as Error);
     return false;
   }
@@ -62,30 +76,17 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
     case 'call-accept':
     case 'call-signaling':
       emitter?.onmessage(convertMessageForStorage(data, false), decryptedMessageData, true, null);
+      await updateLastReadUUID();
+      return true;
+    case 'group-invite':
+      await addGroup(decryptedMessageData as EncryptedMessageGroupInvitePayload, db, 'pending-approval');
+      await updateLastReadUUID();
       return true;
     default:
   }
-
-  try {
-    //if data with a duplicate uuid is put in here, an error will be thrown
-    //which is good in case the last read update fails to update
-    await db.messageStore.add(storedMessageData);
-  } catch(e) {
-    //if this is not duplicate entry error, throw an error
-    if((e as Error).name !== "ConstraintError") {
-      emitter?.onmessage(convertMessageForStorage(data, false), decryptedMessageData, false, e as Error);
-      return false;
-    }
-  }
-
-  try {
-    if(updateLastMessageRead) {
-      await db.accountStore.setLastReadMessage(LOCAL_STORAGE_HANDLER.getUsername()!, data.id);
-    }
-  } catch(e) {
-    //do nothing since database will never store messages with duplicate keys
-  }
   
+
+  await updateLastReadUUID();
   //emit that a message was received even if it has not been stored yet
   emitter?.onmessage(storedMessageData, decryptedMessageData, true, null);
 
@@ -93,60 +94,137 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
 
 }
 
-export async function parseMessageInvite(data: MessageInvite, db: Database, emitter: MessageReceivedEventHandler | null, updateLastMessageRead: boolean = true) : Promise<boolean> {
-  try {
-    await db.messageRequestStore.add(data);
-  } catch(e) {
-    //if this is not duplicate entry error, throw an error
-    if((e as Error).name !== "ConstraintError") {
-      emitter?.onmessageinvite(data, false, e as Error);
-      return false;
+export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Database, emitter: MessageReceivedEventHandler | null, updateLastMessageRead: boolean = true) : Promise<boolean> {
+  let theirAcc: UserKeysForExchange;
+  let secretKey: AesGcmKey;
+  let mailboxId: string;
+
+  const saveLastReadUUID = async () => {
+    try {
+      if(updateLastMessageRead) {
+        await db.accountStore.setLastReadKeyExchangeRequest(LOCAL_STORAGE_HANDLER.getUsername()!, data.id);
+      }
+    } catch(e) {
+      //no need to do anything
     }
-  }
+  };
 
   try {
-    if(updateLastMessageRead) {
-      await db.accountStore.setLastReadMessageInvite(LOCAL_STORAGE_HANDLER.getUsername()!, data.id);
+    let acc = await getUserKeysForExchange(data.senderUsername);
+    //if no user found, ignore this request
+    if(!acc) {
+      await saveLastReadUUID();
+      return true;
     }
+    theirAcc = acc;
   } catch(e) {
-    //no need to do anything
+    //if an error occurred due to some networking issue,
+    //do not save the last read uuid so that this can be processed later
+    return false;  
   }
-  emitter?.onmessageinvite(data, true, null);
+
+  let decryptedPayload: EncryptedKeyExchangeRequestPayload;
+
+  try {
+    let myAcc = await db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!);
+    if(!myAcc) {
+      throw new Error("Account not found!")
+    }
+
+    //perform X3DH
+    let ephemKey = await ECDHPublicKey.importKey(data.ephemeralPublicKey);
+    secretKey = (await x3dh_receiver(myAcc.exchangeIdKeyPair.privateKey, myAcc.exchangeIdPreKeyPair.privateKey, theirAcc.exchangeIdKeyPublic, ephemKey, data.ephemeralSalt)).secretKey;
+
+    decryptedPayload = JSON.parse(await secretKey.decrypt(data.encryptedPayload, 'string')) as EncryptedKeyExchangeRequestPayload;
+
+  } catch(e) {
+    await saveLastReadUUID();
+    emitter?.onkeyexchangerequest(data, false, e as Error);
+    return false;
+  }
+
+  mailboxId = decryptedPayload.mailboxId;
+
+  if(decryptedPayload.type === 'one-to-one-invite') {
+    try {
+      await db.messageInviteStore.add(data);
+    } catch(e) {
+      //if this is not duplicate entry error, throw an error
+      if((e as Error).name !== "ConstraintError") {
+        await saveLastReadUUID();
+        emitter?.onkeyexchangerequest(data, false, e as Error);
+        return false;
+      }
+    }
+  } else {
+    //check to see if you have already accepted a group chat request.
+    let groupInfo = await db.groupChatStore.get(decryptedPayload.groupId!);
+
+    //ignore this request
+    if(!groupInfo || groupInfo.status === 'denied') {
+      
+    }
+    //keep this user request as a pending group member who can be deleted if the 
+    //group invite is later denied
+    else if(groupInfo.status === 'pending-approval') {
+      await addPendingGroupMember(theirAcc, db, secretKey, mailboxId);
+    }
+    //if you accepted the group chat request, automatically add this user as a normal friend in the KnownUser object store
+    else if(groupInfo.status === 'joined-group') {
+      await addFriend(theirAcc, db, secretKey, mailboxId);
+    }
+    await saveLastReadUUID();
+    return true;
+  }
+
+  await saveLastReadUUID();
+  
+  emitter?.onkeyexchangerequest(data, true, null);
   return true;
 }
 
 
-export function parseQueuedMessagesAndInvites(data: QueuedMessagesAndInvitesObj, db: Database, emitter: MessageReceivedEventHandler) {
-  let lastMessageId = data.messages[data.messages.length-1].id;
-  let lastMessageInviteId = data.invites[data.invites.length-1].id;
+export async function parseQueuedMessagesAndInvites(data: QueuedMessagesAndInvitesObj, db: Database, emitter: MessageReceivedEventHandler) {
+  if(data.messages.length > 0) {
+    let lastMessageId = data.messages[data.messages.length-1].id;
+    db.accountStore.setLastReadMessage(LOCAL_STORAGE_HANDLER.getUsername()!, lastMessageId)
+      .catch(e => console.error("Unable to save last read message", e));
+  }
 
-  db.accountStore.setLastReadMessage(LOCAL_STORAGE_HANDLER.getUsername()!, lastMessageId)
-        .catch(e => console.error("Unable to save last read message", e));
+  if(data.exchanges.length > 0) {
+    let lastKeyExchangeRequestId = data.exchanges[data.exchanges.length-1].id;
 
-  db.accountStore.setLastReadMessageInvite(LOCAL_STORAGE_HANDLER.getUsername()!, lastMessageInviteId)
-    .catch(e => console.error("Unable to save last read invite", e));
+    db.accountStore.setLastReadKeyExchangeRequest(LOCAL_STORAGE_HANDLER.getUsername()!, lastKeyExchangeRequestId)
+      .catch(e => console.error("Unable to save last read key exchange request", e));
+  }
+  
 
 
-  Promise.all([Promise.all(data.messages.map(m => parseMessage(m, db, null, false))), Promise.all(data.invites.map(i => parseMessageInvite(i, db, null, false)))])
-   .then(result => {
-      let numMessagesFailedToSave = 0;
-      let numInvitesFailedToSave = 0;
-      for(let messageWasSaved of result[0]) {
-        if(!messageWasSaved) {
-          numMessagesFailedToSave++;
-        }
+  try {
+    //parse all messages FIRST so that group invites sent via a Message can be processed before viewing group member key exchange requests
+    let messagesProcessedList = await Promise.all(data.messages.map(m => parseMessage(m, db, null, false)));
+    let keyExchangeRequestsProcessedList = await Promise.all(data.exchanges.map(i => parseKeyExchangeRequest(i, db, null, false)));
+
+    let numMessagesSaved = 0;
+    let numInvitesSaved = 0;
+    for(let messageWasSaved of messagesProcessedList) {
+      if(messageWasSaved) {
+        numMessagesSaved++;
       }
+    }
 
-      for(let messageWasSaved of result[1]) {
-        if(!messageWasSaved) {
-          numInvitesFailedToSave++;
-        }
+    for(let inviteWasSaved of keyExchangeRequestsProcessedList) {
+      if(inviteWasSaved) {
+        numInvitesSaved++;
       }
-      emitter.onbatchedmessageerror(numMessagesFailedToSave, numInvitesFailedToSave);
-   })
-   .catch(e => {
+    }
+    emitter.onbatchedmessageerror(numMessagesSaved, numInvitesSaved);
+  } catch(e) {
     console.error(e);
-   });
+    emitter.onerror({type: 'error', 'error': 'Failed to process batched messages and exchanges!'});
+  }
+  
+
 }
 
 export function parseError(error: ErrorMessage, emitter: MessageReceivedEventHandler) {

@@ -1,8 +1,9 @@
-import { AesGcmKey, ECDSAKeyPair, ECDSAPrivateKey } from "../encryption/encryption.js";
+import { AesGcmKey, ECDHPublicKey, ECDSAKeyPair, ECDSAPrivateKey } from "../encryption/encryption.js";
 import { Database } from "../storage/Database.js";
 import { KnownUserEntry } from "../storage/ObjectStore.js";
 import { LOCAL_STORAGE_HANDLER } from "../storage/StorageHandler.js";
-import { EncryptedAcceptInviteMessageData, EncryptedCallAcceptMessageData, EncryptedCallRequestMessageData, EncryptedCallSignalingMessageData, EncryptedFileMessageData, EncryptedLeaveGroupMessageData, EncryptedMessageInvitePayload, EncryptedNewMailboxIdMessageData, EncryptedRegularMessageData, Message, MessageInvite } from "./MessageType.js";
+import { arrayBufferToBase64 } from "../util/Base64.js";
+import { EncryptedAcceptInviteMessageData, EncryptedCallAcceptMessageData, EncryptedCallRequestMessageData, EncryptedCallSignalingMessageData, EncryptedFileMessageData, EncryptedLeaveGroupMessageData, EncryptedMessageGroupInvitePayload, EncryptedKeyExchangeRequestPayload, EncryptedMessageJoinGroupPayload, EncryptedNewMailboxIdMessageData, EncryptedRegularMessageData, Message, KeyExchangeRequest } from "./MessageType.js";
 
 export async function signAndEncryptData(data: any, encKey: AesGcmKey, signKey: ECDSAPrivateKey) {
   let dataAsString = JSON.stringify(data);
@@ -56,7 +57,7 @@ export class SocketMessageSender {
       }
     };
 
-    this.sendMessage(data);
+    await this.sendMessage(data);
   }
 
   async sendFileMessage(fileUUID: string, accessToken: string, fileName: string, fileSig: string, fileEncKey: AesGcmKey, message: string) {
@@ -77,7 +78,7 @@ export class SocketMessageSender {
       }
     }
 
-    this.sendMessage(data);
+    await this.sendMessage(data);
   }
 
   async requestCall() {
@@ -91,7 +92,7 @@ export class SocketMessageSender {
       data: undefined
     }
 
-    this.sendMessage(data, true)
+    await this.sendMessage(data, true)
 
   }
 
@@ -105,7 +106,7 @@ export class SocketMessageSender {
       groupId: undefined,
       data: undefined
     }
-    this.sendMessage(data, true)
+    await this.sendMessage(data, true)
   }
 
   async callSignalingMessage(signalingData: RTCSessionDescription | RTCIceCandidateInit, type: 'ice' | 'sdp') {
@@ -122,7 +123,7 @@ export class SocketMessageSender {
       }
     };
 
-    this.sendMessage(data, true);
+    await this.sendMessage(data, true);
   }
 
   async acceptInvite(mailboxId: string) {
@@ -133,16 +134,40 @@ export class SocketMessageSender {
         mailboxId: mailboxId
       }
     }
-    this.sendMessage(data)
+    await this.sendMessage(data)
+  }
+
+  async inviteToGroup() {
+    let data: EncryptedMessageGroupInvitePayload = {
+      type: 'group-invite',
+      groupId: this.groupId!,
+      data: {
+        members: this.receivers.map((r) => {return {
+          identityKeyPublic: r.identityKeyPublicString,
+          mailboxId: r.mailboxId!,
+          server: r.remoteServer
+        }})
+      }
+    }
+    await this.sendMessage(data);
+  }
+
+  async joinGroup() {
+    let data: EncryptedMessageJoinGroupPayload = {
+      type: 'join-group',
+      groupId: this.groupId!,
+      data: undefined
+    }
+    await this.sendMessage(data);
   }
 
   async leaveGroup() {
     let data: EncryptedLeaveGroupMessageData = {
       type: 'leave-group',
-      groupId: this.groupId,
+      groupId: this.groupId!,
       data: undefined
     };
-    this.sendMessage(data);
+    await this.sendMessage(data);
   }
 
   async changeMailboxId(mailboxId: string) {
@@ -153,7 +178,7 @@ export class SocketMessageSender {
         mailboxId: mailboxId,
       }
     }
-    this.sendMessage(data);
+    await this.sendMessage(data);
   }
 }
 
@@ -168,31 +193,30 @@ export class SocketInviteSender {
     this.myIdentityKeyPair = myIdentityKeyPair;
   }
 
-  async sendInvite(receiverUsername: string, receiverServer: string = "", invitePayload: EncryptedMessageInvitePayload, encKey: AesGcmKey) {
+  async sendInvite(receiverUsername: string, receiverServer: string = "", invitePayload: EncryptedKeyExchangeRequestPayload, ephemKey: ECDHPublicKey, ephemSalt: ArrayBuffer, encKey: AesGcmKey) {
     let encryptedPayload = await signAndEncryptData(invitePayload, encKey, this.myIdentityKeyPair.privateKey)
-    let data: MessageInvite = {
+    let data: KeyExchangeRequest = {
       receiverUsername: receiverUsername,
       receiverServer: receiverServer,
       senderUsername: this.myUsername,
       senderServer: window.location.host,
       encryptedPayload: encryptedPayload,
       id: window.crypto.randomUUID(),
-      type: 'message-invite'
+      ephemeralPublicKey: await ephemKey.exportKey('base64'),
+      ephemeralSalt: arrayBufferToBase64(ephemSalt),
+      type: 'key-exchange-request'
     };
 
     this.ws.send(JSON.stringify(data));
   }
 
-  async sendGroupInvite(receivers: {receiverUsername: string, receiverServer: string, encKey: AesGcmKey}[], invitePayload: EncryptedMessageInvitePayload) {
-    return Promise.all(receivers.map(r => this.sendInvite(r.receiverUsername, r.receiverServer, invitePayload, r.encKey)))
-  }
 }
 
 
 
 export async function socketInviteSenderBuilder(ws: WebSocket, db: Database) {
 
-  let myIdKey = (await db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!)).identityKeyPair;
+  let myIdKey = (await db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!.identityKeyPair;
 
   return new SocketInviteSender(ws, myIdKey, LOCAL_STORAGE_HANDLER.getUsername()!);
 }

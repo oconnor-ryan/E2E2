@@ -35,7 +35,7 @@ router.get("/get_outgoing_messages_and_invites", (req, res, next) => {
 
   //all domains store both hostname AND port
 
-  Promise.all([db.getOutgoingInvites(domain), db.getOutgoingMessages(domain, lastReadUUID)])
+  Promise.all([db.getOutgoingKeyExchangeRequests(domain), db.getOutgoingMessages(domain, lastReadUUID)])
   .then(result => {
     res.json({
       type: 'queued-invites-and-messages',

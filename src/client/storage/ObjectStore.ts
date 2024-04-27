@@ -1,4 +1,4 @@
-import { Message, StoredMessageBase } from "../message-handler/MessageType.js";
+import { Message, KeyExchangeRequest, StoredMessageBase } from "../message-handler/MessageType.js";
 import { ECDHKeyPair, ECDSAKeyPair, ECDSAKeyPairBuilder, ECDHKeyPairBuilder, ECDSAPublicKey, ECDHPublicKey, AesGcmKey } from "../encryption/encryption.js";
 
 /**
@@ -42,13 +42,13 @@ abstract class ObjectStorePromise<Identifier extends IDBValidKey | IDBKeyRange, 
   protected abstract convertRawToEntry(raw: RawEntry): Entry;
 
 
-  async get(id: Identifier) : Promise<Entry> {
+  async get(id: Identifier) : Promise<Entry | null> {
     const transaction = this.db.transaction(this.objStoreName, "readonly");
 
     const request = transaction.objectStore(this.objStoreName).get(id);
 
-    return new Promise<Entry>((resolve, reject) => {
-      request.onsuccess = (e) => resolve(this.convertRawToEntry(request.result));
+    return new Promise<Entry | null>((resolve, reject) => {
+      request.onsuccess = (e) => resolve(request.result ? this.convertRawToEntry(request.result) : null);
       request.onerror = (e) => reject(request.error);
     }) 
   }
@@ -120,7 +120,7 @@ export interface AccountEntry {
   exchangeIdPreKeyBundlePair: ECDHKeyPair[],
   mailboxId: string,
   lastReadMessageUUID: string | undefined,
-  lastReadMessageInviteUUID: string | undefined,
+  lastReadKeyExchangeRequestUUID: string | undefined,
 }
 
 interface AccountEntryRaw {
@@ -132,7 +132,7 @@ interface AccountEntryRaw {
   exchangeIdPreKeyBundlePair: CryptoKeyPair[],
   mailboxId: string,
   lastReadMessageUUID: string | undefined,
-  lastReadMessageInviteUUID: string | undefined,
+  lastReadKeyExchangeRequestUUID: string | undefined,
 }
 
 export class AccountStore extends ObjectStorePromise<string, AccountEntry, AccountEntryRaw> {
@@ -145,6 +145,9 @@ export class AccountStore extends ObjectStorePromise<string, AccountEntry, Accou
 
   async setLastReadMessage(username: string, messageUUID: string) {
     let acc = await this.get(username);
+    if(!acc) {
+      throw new Error("Account not found!")
+    }
     
     acc.lastReadMessageUUID = messageUUID;
 
@@ -152,10 +155,13 @@ export class AccountStore extends ObjectStorePromise<string, AccountEntry, Accou
 
   }
 
-  async setLastReadMessageInvite(username: string, messageInviteUUID: string) {
+  async setLastReadKeyExchangeRequest(username: string, keyExchangeRequestUUID: string) {
     let acc = await this.get(username);
-    
-    acc.lastReadMessageUUID = messageInviteUUID;
+    if(!acc) {
+      throw new Error("Account not found!")
+    }
+
+    acc.lastReadKeyExchangeRequestUUID = keyExchangeRequestUUID;
 
     return this.update(acc);
 
@@ -184,7 +190,7 @@ export class AccountStore extends ObjectStorePromise<string, AccountEntry, Accou
       exchangeIdPreKeyPair: entry.exchangeIdPreKeyPair.getCryptoKeyPair(),
       exchangeIdPreKeyBundlePair: entry.exchangeIdPreKeyBundlePair.map((val) => val.getCryptoKeyPair()),
       mailboxId: entry.mailboxId,
-      lastReadMessageInviteUUID: entry.lastReadMessageInviteUUID,
+      lastReadKeyExchangeRequestUUID: entry.lastReadKeyExchangeRequestUUID,
       lastReadMessageUUID: entry.lastReadMessageUUID,
 
     };
@@ -203,7 +209,7 @@ export class AccountStore extends ObjectStorePromise<string, AccountEntry, Accou
       exchangeIdPreKeyPair: ecdhKeyBuilder.getKeyPairWrapperFromCryptoKeyPair(entry.exchangeIdPreKeyPair),
       exchangeIdPreKeyBundlePair: entry.exchangeIdPreKeyBundlePair.map((val) => ecdhKeyBuilder.getKeyPairWrapperFromCryptoKeyPair(val)),
       mailboxId: entry.mailboxId,
-      lastReadMessageInviteUUID: entry.lastReadMessageInviteUUID,
+      lastReadKeyExchangeRequestUUID: entry.lastReadKeyExchangeRequestUUID,
       lastReadMessageUUID: entry.lastReadMessageUUID,
     };
   }
@@ -211,6 +217,7 @@ export class AccountStore extends ObjectStorePromise<string, AccountEntry, Accou
 
 export interface KnownUserEntry {
   identityKeyPublicString: string,
+  waitingGroupMember?: boolean //used when you're invited to a group chat and its members ask to exchange keys before you accepted the group invite
   username: string,
   remoteServer: string,
   identityKeyPublic: ECDSAPublicKey
@@ -246,6 +253,17 @@ export class KnownUserStore extends ObjectStorePromise<string, KnownUserEntry, K
   }
 
   async migrateData(oldVersion: number) {}
+
+  //this can be optimized in future using low-level IndexedDB cursor,
+  async getAllFriends() {
+    let users = await this.getAll();
+    return users.filter((u) => u.mailboxId !== undefined);
+  }
+
+  async getAllPendingInviteUsers() {
+    let users = await this.getAll();
+    return users.filter((u) => u.mailboxId !== undefined);
+  }
   
   convertEntryToRaw(entry: KnownUserEntry) : KnownUserEntryRaw {
     return {
@@ -282,8 +300,13 @@ export class KnownUserStore extends ObjectStorePromise<string, KnownUserEntry, K
 
 interface GroupChatEntry {
   groupId: string,
+  status: 'joined-group' | 'pending-approval' | 'denied',
   //contains identity keys of each user in KnownUser
-  members: string[]
+  members: {
+    identityKeyPublicString: string,
+    username: string,
+    remoteServer: string
+  }[]
 }
 
 export class GroupChatStore extends ObjectStorePromise<string, GroupChatEntry, GroupChatEntry> {
@@ -302,66 +325,8 @@ export class GroupChatStore extends ObjectStorePromise<string, GroupChatEntry, G
   convertRawToEntry(entry: GroupChatEntry) : GroupChatEntry {return entry;}
 }
 
-export interface PendingInvite {
-  groupId: string | null,
-  receiverId: string,
-  expireDate: Date,
-  comment: string
-}
 
-export class PendingInviteStore extends ObjectStorePromise<[string, string], PendingInvite, PendingInvite> {
-
-  protected getStoreOptions(): IDBObjectStoreParameters {
-    return {
-      keyPath: ['groupId', 'receiverId']
-    }
-  }
-
-  protected setStoreIndices(objectStore: IDBObjectStore): void {}
-  
-  async migrateData(oldVersion: number) {}
-
-  convertEntryToRaw(entry: PendingInvite) : PendingInvite {return entry;}
-  convertRawToEntry(entry: PendingInvite) : PendingInvite {return entry;}
-}
-
-export interface GroupChatRequest {
-  senderId: string,
-  groupId: string,
-  comment: string,
-  members: {
-    id: string,
-    mailboxId: string
-  }[]
-}
-
-export class GroupChatRequestStore extends ObjectStorePromise<[string, string], GroupChatRequest, GroupChatRequest> {
-
-  protected getStoreOptions(): IDBObjectStoreParameters {
-    return {
-      keyPath: ['groupId', 'senderId']
-    }
-  }
-
-  protected setStoreIndices(objectStore: IDBObjectStore): void {}
-  
-  async migrateData(oldVersion: number) {}
-
-  convertEntryToRaw(entry: GroupChatRequest) : GroupChatRequest {return entry;}
-  convertRawToEntry(entry: GroupChatRequest) : GroupChatRequest {return entry;}
-}
-
-export interface MessageRequest {
-  id: string,
-  receiverUsername: string,
-  receiverServer: string,
-  senderUsername: string,
-  senderServer: string,
-  encryptedPayload: string,
-}
-
-
-export class MessageRequestStore extends ObjectStorePromise<string, MessageRequest, MessageRequest> {
+export class KeyExchangeRequestStore extends ObjectStorePromise<string, KeyExchangeRequest, KeyExchangeRequest> {
 
   protected getStoreOptions(): IDBObjectStoreParameters {
     return {
@@ -369,12 +334,13 @@ export class MessageRequestStore extends ObjectStorePromise<string, MessageReque
     }
   }
 
+
   protected setStoreIndices(objectStore: IDBObjectStore): void {}
   
   async migrateData(oldVersion: number) {}
 
-  convertEntryToRaw(entry: MessageRequest) : MessageRequest {return entry;}
-  convertRawToEntry(entry: MessageRequest) : MessageRequest {return entry;}
+  convertEntryToRaw(entry: KeyExchangeRequest) : KeyExchangeRequest {return entry;}
+  convertRawToEntry(entry: KeyExchangeRequest) : KeyExchangeRequest {return entry;}
 }
 
 

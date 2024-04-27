@@ -1,6 +1,7 @@
 import {RawData, WebSocket} from 'ws';
 import {IncomingMessage} from 'http';
-import { AccountIdentityWebSocket, BaseMessage, getIncomingMessages, getIncomingInvites, MessageInviteIncoming, Message, saveMessage, saveInvite } from '../util/database-handler.js';
+import { AccountIdentityWebSocket, BaseMessage, getIncomingMessages, getIncomingKeyExchangeRequests, KeyExchangeRequestIncoming, Message, saveMessage, saveKeyExchangeRequest, checkIfUserPasswordCorrect, getUserIdentityForWebSocket } from '../util/database-handler.js';
+import { getUsernameAndPasswordFromWebSocketQuery } from '../util/auth-parser.js';
 
 interface AuthenticatedSocket {
   ws: WebSocket,
@@ -47,20 +48,31 @@ export function getAuthSocketList() : Readonly<WebSocketConnectionList> {
 }
 
 //at this point, the user has already been authenticated
-export function onConnection(ws: WebSocket, req: IncomingMessage, client: AccountIdentityWebSocket) {
+export async function onConnection(ws: WebSocket, req: IncomingMessage) {
+  let searchParams = new URL(req.url!, 'ws://' + req.headers.host).searchParams;
+
+  let {username, password} = getUsernameAndPasswordFromWebSocketQuery(searchParams.get('credential') as string);
+
+  let isCorrect = await checkIfUserPasswordCorrect(username, password);
+  if(!isCorrect) {
+    ws.close();
+  }
+
+  let client = (await getUserIdentityForWebSocket(username))!;
 
   authClientList.addSocket({ws: ws, acc: client});
 
-  let searchParams = new URL(req.url!, req.headers.host).searchParams;
-  let lastReadUUID = searchParams.get('lastReadUUID') ?? undefined;
+  let lastReadMessageUUID = searchParams.get('lastReadMessageUUID') ?? undefined;
+  let lastReadKeyExchangeUUID = searchParams.get('lastReadKeyExchangeUUID') ?? undefined;
+
 
   //get pending messages and invites and send them to user
-  Promise.all([getIncomingInvites(client.username), getIncomingMessages(client.mailboxId, lastReadUUID)])
+  Promise.all([getIncomingKeyExchangeRequests(client.username), getIncomingMessages(client.mailboxId, lastReadMessageUUID)])
    .then(result => {
-    const [invites, messages] : [MessageInviteIncoming[], Message[]] = result;
+    const [invites, messages] : [KeyExchangeRequestIncoming[], Message[]] = result;
     let response = {
-      type: 'queued-invites-and-messages',
-      invites: invites,
+      type: 'queued-exchanges-and-messages',
+      exchanges: invites,
       messages: messages
     };
 
@@ -70,7 +82,7 @@ export function onConnection(ws: WebSocket, req: IncomingMessage, client: Accoun
     console.error(e);
     ws.send(JSON.stringify({
       type: 'error',
-      error: "CannotGetQueuedMessagesAndInvites"
+      error: "CannotGetQueuedMessagesAndExchanges"
     }));
    });
 
@@ -103,8 +115,8 @@ export function onConnection(ws: WebSocket, req: IncomingMessage, client: Accoun
         break;
       }
         
-      case 'message-invite': {
-        handleMessageInvite(ws, json as MessageInviteIncoming, data);
+      case 'key-exchange-request': {
+        handleKeyExchangeRequest(ws, json as KeyExchangeRequestIncoming, data);
         break;
       }
 
@@ -139,13 +151,13 @@ function handleMessage(ws: WebSocket, json: Message, data: RawData) {
   receiverSocket.ws.send(data);
 }
 
-function handleMessageInvite(ws: WebSocket, json: MessageInviteIncoming, data: RawData) {
+function handleKeyExchangeRequest(ws: WebSocket, json: KeyExchangeRequestIncoming, data: RawData) {
   let receiverSocket = authClientList.getSocketByUsername((json).receiverUsername);
   if(!receiverSocket) {
-    saveInvite(json).catch(e => {
+    saveKeyExchangeRequest(json).catch(e => {
       ws.send(JSON.stringify({
         type: 'error',
-        error: 'MessageInviteSendError'
+        error: 'KeyExchangeRequestSendError'
       }));
     });
     return;
