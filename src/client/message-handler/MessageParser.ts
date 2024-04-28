@@ -1,16 +1,23 @@
 import { ECDHPublicKey } from "../encryption/ECDH.js";
 import { x3dh_receiver } from "../signal-protocol/X3DH.js";
 import { Database, LOCAL_STORAGE_HANDLER } from "../storage/StorageHandler.js";
-import { EncryptedMessageData, EncryptedPayloadBase, ErrorMessage, Message, KeyExchangeRequest, QueuedMessagesAndInvitesObj, StoredMessageBase, EncryptedKeyExchangeRequestPayload, EncryptedMessageGroupInvitePayload } from "./MessageType.js";
+import { EncryptedMessageData, EncryptedPayloadBase, ErrorMessage, Message, KeyExchangeRequest, QueuedMessagesAndInvitesObj, StoredMessageBase, EncryptedKeyExchangeRequestPayload, EncryptedMessageGroupInvitePayload, StoredKeyExchangeRequest, EncryptedMessageJoinGroupPayload, EncryptedAcceptInviteMessageData } from "./MessageType.js";
 import { UserKeysForExchange, getUserKeysForExchange } from "../util/ApiRepository.js";
 import { addFriend, addGroup, addPendingGroupMember } from "../util/Actions.js";
 import { AesGcmKey } from "../encryption/encryption.js";
+import { InviteSenderBuilder, MessageSenderBuilder, SocketInviteSender } from "./MessageSender.js";
+import { KnownUserEntry } from "../storage/ObjectStore.js";
 
+export interface MessageSenderData {
+  messageSenderBuilder: MessageSenderBuilder,
+  messageInviteSender: SocketInviteSender
+}
 export class MessageReceivedEventHandler {
-  public onmessage: (message: StoredMessageBase, payload: EncryptedMessageData | null, messageSaved: boolean, error: Error | null) => void = () => {};
-  public onkeyexchangerequest: (request: KeyExchangeRequest, requestSaved: boolean, error: Error | null) => void = () => {};
+
+  public onmessage: (message: StoredMessageBase, messageSaved: boolean, error: Error | null) => void = () => {};
+  public onkeyexchangerequest: (request: StoredKeyExchangeRequest, error: Error | null) => void = () => {};
   public onerror: (error: ErrorMessage) => void = () => {}
-  public onbatchedmessageerror: (numMessagesReceived: number, numInvitesReceived: number) => void = () => {}
+  public onbatchedmessage: (numMessagesReceived: number, numInvitesReceived: number) => void = () => {}
 }
 
 
@@ -29,8 +36,19 @@ export function convertMessageForStorage(message: Message, isVerified: boolean, 
   }
 }
 
+export function convertExchangeForStorage(exchange: KeyExchangeRequest, decryptedPayload: EncryptedKeyExchangeRequestPayload, derivedEncryptionKey: AesGcmKey): StoredKeyExchangeRequest {
+  return {
+    id: exchange.id,
+    senderServer: exchange.senderServer,
+    senderUsername: exchange.senderUsername,
+    payload: decryptedPayload,
+    derivedEncryptionKey: derivedEncryptionKey
+  }
+}
+
 
 export async function parseMessage(data: Message, db: Database, emitter: MessageReceivedEventHandler | null, updateLastMessageRead: boolean = true) : Promise<boolean> {
+  console.log('Message Received');
   let storedMessageData: StoredMessageBase;
   let decryptedMessageData: EncryptedMessageData;
   const updateLastReadUUID = async () => {
@@ -43,31 +61,45 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
     }
   };
 
+  let sender: KnownUserEntry;
+
   try {
-    let sender = await db.knownUserStore.get(data.senderIdentityKeyPublic);
-    if(!sender) {
+    let senderAcc = await db.knownUserStore.get(data.senderIdentityKeyPublic);
+    if(!senderAcc) {
       throw new Error("Unknown User sent this message!");
     }
+    sender = senderAcc;
+
+    console.log(sender);
 
     let decryptedData = await sender.currentEncryptionKey.decrypt(data.encryptedPayload);
 
+    console.log('decrypted data');
     let json = JSON.parse(decryptedData) as EncryptedPayloadBase;
 
+    console.log('decrypted json');
+
     //if signature is valud or not
+    console.log(JSON.stringify(json.signed_data));
+    console.log(json.signature)
     let isVerified = await sender.identityKeyPublic.verify(json.signature, JSON.stringify(json.signed_data))
+
+    console.log('decrypted verifed');
 
     decryptedMessageData = json.signed_data as EncryptedMessageData;
 
     storedMessageData = convertMessageForStorage(data, isVerified, decryptedMessageData);
 
   } catch(e) {
+    console.error(e);
     //the error can only be thrown if the message failed to be decrypted or its
     //payload is not a properly formatted JSON
     await updateLastReadUUID();
-    emitter?.onmessage(convertMessageForStorage(data, false), null, false, e as Error);
+    emitter?.onmessage(convertMessageForStorage(data, false), false, e as Error);
     return false;
   }
 
+  console.log(storedMessageData);
   
 
   switch(decryptedMessageData.type) {
@@ -75,11 +107,17 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
     case 'call-request':
     case 'call-accept':
     case 'call-signaling':
-      emitter?.onmessage(convertMessageForStorage(data, false), decryptedMessageData, true, null);
+      emitter?.onmessage(convertMessageForStorage(data, false, decryptedMessageData), true, null);
       await updateLastReadUUID();
       return true;
     case 'group-invite':
       await addGroup(decryptedMessageData as EncryptedMessageGroupInvitePayload, db, 'pending-approval');
+      await updateLastReadUUID();
+      return true;
+    case 'accept-invite':
+      //accept the invite by retrieving the mailbox id
+      sender.mailboxId = (decryptedMessageData as EncryptedAcceptInviteMessageData).data.mailboxId;
+      await db.knownUserStore.update(sender);
       await updateLastReadUUID();
       return true;
     default:
@@ -88,7 +126,7 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
 
   await updateLastReadUUID();
   //emit that a message was received even if it has not been stored yet
-  emitter?.onmessage(storedMessageData, decryptedMessageData, true, null);
+  emitter?.onmessage(storedMessageData, true, null);
 
   return true;
 
@@ -96,8 +134,7 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
 
 export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Database, emitter: MessageReceivedEventHandler | null, updateLastMessageRead: boolean = true) : Promise<boolean> {
   let theirAcc: UserKeysForExchange;
-  let secretKey: AesGcmKey;
-  let mailboxId: string;
+  let secretKey: AesGcmKey | undefined;
 
   const saveLastReadUUID = async () => {
     try {
@@ -151,28 +188,28 @@ export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Data
   } catch(e) {
     console.error(e);
     await saveLastReadUUID();
-    emitter?.onkeyexchangerequest(data, false, e as Error);
+    //dont bother calling emitter, there is nothing that the user can do if they receive a bad key exchange
+    //emitter?.onkeyexchangerequest(convertExchangeForStorage(data, undefined, secretKey), e as Error);
     return false;
   }
 
-  mailboxId = decryptedMessageData.mailboxId;
+  const storedExchange: StoredKeyExchangeRequest = convertExchangeForStorage(data, decryptedMessageData, secretKey);
 
-  console.log(decryptedMessageData);
 
-  if(decryptedMessageData.type === 'one-to-one-invite') {
+  if(storedExchange.payload!.type === 'one-to-one-invite') {
     try {
-      await db.messageInviteStore.add(data);
+      await db.keyExchangeRequestStore.add(storedExchange);
     } catch(e) {
       //if this is not duplicate entry error, throw an error
       if((e as Error).name !== "ConstraintError") {
         await saveLastReadUUID();
-        emitter?.onkeyexchangerequest(data, false, e as Error);
+        emitter?.onkeyexchangerequest(storedExchange, e as Error);
         return false;
       }
     }
   } else {
     //check to see if you have already accepted a group chat request.
-    let groupInfo = await db.groupChatStore.get(decryptedMessageData.groupId!);
+    let groupInfo = await db.groupChatStore.get(storedExchange.payload!.groupId!);
 
     //ignore this request
     if(!groupInfo || groupInfo.status === 'denied') {
@@ -181,11 +218,11 @@ export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Data
     //keep this user request as a pending group member who can be deleted if the 
     //group invite is later denied
     else if(groupInfo.status === 'pending-approval') {
-      await addPendingGroupMember(theirAcc, db, secretKey, mailboxId);
+      await addPendingGroupMember(theirAcc, db, secretKey, storedExchange.payload!.mailboxId);
     }
     //if you accepted the group chat request, automatically add this user as a normal friend in the KnownUser object store
     else if(groupInfo.status === 'joined-group') {
-      await addFriend(theirAcc, db, secretKey, mailboxId);
+      await addFriend(theirAcc, db, secretKey, storedExchange.payload!.mailboxId);
     }
     await saveLastReadUUID();
     return true;
@@ -193,7 +230,7 @@ export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Data
 
   await saveLastReadUUID();
   
-  emitter?.onkeyexchangerequest(data, true, null);
+  emitter?.onkeyexchangerequest(storedExchange, null);
   return true;
 }
 
@@ -232,7 +269,7 @@ export async function parseQueuedMessagesAndInvites(data: QueuedMessagesAndInvit
         numInvitesSaved++;
       }
     }
-    emitter.onbatchedmessageerror(numMessagesSaved, numInvitesSaved);
+    emitter.onbatchedmessage(numMessagesSaved, numInvitesSaved);
   } catch(e) {
     console.error(e);
     emitter.onerror({type: 'error', 'error': 'Failed to process batched messages and exchanges!'});

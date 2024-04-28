@@ -1,3 +1,4 @@
+import { AesGcmKey } from "../encryption/encryption.js"
 
 
 export interface StoredMessageBase {
@@ -25,6 +26,22 @@ export interface Message extends BaseMessage {
   senderIdentityKeyPublic: string,
   encryptedPayload: string,
   receiverServer: string
+}
+
+export interface StoredKeyExchangeRequest {
+  id: string
+  senderUsername: string,
+  senderServer: string,
+  derivedEncryptionKey: AesGcmKey,
+  payload: EncryptedKeyExchangeRequestPayload
+}
+
+export interface StoredKeyExchangeRequestRaw {
+  id: string
+  senderUsername: string,
+  senderServer: string,
+  derivedEncryptionKey: CryptoKey,
+  payload: EncryptedKeyExchangeRequestPayload
 }
 
 export interface KeyExchangeRequest extends BaseMessage{

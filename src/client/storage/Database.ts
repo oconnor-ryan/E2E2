@@ -31,7 +31,7 @@ export class Database {
   public readonly knownUserStore: KnownUserStore;
   public readonly groupChatStore: GroupChatStore;
   public readonly messageStore: MessageStore;
-  public readonly messageInviteStore: KeyExchangeRequestStore;
+  public readonly keyExchangeRequestStore: KeyExchangeRequestStore;
   public readonly fileStore: FileStore;
 
   private constructor(
@@ -39,14 +39,14 @@ export class Database {
     knownUserStore: KnownUserStore,
     groupChatStore: GroupChatStore,
     messageStore: MessageStore,
-    messageInviteStore: KeyExchangeRequestStore,
+    keyExchangeRequestStore: KeyExchangeRequestStore,
     fileStore: FileStore
   ) {
     this.accountStore = accountStore;
     this.knownUserStore = knownUserStore;
     this.groupChatStore = groupChatStore;
     this.messageStore = messageStore;
-    this.messageInviteStore = messageInviteStore;
+    this.keyExchangeRequestStore = keyExchangeRequestStore;
     this.fileStore = fileStore
   }
 

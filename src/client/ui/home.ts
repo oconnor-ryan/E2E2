@@ -1,5 +1,6 @@
+import { MessageSenderBuilder, SocketMessageSender } from "../message-handler/MessageSender.js";
 import { Database, getDatabase } from "../storage/StorageHandler.js";
-import { inviteUser } from "../util/Actions.js";
+import { acceptInvite, inviteUser } from "../util/Actions.js";
 import { startWebSocketConnection } from "../websocket/SocketHandler.js";
 import { UserSearchElement } from "./components/AutoComplete.js";
 import { getDefaultMessageReceivedHandlerUI } from "./components/Notification.js";
@@ -19,7 +20,7 @@ async function renderOneToOneChats(db: Database) {
   let unorderedList = document.createElement('ul') as HTMLUListElement;
   unorderedList.append(...users.map((u) => {
     let listElement = document.createElement('li') as HTMLLIElement;
-    listElement.textContent = u.username + " from " + u.remoteServer !== '' ? u.remoteServer : "this server";
+    listElement.textContent = u.username + " from " + (u.remoteServer !== '' ? u.remoteServer : "this server");
     return listElement;
   }));
 
@@ -41,32 +42,69 @@ async function renderGroupChats(db: Database) {
   groupChatListElement.appendChild(unorderedList);
 }
 
-async function renderInvites(db: Database) {
+async function renderInvites(db: Database, messageSenderBuilder: MessageSenderBuilder) {
   invitationList.innerHTML = "";
-  let invites = await db.messageInviteStore.getAll();
+  let invites = await db.keyExchangeRequestStore.getAll();
 
   let unorderedList = document.createElement('ul') as HTMLUListElement;
   unorderedList.append(...invites.map((invite) => {
     let listElement = document.createElement('li') as HTMLLIElement;
-
     listElement.textContent = "Invite from " + invite.senderUsername;
+
+    let acceptButton = document.createElement('button');
+    acceptButton.textContent = "Accept Invite";
+    acceptButton.onclick = async (e) => {
+      try {
+        await acceptInvite(invite.senderUsername, db, messageSenderBuilder);
+      } catch(e) {
+        console.error(e);
+      }
+    }
+
+    listElement.appendChild(acceptButton);
     return listElement;
   }));
 
   invitationList.appendChild(unorderedList);
+
+  
 }
 
 (async () => {
   const db = await getDatabase();
-  let websocketInfo = await startWebSocketConnection(getDefaultMessageReceivedHandlerUI());
-  const userSearch = new UserSearchElement((username: string) => {
-    inviteUser(db, username, websocketInfo.inviteSender).catch(e => {
+
+  
+
+  let messageReceiver = getDefaultMessageReceivedHandlerUI();
+  let oldKeyExchangeReceiver = messageReceiver.onkeyexchangerequest;
+  let oldBatchedMessageReceiver = messageReceiver.onbatchedmessage;
+
+
+  let {messageSenderBuilder, inviteSenderBuilder} = startWebSocketConnection(db, messageReceiver);
+
+  messageReceiver.onkeyexchangerequest = async (request, error) => {
+    oldKeyExchangeReceiver(request, error);
+    if(error) {
+      return;
+    }
+    await renderInvites(db, messageSenderBuilder);
+  };
+
+  messageReceiver.onbatchedmessage = async (numMessagedSave, numInvitesSaved) => {
+    oldBatchedMessageReceiver(numMessagedSave, numInvitesSaved)
+    await renderInvites(db, messageSenderBuilder);
+  };
+
+  const userSearch = new UserSearchElement(async (username: string) => {
+    inviteUser(db, username, await inviteSenderBuilder.buildInviteSender()).catch(e => {
       console.error(e);
     });
   });
   userSearch.render(document.getElementById('user-search-root')!);
+
   await renderOneToOneChats(db);
   await renderGroupChats(db);
-  await renderInvites(db);
+  await renderInvites(db, messageSenderBuilder);
+  
 
 })();

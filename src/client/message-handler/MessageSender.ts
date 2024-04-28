@@ -8,7 +8,8 @@ import { EncryptedAcceptInviteMessageData, EncryptedCallAcceptMessageData, Encry
 export async function signAndEncryptData(data: any, encKey: AesGcmKey, signKey: ECDSAPrivateKey) {
   let dataAsString = JSON.stringify(data);
 
-  let signature = signKey.sign(dataAsString, 'base64');
+  console.log(dataAsString);
+  let signature = await signKey.sign(dataAsString, 'base64');
   let payload = {
     signature: signature,
     signed_data: data
@@ -213,10 +214,44 @@ export class SocketInviteSender {
 }
 
 
+export class MessageSenderBuilder {
+  private ws: WebSocket;
+  private db: Database;
 
-export async function socketInviteSenderBuilder(ws: WebSocket, db: Database) {
+  constructor(ws: WebSocket, db: Database) {
+    this.ws = ws;
+    this.db = db;
+  }
+  
+  async buildMessageSender(id: string, type: 'individual-key' | 'groupId'): Promise<SocketMessageSender> {
+    //get all known users I will be speaking to
+    let receivers: KnownUserEntry[];
+    if(type === 'individual-key') {
+      receivers = [(await this.db.knownUserStore.get(id))!];
+    } else {
+      let members = (await this.db.groupChatStore.get(id))!.members;
+      receivers = await Promise.all(members.map(m => this.db.knownUserStore.get(m.identityKeyPublicString))) as KnownUserEntry[];
+    }
 
-  let myIdKey = (await db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!.identityKeyPair;
+    let myIdKey = (await this.db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!.identityKeyPair;
 
-  return new SocketInviteSender(ws, myIdKey, LOCAL_STORAGE_HANDLER.getUsername()!);
+    return new SocketMessageSender(this.ws, receivers, myIdKey, type === 'groupId' ? id : undefined);
+  }
+}
+
+export class InviteSenderBuilder {
+  private ws: WebSocket;
+  private db: Database;
+
+  constructor(ws: WebSocket, db: Database) {
+    this.ws = ws;
+    this.db = db;
+  }
+
+  async buildInviteSender() {
+    let myIdKey = (await this.db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!.identityKeyPair;
+
+    return new SocketInviteSender(this.ws, myIdKey, LOCAL_STORAGE_HANDLER.getUsername()!);
+  }
+  
 }

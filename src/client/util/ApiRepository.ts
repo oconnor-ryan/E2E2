@@ -173,6 +173,25 @@ export interface UserKeysForExchange {
   exchangeOneTimePrekeyPublic: ECDHPublicKey
 }
 
+export interface UserKeys {
+  username: string,
+  identityKeyPublic: ECDSAPublicKey,
+  exchangeIdKeyPublic: ECDHPublicKey,
+  exchangePrekeyPublic: ECDHPublicKey,
+  exchangeIdKeySignature: string,
+  exchangePrekeySignature: string,
+}
+
+export interface UserKeysRaw {
+  error: string | undefined,
+  username: string,
+  identityKeyPublic: string,
+  exchangeIdKeyPublic: string,
+  exchangePrekeyPublic: string,
+  exchangeIdKeySignature: string,
+  exchangePrekeySignature: string,
+}
+
 export async function getUserKeysForExchange(user: string) : Promise<UserKeysForExchange | null> {
 
   let res: UserKeysForExchangeRaw = await ezFetchJSON("/api/getuserkeysforexchange", 'GET', {username: user});
@@ -206,6 +225,37 @@ export async function getUserKeysForExchange(user: string) : Promise<UserKeysFor
   return rtn;
 }
 
+export async function getUserKeys(user: string) : Promise<UserKeys | null> {
+
+  let res: UserKeysRaw = await ezFetchJSON("/api/getuserkeys", 'GET', {username: user});
+  if(res.error) {
+    throw new Error(res.error);
+  }
+
+  if(!res.identityKeyPublic) {
+    return null;
+  }
+
+  let identityKeyPublic = await ECDSAPublicKey.importKey(res.identityKeyPublic);
+
+  if(!identityKeyPublic.verify(res.exchangeIdKeySignature, res.exchangeIdKeyPublic)
+  || !identityKeyPublic.verify(res.exchangePrekeySignature, res.exchangePrekeyPublic)) {
+    throw new Error("Key signatures do not match included signing key!");
+    
+  }
+
+  let rtn: UserKeys = {
+    username: res.username,
+    identityKeyPublic: identityKeyPublic,
+    exchangeIdKeyPublic: await ECDHPublicKey.importKey(res.exchangeIdKeyPublic),
+    exchangePrekeyPublic: await ECDHPublicKey.importKey(res.exchangePrekeyPublic),
+    exchangeIdKeySignature: res.exchangeIdKeySignature,
+    exchangePrekeySignature: res.exchangePrekeySignature
+
+  } 
+
+  return rtn;
+}
 
 
 export async function uploadFile(file: File) {

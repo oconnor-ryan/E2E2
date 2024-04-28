@@ -21,7 +21,7 @@ export function displayNotification(title: string, message: string) {
 
 export function getDefaultMessageReceivedHandlerUI() {
   const messageReceiver = new MessageReceivedEventHandler();
-  messageReceiver.onmessage = (m, payload, messageSaved, error) => {
+  messageReceiver.onmessage = (m, messageSaved, error) => {
     if(error) {
       return displayNotification("MessageReceiveError", "A message was received, but we cannot decrypt your message!")
     }
@@ -31,7 +31,7 @@ export function getDefaultMessageReceivedHandlerUI() {
     return displayNotification(`Message Received!`, "");
   }
 
-  messageReceiver.onkeyexchangerequest = (m, exchangeSaved, error) => {
+  messageReceiver.onkeyexchangerequest = (m, error) => {
     if(error) {
       console.error(error);
       return displayNotification("InviteReceivedError", "A invite was received, but we cannot read it!")
@@ -39,7 +39,7 @@ export function getDefaultMessageReceivedHandlerUI() {
     return displayNotification(`Invite Received!`, "");
   }
 
-  messageReceiver.onbatchedmessageerror = (numMessagesSaved, numInvitesSaved) => {
+  messageReceiver.onbatchedmessage = (numMessagesSaved, numInvitesSaved) => {
     return displayNotification(`You got ${numMessagesSaved} messages and ${numInvitesSaved} exchange requests!`, ``);
   }
 

@@ -1,4 +1,4 @@
-import { Message, KeyExchangeRequest, StoredMessageBase } from "../message-handler/MessageType.js";
+import { Message, KeyExchangeRequest, StoredMessageBase, StoredKeyExchangeRequest, StoredKeyExchangeRequestRaw } from "../message-handler/MessageType.js";
 import { ECDHKeyPair, ECDSAKeyPair, ECDSAKeyPairBuilder, ECDHKeyPairBuilder, ECDSAPublicKey, ECDHPublicKey, AesGcmKey } from "../encryption/encryption.js";
 
 /**
@@ -223,7 +223,6 @@ export interface KnownUserEntry {
   identityKeyPublic: ECDSAPublicKey
   exchangeIdKeyPublic: ECDHPublicKey,
   exchangePreKeyPublic: ECDHPublicKey,
-  exchangeOneTimePreKeyPublic: ECDHPublicKey,
   mailboxId: string | undefined, //if undefined, user has not accepted invite
   currentEncryptionKey: AesGcmKey
 }
@@ -235,7 +234,6 @@ interface KnownUserEntryRaw {
   identityKeyPublic: CryptoKey
   exchangeIdKeyPublic: CryptoKey,
   exchangePreKeyPublic: CryptoKey,
-  exchangeOneTimePreKeyPublic: CryptoKey,
   mailboxId: string | undefined,
   currentEncryptionKey: CryptoKey
 }
@@ -272,7 +270,6 @@ export class KnownUserStore extends ObjectStorePromise<string, KnownUserEntry, K
       identityKeyPublic: entry.identityKeyPublic.getCryptoKey(),
       exchangeIdKeyPublic: entry.exchangeIdKeyPublic.getCryptoKey(),
       exchangePreKeyPublic: entry.exchangePreKeyPublic.getCryptoKey(),
-      exchangeOneTimePreKeyPublic: entry.exchangeOneTimePreKeyPublic.getCryptoKey(),
       mailboxId: entry.mailboxId,
       currentEncryptionKey: entry.currentEncryptionKey.getCryptoKey(),
       remoteServer: entry.remoteServer
@@ -287,7 +284,6 @@ export class KnownUserStore extends ObjectStorePromise<string, KnownUserEntry, K
       identityKeyPublic: new ECDSAPublicKey(entry.identityKeyPublic),
       exchangeIdKeyPublic: new ECDHPublicKey(entry.exchangeIdKeyPublic),
       exchangePreKeyPublic: new ECDHPublicKey(entry.exchangePreKeyPublic),
-      exchangeOneTimePreKeyPublic: new ECDHPublicKey(entry.exchangeOneTimePreKeyPublic),
       mailboxId: entry.mailboxId,
       currentEncryptionKey: new AesGcmKey(entry.currentEncryptionKey),
       remoteServer: entry.remoteServer
@@ -326,7 +322,7 @@ export class GroupChatStore extends ObjectStorePromise<string, GroupChatEntry, G
 }
 
 
-export class KeyExchangeRequestStore extends ObjectStorePromise<string, KeyExchangeRequest, KeyExchangeRequest> {
+export class KeyExchangeRequestStore extends ObjectStorePromise<[string, string], StoredKeyExchangeRequest, StoredKeyExchangeRequestRaw> {
 
   protected getStoreOptions(): IDBObjectStoreParameters {
     return {
@@ -339,8 +335,24 @@ export class KeyExchangeRequestStore extends ObjectStorePromise<string, KeyExcha
   
   async migrateData(oldVersion: number) {}
 
-  convertEntryToRaw(entry: KeyExchangeRequest) : KeyExchangeRequest {return entry;}
-  convertRawToEntry(entry: KeyExchangeRequest) : KeyExchangeRequest {return entry;}
+  convertEntryToRaw(entry: StoredKeyExchangeRequest) : StoredKeyExchangeRequestRaw {
+    return {
+      senderServer: entry.senderServer,
+      senderUsername: entry.senderUsername,
+      id: entry.id,
+      payload: entry.payload,
+      derivedEncryptionKey: entry.derivedEncryptionKey.getCryptoKey()
+    };
+  }
+  convertRawToEntry(entry: StoredKeyExchangeRequestRaw) : StoredKeyExchangeRequest {
+    return {
+      senderServer: entry.senderServer,
+      senderUsername: entry.senderUsername,
+      id: entry.id,
+      payload: entry.payload,
+      derivedEncryptionKey: new AesGcmKey(entry.derivedEncryptionKey)
+    };
+  }
 }
 
 

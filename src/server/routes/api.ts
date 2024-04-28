@@ -76,6 +76,26 @@ router.get("/getuserkeysforexchange", async (req, res, next) => {
   }
 });
 
+router.get("/getuserkeys", async (req, res, next) => {
+  const {username} = req.query;
+
+  if(!username) {
+    return next(new Error(ErrorCode.NO_USER_PROVIDED));
+  }
+
+  let accountInfo;
+  try {
+    accountInfo = await db.getAccountInfo(String(username));
+    if(!accountInfo) {
+      return res.json({}); //return empty json
+    }
+    return res.json(accountInfo);
+
+  } catch(e) {
+    next(e);
+  }
+});
+
 router.get("/searchusers", async (req, res, next) => {
   console.log(req.query);
   if(!req.query.search) {

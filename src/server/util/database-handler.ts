@@ -11,14 +11,17 @@ const db = postgres({
   password: process.env.DB_PSWD,
 });
 
-export interface AccountDetailsForExchange {
+export interface AccountDetails {
   username: string,
   identityKeyPublic: string,
   exchangeIdKeyPublic: string,
   exchangePrekeyPublic: string,
-  exchangeOneTimePrekeyPublic: string,
   exchangeIdKeySignature: string,
   exchangePrekeySignature: string,
+}
+
+export interface AccountDetailsForExchange extends AccountDetails {
+  exchangeOneTimePrekeyPublic: string,
 }
 
 export interface AccountIdentity {
@@ -236,6 +239,32 @@ export async function getAccountInfoForExchange(usernameOrIdentityKey: string) :
     exchangeIdKeySignature: acc.exchange_id_key_signature,
     exchangePrekeySignature: acc.exchange_prekey_signature,
     exchangeOneTimePrekeyPublic: acc.one_time_prekey
+  }
+}
+
+export async function getAccountInfo(usernameOrIdentityKey: string) : Promise<AccountDetails | null> {
+  let res = await db`select 
+    A.username,
+    A.identity_key_public,
+    A.exchange_id_key_public,
+    A.exchange_id_key_signature,
+    A.exchange_prekey_public,
+    A.exchange_prekey_signature
+  from account as A where A.username=${usernameOrIdentityKey} OR A.identity_key_public=${usernameOrIdentityKey}`;
+
+  let acc = res[0];
+
+  //if row 0 is undefined
+  if(!acc) {
+    return null;
+  }
+  return {
+    username: acc.username,
+    identityKeyPublic: acc.identity_key_public,
+    exchangeIdKeyPublic: acc.exchange_id_key_public,
+    exchangePrekeyPublic: acc.exchange_prekey_public,
+    exchangeIdKeySignature: acc.exchange_id_key_signature,
+    exchangePrekeySignature: acc.exchange_prekey_signature,
   }
 }
 

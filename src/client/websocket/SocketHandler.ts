@@ -1,35 +1,17 @@
-import { LOCAL_STORAGE_HANDLER, getDatabase } from "../storage/StorageHandler.js";
+import { Database, LOCAL_STORAGE_HANDLER, getDatabase } from "../storage/StorageHandler.js";
 import {KnownUserEntry} from '../storage/ObjectStore.js';
 import { BaseMessage, ErrorMessage, Message, KeyExchangeRequest, QueuedMessagesAndInvitesObj } from "../message-handler/MessageType.js";
-import { SocketMessageSender, socketInviteSenderBuilder } from "../message-handler/MessageSender.js";
+import { InviteSenderBuilder, MessageSenderBuilder, SocketMessageSender } from "../message-handler/MessageSender.js";
 import { MessageReceivedEventHandler, messageParseError, parseError, parseMessage, parseKeyExchangeRequest, parseQueuedMessagesAndInvites } from "../message-handler/MessageParser.js";
 
 
-export async function startWebSocketConnection(messageReceiver: MessageReceivedEventHandler) {
+//make this syncronous so that messageReceiver events that need to be able to 
+//send data to websocket can easily create callbacks to that websocket without missing 
+//any websocket messages
+export function startWebSocketConnection(db: Database, messageReceiver: MessageReceivedEventHandler) {
   let protocol = window.isSecureContext ? "wss://" : "ws://";
   const ws = new WebSocket(`${protocol}${window.location.host}?credential=${LOCAL_STORAGE_HANDLER.getWebSocketCred()}`);
   ws.binaryType = "arraybuffer"; //use this instead of Blob
-
-  const db = await getDatabase();
-
-  const inviteSender = await socketInviteSenderBuilder(ws, db);
-
-  const messageSenderBuilder = async (ws: WebSocket, id: string, type: 'individual-key' | 'groupId') => {
-    
-    //get all known users I will be speaking to
-    let receivers: KnownUserEntry[];
-    if(type === 'individual-key') {
-      receivers = [(await db.knownUserStore.get(id))!];
-    } else {
-      let members = (await db.groupChatStore.get(id))!.members;
-      receivers = await Promise.all(members.map(m => db.knownUserStore.get(m.identityKeyPublicString))) as KnownUserEntry[];
-    }
-  
-    let myIdKey = (await db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!.identityKeyPair;
-  
-    return new SocketMessageSender(ws, receivers, myIdKey, type === 'groupId' ? id : undefined);
-  };
-
 
   ws.onopen = (e) => {
     console.log("WebSocket connected!");
@@ -72,10 +54,9 @@ export async function startWebSocketConnection(messageReceiver: MessageReceivedE
   }
 
   return {
-    messageSenderBuilder: messageSenderBuilder,
-    inviteSender: inviteSender,
-    messageReceiver: messageReceiver
-  }
+    messageSenderBuilder: new MessageSenderBuilder(ws, db),
+    inviteSenderBuilder: new InviteSenderBuilder(ws, db)
+  };
 
 
 }

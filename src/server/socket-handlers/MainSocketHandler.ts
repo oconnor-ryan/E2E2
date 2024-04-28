@@ -32,7 +32,7 @@ class WebSocketConnectionList {
   }
 
   getSocketByMailboxId(mailboxId: string) {
-    return this.clients.find((val) => {mailboxId === val.acc.mailboxId});
+    return this.clients.find((val) => mailboxId === val.acc.mailboxId);
   }
 
   getSocketByUsername(username: string) {
@@ -40,7 +40,7 @@ class WebSocketConnectionList {
   }
 
   getSocketByIdentityKey(identityKey: string) {
-    return this.clients.find((val) => {identityKey === val.acc.identityKeyPublic});
+    return this.clients.find((val) => identityKey === val.acc.identityKeyPublic);
   }
 
   toString() {
