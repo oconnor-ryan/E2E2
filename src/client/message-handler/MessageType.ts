@@ -35,7 +35,7 @@ export interface KeyExchangeRequest extends BaseMessage{
   senderUsername: string,
   senderServer: string,
   encryptedPayload: string,
-  ephemeralPublicKey: string,
+  ephemeralKeyPublic: string,
   ephemeralSalt: string
 
 }

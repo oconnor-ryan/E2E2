@@ -1,4 +1,5 @@
 import { Database, getDatabase } from "../storage/StorageHandler.js";
+import { inviteUser } from "../util/Actions.js";
 import { startWebSocketConnection } from "../websocket/SocketHandler.js";
 import { UserSearchElement } from "./components/AutoComplete.js";
 import { getDefaultMessageReceivedHandlerUI } from "./components/Notification.js";
@@ -8,8 +9,7 @@ const groupChatListElement = document.getElementById('group-chat-list') as HTMLD
 const addGroupChatButtonElement = document.getElementById('add-group-button') as HTMLButtonElement;
 const invitationList = document.getElementById('invitation-list') as HTMLDivElement;
 
-const userSearch = new UserSearchElement(() => {});
-userSearch.render(document.getElementById('user-search-root')!);
+
 
 
 async function renderOneToOneChats(db: Database) {
@@ -59,6 +59,12 @@ async function renderInvites(db: Database) {
 (async () => {
   const db = await getDatabase();
   let websocketInfo = await startWebSocketConnection(getDefaultMessageReceivedHandlerUI());
+  const userSearch = new UserSearchElement((username: string) => {
+    inviteUser(db, username, websocketInfo.inviteSender).catch(e => {
+      console.error(e);
+    });
+  });
+  userSearch.render(document.getElementById('user-search-root')!);
   await renderOneToOneChats(db);
   await renderGroupChats(db);
   await renderInvites(db);

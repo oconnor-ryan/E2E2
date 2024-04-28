@@ -202,7 +202,7 @@ export class SocketInviteSender {
       senderServer: window.location.host,
       encryptedPayload: encryptedPayload,
       id: window.crypto.randomUUID(),
-      ephemeralPublicKey: await ephemKey.exportKey('base64'),
+      ephemeralKeyPublic: await ephemKey.exportKey('base64'),
       ephemeralSalt: arrayBufferToBase64(ephemSalt),
       type: 'key-exchange-request'
     };

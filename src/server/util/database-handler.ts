@@ -187,7 +187,7 @@ export async function getUserIdentityForWebSocket(username: string) : Promise<Ac
 export async function searchForUsers(searchString: string, limit: number, ...excludeUsers: string[]) : Promise<AccountIdentity[]> {
   //if any username starts with searchString, retrieve it
   let pattern = `${searchString}%`
-  console.log(pattern);
+  console.log(excludeUsers);
 
   //and username not in ${db(excludeUsers)} 
   let res = await db`select username, identity_key_public, exchange_id_key_public from account where username ilike ${pattern} ORDER BY username LIMIT ${limit}`;

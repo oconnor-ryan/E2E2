@@ -16,6 +16,9 @@ class WebSocketConnectionList {
   }
 
   addSocket(authSocket: AuthenticatedSocket) {
+    if(this.clients.find(a => a.acc.username === authSocket.acc.username)) {
+      return;
+    }
     this.clients.push(authSocket);
   }
 
@@ -33,11 +36,15 @@ class WebSocketConnectionList {
   }
 
   getSocketByUsername(username: string) {
-    return this.clients.find((val) => {username === val.acc.username});
+    return this.clients.find((val) => username === val.acc.username);
   }
 
   getSocketByIdentityKey(identityKey: string) {
     return this.clients.find((val) => {identityKey === val.acc.identityKeyPublic});
+  }
+
+  toString() {
+    return this.clients.map(c => c.acc.username).toString();
   }
 }
 
@@ -97,6 +104,8 @@ export async function onConnection(ws: WebSocket, req: IncomingMessage) {
   });
 
   ws.on('message', (data, isBinary) => {
+    console.log('Message received!');
+    console.log(authClientList.toString());
     let json: BaseMessage;
     try {
       json = JSON.parse(data.toString('utf-8'));
@@ -106,6 +115,8 @@ export async function onConnection(ws: WebSocket, req: IncomingMessage) {
         error: 'UnknownJsonType'
       }));
     }
+
+    console.log(json);
 
     //TODO: For message and message type, if they contain a receiverServer property, 
     //they should be relayed to the desired server or saved in the outgoing message table
@@ -155,6 +166,7 @@ function handleKeyExchangeRequest(ws: WebSocket, json: KeyExchangeRequestIncomin
   let receiverSocket = authClientList.getSocketByUsername((json).receiverUsername);
   if(!receiverSocket) {
     saveKeyExchangeRequest(json).catch(e => {
+      console.error(e);
       ws.send(JSON.stringify({
         type: 'error',
         error: 'KeyExchangeRequestSendError'

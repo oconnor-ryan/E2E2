@@ -33,6 +33,7 @@ export function getDefaultMessageReceivedHandlerUI() {
 
   messageReceiver.onkeyexchangerequest = (m, exchangeSaved, error) => {
     if(error) {
+      console.error(error);
       return displayNotification("InviteReceivedError", "A invite was received, but we cannot read it!")
     }
     return displayNotification(`Invite Received!`, "");

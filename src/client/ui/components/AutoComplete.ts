@@ -66,14 +66,20 @@ export class AutoCompleteElement {
 
 
 export class UserSearchElement extends AutoCompleteElement {
-  constructor(onSearch: () => void) {
+  constructor(onSubmit: (username: string) => void) {
     super(async (search) => {
       let res = await searchUsers(search);
       this.updateChoices(res.map(u => u.username).filter(u => u !== LOCAL_STORAGE_HANDLER.getUsername()));
     });
 
     let searchButton = document.createElement('button') as HTMLButtonElement;
-    searchButton.onclick = onSearch;
+    searchButton.onclick = (e) => {
+      onSubmit(this.getValue())
+    };
+    this.rootElement.onsubmit = e => {
+      e.preventDefault(); //dont submit the form
+    };
+    
     searchButton.textContent = "Invite User!";
     this.rootElement.appendChild(searchButton);
   }

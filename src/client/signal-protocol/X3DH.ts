@@ -13,9 +13,14 @@ export async function x3dh_sender(
   //let dh2 = await ecdh.deriveBits(myEphemeralKey, theirIdKey); //authenticate with their Id Key
   //let dh3 = await ecdh.deriveBits(myEphemeralKey, theirPreKey); //forward secrecy by using ephemeral/short-term keys
 
-  let dh1 = await myIdKey.deriveBits(theirIdKey);
-  let dh2 = await myEphemeralKey.deriveBits(theirIdKey);
+  let dh1 = await myIdKey.deriveBits(theirPreKey);
+  console.log(new Uint8Array(dh1));
+
+  let dh2 = await myEphemeralKey.deriveBits(theirIdKey)
+  console.log(new Uint8Array(dh2));
   let dh3 = await myEphemeralKey.deriveBits(theirPreKey);
+  console.log(new Uint8Array(dh3));
+
 
   //TODO: in full X3DH, there is a 4th DH performed for one-time-keys to
   //improve forward secrecy, consider implementing this in future
@@ -50,8 +55,13 @@ export async function x3dh_receiver(
   //Notice that this is almost identical to x3dh_sender except 
   //the public and private keys are swapped.
   let dh1 = await myPreKey.deriveBits(theirIdKey);
+  console.log(new Uint8Array(dh1));
   let dh2 = await myIdKey.deriveBits(theirEphemeralKey);
+  console.log(new Uint8Array(dh2));
+
   let dh3 = await myPreKey.deriveBits(theirEphemeralKey);
+  console.log(new Uint8Array(dh3));
+
 
 
   //concatenate the raw bytes of each key into one input key material
@@ -59,6 +69,7 @@ export async function x3dh_receiver(
   let keyMaterial = concatBuffers(dh1, dh2, dh3);
 
 
+  console.log(keyMaterial);
 
   //though not technically a key, the HKDF CryptoKey is used
   //as the input key material (IKM) for the deriveKey function,

@@ -32,7 +32,7 @@ export class ECDHPublicKey extends CryptoKeyWrapper {
         name: "ECDH",
         namedCurve: "P-521"
       },
-      false,
+      true,
       //no key usages because deriveBits and deriveKey
       //are only applied to the private key of a ECDH pair
       []

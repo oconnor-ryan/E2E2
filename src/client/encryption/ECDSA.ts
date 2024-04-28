@@ -48,7 +48,7 @@ export class ECDSAPublicKey extends CryptoKeyWrapper {
         name: "ECDSA",
         namedCurve: "P-521"
       },
-      false,
+      true,
       ["verify"]
     );
 

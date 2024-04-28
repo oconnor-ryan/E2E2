@@ -118,12 +118,13 @@ export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Data
     }
     theirAcc = acc;
   } catch(e) {
+    console.error(e);
     //if an error occurred due to some networking issue,
     //do not save the last read uuid so that this can be processed later
     return false;  
   }
 
-  let decryptedPayload: EncryptedKeyExchangeRequestPayload;
+  let decryptedMessageData: EncryptedKeyExchangeRequestPayload;
 
   try {
     let myAcc = await db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!);
@@ -131,21 +132,34 @@ export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Data
       throw new Error("Account not found!")
     }
 
+    console.log("HI THERE")
     //perform X3DH
-    let ephemKey = await ECDHPublicKey.importKey(data.ephemeralPublicKey);
+    let ephemKey = await ECDHPublicKey.importKey(data.ephemeralKeyPublic);
+    console.log("Ephem KEy")
     secretKey = (await x3dh_receiver(myAcc.exchangeIdKeyPair.privateKey, myAcc.exchangeIdPreKeyPair.privateKey, theirAcc.exchangeIdKeyPublic, ephemKey, data.ephemeralSalt)).secretKey;
 
-    decryptedPayload = JSON.parse(await secretKey.decrypt(data.encryptedPayload, 'string')) as EncryptedKeyExchangeRequestPayload;
+    console.log("X3DH")
 
+    let decryptedPayload = JSON.parse(await secretKey.decrypt(data.encryptedPayload, 'string')) as EncryptedPayloadBase;
+
+    //check signature
+    
+    //
+    decryptedMessageData = decryptedPayload.signed_data as EncryptedKeyExchangeRequestPayload;
+    console.log("PAYLOAD")
+    
   } catch(e) {
+    console.error(e);
     await saveLastReadUUID();
     emitter?.onkeyexchangerequest(data, false, e as Error);
     return false;
   }
 
-  mailboxId = decryptedPayload.mailboxId;
+  mailboxId = decryptedMessageData.mailboxId;
 
-  if(decryptedPayload.type === 'one-to-one-invite') {
+  console.log(decryptedMessageData);
+
+  if(decryptedMessageData.type === 'one-to-one-invite') {
     try {
       await db.messageInviteStore.add(data);
     } catch(e) {
@@ -158,7 +172,7 @@ export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Data
     }
   } else {
     //check to see if you have already accepted a group chat request.
-    let groupInfo = await db.groupChatStore.get(decryptedPayload.groupId!);
+    let groupInfo = await db.groupChatStore.get(decryptedMessageData.groupId!);
 
     //ignore this request
     if(!groupInfo || groupInfo.status === 'denied') {

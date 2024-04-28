@@ -151,15 +151,6 @@ export async function searchUsers(searchString: string) : Promise<UserSearchResu
   return res as UserSearchResult[];
 }
 
-export async function getInvites() : Promise<{sender: string, chat_id: number}[]> {
-  let res = await authFetch('/api/chat/getinvites');
-  if(res.error) {
-    throw new Error(res.error);
-  }
-  return res.invites;
-}
-
-
 
 export interface UserKeysForExchangeRaw {
   error: string | undefined,
