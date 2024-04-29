@@ -15,9 +15,6 @@ import { onConnection } from "./socket-handlers/MainSocketHandler.js";
 import apiRoute from './routes/api.js';
 
 
-import { getUsernameAndPasswordFromWebSocketQuery } from "./util/auth-parser.js";
-import { checkIfUserPasswordCorrect, getUserIdentityForWebSocket } from "./util/database-handler.js";
-
 //GLOBALS HERE
 
 //extend types of global
@@ -87,6 +84,10 @@ app.get("/favicon.ico", (req, res) => {
   res.sendFile("favicon.ico", {root: STATIC_ROOT});
 });
 
+app.get('*', (req, res) => {
+  res.sendFile('index.html', {root: HTML_ROOT});
+})
+/*
 app.get("/", (req, res) => {
   res.sendFile("account.html", {root: HTML_ROOT});
 });
@@ -107,6 +108,7 @@ const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   res.status(500).sendFile("home.html", {root: HTML_ROOT});
 }
 app.use(errorHandler);
+*/
 
 //use port 3000 to have client use indexeddb for old service
 //use port 3100 to have client use indexeddb for new service
