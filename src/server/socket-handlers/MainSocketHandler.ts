@@ -25,10 +25,11 @@ class WebSocketConnectionList {
 
   //called when a websocket is closed
   removeSocket(ws: WebSocket) {
-    let authSocketIndex = this.clients.findIndex((val) => {ws === val.ws});
+    let authSocketIndex = this.clients.findIndex((val) => ws === val.ws);
     if(authSocketIndex === -1) {
       return;
     }
+    console.log("socket removed");
     this.clients.splice(authSocketIndex, 1);
   }
 
@@ -103,6 +104,7 @@ export async function onConnection(ws: WebSocket, req: IncomingMessage) {
 
 
   ws.on('close', (code, reason) => {
+    console.log('close event');
     authClientList.removeSocket(ws);
   });
 

@@ -378,8 +378,8 @@ export class MessageStore extends ObjectStorePromise<string, StoredMessageBase, 
 
   protected setStoreIndices(objectStore: IDBObjectStore): void {
     objectStore.createIndex('groupId', 'groupId');
-    objectStore.createIndex('senderId', 'senderId');
-    objectStore.createIndex('uuid', 'uuid');
+    objectStore.createIndex('senderIdentityKeyPublic', 'senderIdentityKeyPublic');
+    objectStore.createIndex('id', 'id');
 
   }
 
@@ -394,12 +394,12 @@ export class MessageStore extends ObjectStorePromise<string, StoredMessageBase, 
     const transaction = this.db.transaction(this.objStoreName, "readonly");
     const objStore = transaction.objectStore(this.objStoreName);
 
-    let index = idType === 'group' ? objStore.index('groupId') : objStore.index('senderId');
+    let index = idType === 'group' ? objStore.index('groupId') : objStore.index('senderIdentityKeyPublic');
 
     let request = index.openCursor(IDBKeyRange.only(id), newestToOldest ? 'prev' : 'next')
 
-    return new Promise((resolve, reject) => {
-      let rtn: Message[] = [];
+    return new Promise<StoredMessageBase[]>((resolve, reject) => {
+      let rtn: StoredMessageBase[] = [];
       request.onsuccess = (ev) => {
         //@ts-ignore
         const cursor: IDBCursorWithValue | null = ev.target.result;

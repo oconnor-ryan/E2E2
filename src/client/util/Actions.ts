@@ -94,9 +94,11 @@ export async function acceptInvite(username: string, db: Database, messageSender
     return false;
   }
 
+  const myAcc = (await db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!;
+
   //send a accept-invite message
   try {
-    await (await messageSenderBuilder.buildMessageSender(idKeyString, 'individual-key')).acceptInvite(exchange.payload.mailboxId);
+    await (await messageSenderBuilder.buildMessageSender(idKeyString, 'individual-key')).acceptInvite(myAcc.mailboxId);
   } catch(e) {
     console.error(e);
     return false;

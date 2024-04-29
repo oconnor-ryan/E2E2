@@ -30,7 +30,7 @@ export function convertMessageForStorage(message: Message, isVerified: boolean, 
     id: message.id,
     senderIdentityKeyPublic: message.senderIdentityKeyPublic,
     isVerified: isVerified,
-    
+    groupId: decryptedPayload?.groupId,
     messageDecrypted: decryptedPayload !== undefined,
     payload: decryptedPayload
   }

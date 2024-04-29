@@ -6,6 +6,7 @@ export interface StoredMessageBase {
   id: string,
   senderIdentityKeyPublic: string,
   messageDecrypted: boolean,
+  groupId: string | undefined,
   payload: EncryptedMessageData | undefined //if the payload is encrypted, it will be a string
 }
 

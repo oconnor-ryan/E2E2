@@ -84,7 +84,7 @@ export class HomePage extends ClientPage {
       let listElement = document.createElement('li') as HTMLLIElement;
       listElement.textContent = u.username + " from " + (u.remoteServer !== '' ? u.remoteServer : "this server");
       listElement.onclick = (e) => {
-        ROUTER.goTo('/chat', {user: u.username});
+        ROUTER.goTo('/chat', {user: u.identityKeyPublicString});
       }
       return listElement;
     }));

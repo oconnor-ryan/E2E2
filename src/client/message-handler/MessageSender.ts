@@ -127,12 +127,12 @@ export class SocketMessageSender {
     await this.sendMessage(data, true);
   }
 
-  async acceptInvite(mailboxId: string) {
+  async acceptInvite(myMailboxId: string) {
     let data: EncryptedAcceptInviteMessageData = {
       type: 'accept-invite',
       groupId: this.groupId,
       data: {
-        mailboxId: mailboxId
+        mailboxId: myMailboxId
       }
     }
     await this.sendMessage(data)
