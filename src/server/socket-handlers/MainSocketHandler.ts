@@ -15,11 +15,12 @@ class WebSocketConnectionList {
     this.clients = [];
   }
 
-  addSocket(authSocket: AuthenticatedSocket) {
+  addSocket(authSocket: AuthenticatedSocket) : boolean {
     if(this.clients.find(a => a.acc.username === authSocket.acc.username)) {
-      return;
+      return false;
     }
     this.clients.push(authSocket);
+    return true;
   }
 
   //called when a websocket is closed
@@ -62,12 +63,19 @@ export async function onConnection(ws: WebSocket, req: IncomingMessage) {
 
   let isCorrect = await checkIfUserPasswordCorrect(username, password);
   if(!isCorrect) {
-    ws.close();
+    return ws.close();
   }
 
   let client = (await getUserIdentityForWebSocket(username))!;
 
-  authClientList.addSocket({ws: ws, acc: client});
+  //to avoid a clients browser from trying to insert duplicate data in IndexedDB
+  //when multiple tabs are open, force only one WebSocket connection per account
+  if(!authClientList.addSocket({ws: ws, acc: client})) {
+
+    ws.send(JSON.stringify({type: 'error', error: "You cannot make multiple WebSocket connections with the same account!"}));
+
+    return ws.close(undefined, 'You cannot establish multiple websocket connections per account!');
+  }
 
   let lastReadMessageUUID = searchParams.get('lastReadMessageUUID') ?? undefined;
   let lastReadKeyExchangeUUID = searchParams.get('lastReadKeyExchangeUUID') ?? undefined;

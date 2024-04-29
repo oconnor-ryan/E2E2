@@ -29,7 +29,7 @@ class WebSocketHandler {
     };
     
     ws.onclose = (ev) => {
-      console.log("WebSocket closed!");
+      console.log("WebSocket closed for reason:", ev.reason);
     }
     
     ws.onmessage = (e) => {
