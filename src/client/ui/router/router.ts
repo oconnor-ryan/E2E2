@@ -40,7 +40,10 @@ class Router {
         //callback function to ensure that document is updated.
         //https://developer.mozilla.org/en-US/docs/Web/API/Window/popstate_event#sect1
         //rerender route
-        setTimeout(() => this.render(window.location.pathname), 0);
+        setTimeout(() => {
+          console.log(window.location.pathname);
+          this.render(window.location.pathname)
+        }, 0);
       }
       
 

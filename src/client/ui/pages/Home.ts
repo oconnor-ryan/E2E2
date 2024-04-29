@@ -3,8 +3,9 @@ import { acceptInvite, inviteUser } from "../../util/Actions.js";
 import { MessageSenderBuilder } from "../../message-handler/MessageSender.js";
 import { getDatabase, Database } from "../../storage/StorageHandler.js";
 import { getDefaultMessageReceivedHandlerUI } from "../components/Notification.js";
-import { startWebSocketConnection } from "../../websocket/SocketHandler.js";
+import { getWebSocketHandler } from "../../websocket/SocketHandler.js";
 import { UserSearchElement } from "../components/AutoComplete.js";
+import { ROUTER } from "../router/router.js";
 
 
 
@@ -47,23 +48,23 @@ export class HomePage extends ClientPage {
     let oldBatchedMessageReceiver = messageReceiver.onbatchedmessage;
 
 
-    let {messageSenderBuilder, inviteSenderBuilder} = startWebSocketConnection(db, messageReceiver);
+    let websocket = getWebSocketHandler(db, messageReceiver);
 
     messageReceiver.onkeyexchangerequest = async (request, error) => {
       oldKeyExchangeReceiver(request, error);
       if(error) {
         return;
       }
-      await this.renderInvites(db, invitationList, messageSenderBuilder);
+      await this.renderInvites(db, invitationList, websocket.messageSenderBuilder);
     };
 
     messageReceiver.onbatchedmessage = async (numMessagedSave, numInvitesSaved) => {
       oldBatchedMessageReceiver(numMessagedSave, numInvitesSaved)
-      await this.renderInvites(db, invitationList, messageSenderBuilder);
+      await this.renderInvites(db, invitationList, websocket.messageSenderBuilder);
     };
 
     const userSearch = new UserSearchElement(async (username: string) => {
-      inviteUser(db, username, await inviteSenderBuilder.buildInviteSender()).catch(e => {
+      inviteUser(db, username, await websocket.inviteSenderBuilder.buildInviteSender()).catch(e => {
         console.error(e);
       });
     });
@@ -71,7 +72,7 @@ export class HomePage extends ClientPage {
 
     await this.renderOneToOneChats(db, oneToOneChatElement);
     await this.renderGroupChats(db, groupChatListElement);
-    await this.renderInvites(db, invitationList, messageSenderBuilder);
+    await this.renderInvites(db, invitationList, websocket.messageSenderBuilder);
   }
 
   private async renderOneToOneChats(db: Database, element: HTMLElement) {
@@ -82,6 +83,9 @@ export class HomePage extends ClientPage {
     unorderedList.append(...users.map((u) => {
       let listElement = document.createElement('li') as HTMLLIElement;
       listElement.textContent = u.username + " from " + (u.remoteServer !== '' ? u.remoteServer : "this server");
+      listElement.onclick = (e) => {
+        ROUTER.goTo('/chat', {user: u.username});
+      }
       return listElement;
     }));
   
