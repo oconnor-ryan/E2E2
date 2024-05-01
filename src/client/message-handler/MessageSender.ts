@@ -22,13 +22,19 @@ export class SocketMessageSender {
   private ws: WebSocket;
   private receivers: KnownUserEntry[];
   private myIdentityKeyPair: ECDSAKeyPair;
+  private myMailboxId: string;
   private groupId: string | undefined;
 
-  constructor(ws: WebSocket, receivers: KnownUserEntry[], myIdentityKeyPair: ECDSAKeyPair, groupId?: string) {
+  constructor(ws: WebSocket, receivers: KnownUserEntry[], myIdentityKeyPair: ECDSAKeyPair, myMailboxId: string, groupId?: string) {
     this.ws = ws;
     this.receivers = receivers;
+    this.myMailboxId = myMailboxId;
     this.myIdentityKeyPair = myIdentityKeyPair;
     this.groupId = groupId;
+  }
+
+  public getReceivers() : Readonly<KnownUserEntry[]> {
+    return this.receivers;
   }
 
   public addReceiver(receiver: KnownUserEntry) {
@@ -71,6 +77,7 @@ export class SocketMessageSender {
     };
 
     await this.sendMessage(data);
+    return data;
   }
 
   async sendFileMessage(fileUUID: string, accessToken: string, fileName: string, fileSig: string, fileEncKey: AesGcmKey, message: string) {
@@ -92,6 +99,8 @@ export class SocketMessageSender {
     }
 
     await this.sendMessage(data);
+    return data;
+
   }
 
   async requestCall() {
@@ -107,6 +116,8 @@ export class SocketMessageSender {
 
     await this.sendMessage(data, true)
 
+    return data;
+
   }
 
   async acceptCall() {
@@ -120,6 +131,8 @@ export class SocketMessageSender {
       data: undefined
     }
     await this.sendMessage(data, true)
+    return data;
+
   }
 
   async callSignalingMessage(signalingData: RTCSessionDescription | RTCIceCandidateInit, type: 'ice' | 'sdp') {
@@ -137,6 +150,8 @@ export class SocketMessageSender {
     };
 
     await this.sendMessage(data, true);
+    return data;
+
   }
 
   async acceptInvite(myMailboxId: string) {
@@ -148,6 +163,8 @@ export class SocketMessageSender {
       }
     }
     await this.sendMessage(data)
+    return data;
+
   }
 
   async inviteToGroup(group: GroupChatEntry) {
@@ -165,15 +182,21 @@ export class SocketMessageSender {
       }
     }
     await this.sendMessage(data);
+    return data;
+
   }
 
   async joinGroup() {
     let data: EncryptedMessageJoinGroupPayload = {
       type: 'join-group',
       groupId: this.groupId!,
-      data: undefined
+      data: {
+        mailboxId: this.myMailboxId
+      }
     }
     await this.sendMessage(data);
+    return data;
+
   }
 
   async leaveGroup() {
@@ -183,9 +206,12 @@ export class SocketMessageSender {
       data: undefined
     };
     await this.sendMessage(data);
+    return data;
+
   }
 
   async changeMailboxId(mailboxId: string) {
+    this.myMailboxId = mailboxId;
     let data: EncryptedNewMailboxIdMessageData = {
       type: 'change-mailbox-id',
       groupId: this.groupId,
@@ -194,6 +220,8 @@ export class SocketMessageSender {
       }
     }
     await this.sendMessage(data);
+    return data;
+
   }
 }
 
@@ -208,7 +236,7 @@ export class SocketInviteSender {
     this.myIdentityKeyPair = myIdentityKeyPair;
   }
 
-  async sendInvite(receiverUsername: string, receiverServer: string = "", invitePayload: EncryptedKeyExchangeRequestPayload, ephemKey: ECDHPublicKey, ephemSalt: ArrayBuffer, encKey: AesGcmKey) {
+  async sendInvite(receiverUsername: string, receiverServer: string, invitePayload: EncryptedKeyExchangeRequestPayload, ephemKey: ECDHPublicKey, ephemSalt: ArrayBuffer, encKey: AesGcmKey) {
     let encryptedPayload = await signAndEncryptData(invitePayload, encKey, this.myIdentityKeyPair.privateKey)
     let data: KeyExchangeRequest = {
       receiverUsername: receiverUsername,
@@ -245,14 +273,14 @@ export class MessageSenderBuilder {
     } else {
       //dont forget to exclude yourself from receiver list
       let members = (await this.db.groupChatStore.get(id))!.members
-        .filter(m => m.acceptedInvite === true && m.username !== LOCAL_STORAGE_HANDLER.getUsername())
+        .filter(m => m.acceptedInvite === true)
       console.log(members);
       receivers = await Promise.all(members.map(m => this.db.knownUserStore.get(m.identityKeyPublicString))) as KnownUserEntry[];
     }
 
-    let myIdKey = (await this.db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!.identityKeyPair;
+    let myAcc = (await this.db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!
 
-    return new SocketMessageSender(this.ws, receivers, myIdKey, type === 'groupId' ? id : undefined);
+    return new SocketMessageSender(this.ws, receivers, myAcc.identityKeyPair, myAcc.mailboxId, type === 'groupId' ? id : undefined);
   }
 
   /**
@@ -271,9 +299,9 @@ export class MessageSenderBuilder {
     //filter out null values (if any)
     receivers = receivers.filter(user => user !== null);
 
-    let myIdKey = (await this.db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!.identityKeyPair;
+    let myAcc = (await this.db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!
 
-    return new SocketMessageSender(this.ws, receivers, myIdKey, groupId);
+    return new SocketMessageSender(this.ws, receivers, myAcc.identityKeyPair, myAcc.mailboxId, groupId);
 
   }
 }

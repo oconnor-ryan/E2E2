@@ -129,6 +129,11 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
 
       group.members[memberIndex].acceptedInvite = true;
       await db.groupChatStore.update(group);
+
+      //update senders mailbox ID or add one if a group-key-exchange was used
+      //instead of regular invite
+      sender.mailboxId = data.data.mailboxId;
+      await db.knownUserStore.update(sender);
       break;
     }
     case 'accept-invite':
@@ -226,6 +231,7 @@ export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Data
     }
   } else {
     //check to see if you have already accepted a group chat request.
+    console.log(storedExchange.payload);
     let groupInfo = await db.groupChatStore.get(storedExchange.payload!.groupId!);
 
     //ignore this request
@@ -235,7 +241,9 @@ export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Data
     //keep this user request as a pending group member who can be deleted if the 
     //group invite is later denied
     else if(groupInfo.status === 'pending-approval') {
-      await addPendingGroupMember(theirAcc, db, secretKey, storedExchange.payload!.mailboxId);
+      console.log("ADD PENDING MEMBER");
+      await addPendingGroupMember(theirAcc, groupInfo, db, secretKey, storedExchange.payload!.mailboxId);
+      
     }
     //if you accepted the group chat request, automatically add this user as a normal friend in the KnownUser object store
     else if(groupInfo.status === 'joined-group') {

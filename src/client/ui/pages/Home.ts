@@ -74,7 +74,7 @@ export class HomePage extends ClientPage {
     };
 
     const userSearch = new UserSearchElement(async (username: string) => {
-      inviteUser(db, username, await websocket.inviteSenderBuilder.buildInviteSender(), 'one-to-one-invite').catch(e => {
+      inviteUser(db, username, await websocket.inviteSenderBuilder.buildInviteSender()).catch(e => {
         console.error(e);
       });
     });
@@ -142,6 +142,9 @@ export class HomePage extends ClientPage {
       let listElement = document.createElement('li') as HTMLLIElement;
   
       listElement.textContent = "Id: " + group.groupId + " with members " + group.members.map(m => m.username).toString();
+      listElement.onclick = (e) => {
+        ROUTER.goTo('/chat', {groupId: group.groupId});
+      }
       return listElement;
     }));
   

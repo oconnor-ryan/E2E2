@@ -6,7 +6,9 @@ import { GroupChatEntry, GroupChatStore, KnownUserEntry } from "../storage/Objec
 import { Database, LOCAL_STORAGE_HANDLER } from "../storage/StorageHandler.js";
 import { UserKeys, UserKeysForExchange, getUserKeys, getUserKeysForExchange } from "./ApiRepository.js";
 
-export async function inviteUser(db: Database, receiverUsername: string, inviteSender: SocketInviteSender, type: 'one-to-one-invite' | 'group-key-exchange') {
+export async function inviteUser(db: Database, receiverUsername: string, inviteSender: SocketInviteSender, groupId?: string) {
+  const type = groupId ? 'group-key-exchange' : 'one-to-one-invite'; 
+
   let theirAcc = await getUserKeysForExchange(receiverUsername);
   if(!theirAcc) {
     throw new Error("No user found!");
@@ -40,7 +42,7 @@ export async function inviteUser(db: Database, receiverUsername: string, inviteS
     mailboxId: acc.mailboxId,
     comment: "",
     type: type,
-    groupId: undefined
+    groupId: groupId
   };
 
 
@@ -180,17 +182,28 @@ export async function acceptGroupInvite(groupId: string, db: Database, senderBui
   group.status = 'joined-group';
 
   
-  await db.groupChatStore.update(group);
 
-  //accept all pending group members who performed a key exchange
-  let members = (await db.knownUserStore.getAll()).filter(u => u.waitingGroupMember === true);
-  for(let member of members) {
+  //accept all pending group members who performed a key exchange before you did.
+  let pendingMembers = (await db.knownUserStore.getAll()).filter(u => u.waitingGroupMember === true);
+  for(let member of pendingMembers) {
     member.waitingGroupMember = undefined;
     await db.knownUserStore.update(member);
   }
 
+  //note that because these pending members already performed a key exchange with you
+  //you do not need to send them a key exchange invite, only a join group confirmation
 
+  //all pending group members have accepted the group invite, so mark that in the database
+  for(let i = 0; i < group.members.length; i++) {
+    let groupMember = group.members[i];
+    let groupMemberInfo = pendingMembers.find(m => m.identityKeyPublicString === groupMember.identityKeyPublicString);
+    if(groupMemberInfo) {
+      group.members[i].acceptedInvite = true;
+    }
+  }
+  await db.groupChatStore.update(group);
 
+  //send joined-group messages and group-key-exchange invites for members of group
   let notFriends: {
     identityKeyPublicString: string,
     username: string,
@@ -211,7 +224,7 @@ export async function acceptGroupInvite(groupId: string, db: Database, senderBui
 
   for(let member of notFriends) {
     //send key exchange to each unknown member of group
-    await inviteUser(db, member.username, await inviteSenderBuilder.buildInviteSender(), 'group-key-exchange');
+    await inviteUser(db, member.username, await inviteSenderBuilder.buildInviteSender(), groupId);
   }
 
   //send joined-group message to each KNOWN group member
@@ -247,7 +260,7 @@ export async function isFriend(identityKey: string, db: Database) {
   return !!u.mailboxId;
 }
 
-export async function addPendingGroupMember(theirAcc: UserKeysForExchange, db: Database, derivedEncryptionKey: AesGcmKey, derivedMailboxId: string) {
+export async function addPendingGroupMember(theirAcc: UserKeysForExchange, group: GroupChatEntry, db: Database, derivedEncryptionKey: AesGcmKey, derivedMailboxId: string) {
   await db.knownUserStore.add({
     identityKeyPublicString: await theirAcc.identityKeyPublic.exportKey('base64'),
     identityKeyPublic: theirAcc.identityKeyPublic,
@@ -258,5 +271,13 @@ export async function addPendingGroupMember(theirAcc: UserKeysForExchange, db: D
     remoteServer: window.location.host,
     waitingGroupMember: true,
     mailboxId: derivedMailboxId
-  })
+  });
+
+  //update the acceptedInvite status to true since the sender would only 
+  //send this message if they are jpining the group
+  let pendingIndex = group.members.findIndex(m => m.username === theirAcc.username);
+  if(pendingIndex >= 0) {
+    group.members[pendingIndex].acceptedInvite = true;
+  }
+  await db.groupChatStore.update(group);
 }

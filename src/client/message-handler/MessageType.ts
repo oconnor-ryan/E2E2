@@ -157,6 +157,9 @@ export interface EncryptedMessageGroupInvitePayload extends EncryptedMessageData
 export interface EncryptedMessageJoinGroupPayload extends EncryptedMessageData {
   type: 'join-group';
   groupId: string
+  data: {
+    mailboxId: string
+  }
 }
 
 export interface EncryptedLeaveGroupMessageData extends EncryptedMessageData {
