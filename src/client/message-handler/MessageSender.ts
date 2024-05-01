@@ -50,8 +50,9 @@ export class SocketMessageSender {
   }
 
   private async sendMessage(data: any, dontSaveIfOffline: boolean = false) {
+    let firstReceiver: KnownUserEntry | undefined;
     for(let receiver of this.receivers) {
-
+      firstReceiver = receiver;
       const outgoingData: Message = {
         id: window.crypto.randomUUID(),
         senderIdentityKeyPublic: await this.myIdentityKeyPair.publicKey.exportKey('base64'),
@@ -65,12 +66,14 @@ export class SocketMessageSender {
       this.ws.send(JSON.stringify(outgoingData));
     }
 
+
     let storedMessage: StoredMessageBase = {
       senderIdentityKeyPublic: await this.myIdentityKeyPair.publicKey.exportKey(),
       messageDecrypted: true,
       payload: data,
       id: window.crypto.randomUUID(),
       groupId: this.groupId,
+      oneToOneChatId: this.groupId ? undefined : firstReceiver?.identityKeyPublicString,
       isVerified: true
     }
 

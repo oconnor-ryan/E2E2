@@ -198,8 +198,8 @@ export class ChatPage extends ClientPage {
       //make sure to store user info for each member of chat to avoid grabbing each member
       //through a database for each message
       let username = user.identityKeyPublicString === message.senderIdentityKeyPublic ? user.username : LOCAL_STORAGE_HANDLER.getUsername()!;
-      if(message.payload?.type === 'text-message') {
-        let data = message.payload?.data as EncryptedRegularMessageData;
+      if(message.payload.type === 'text-message') {
+        let data = message.payload as EncryptedRegularMessageData;
         this.renderMessage(username, data.data.message, messageContainer);
 
       }

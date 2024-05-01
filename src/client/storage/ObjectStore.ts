@@ -34,7 +34,7 @@ abstract class ObjectStorePromise<Identifier extends IDBValidKey | IDBKeyRange, 
   }
 
   //used to migrate between different versions of this object store
-  abstract migrateData(oldVersion: number): void;
+  abstract migrateData(oldVersion: number, upgradeTransaction: IDBTransaction): void;
 
   protected abstract getStoreOptions(): IDBObjectStoreParameters;
   protected abstract setStoreIndices(objStore: IDBObjectStore): void;
@@ -410,7 +410,19 @@ export class MessageStore extends ObjectStorePromise<string, StoredMessageBase, 
 
   }
 
-  migrateData(oldVersion: number) {}
+  migrateData(oldVersion: number, upgradeTransaction: IDBTransaction) {
+    let objStore = upgradeTransaction.objectStore(this.objStoreName);
+
+    switch(oldVersion) {
+      case 1: {
+        objStore.createIndex('oneToOneChatId', 'oneToOneChatId');
+        objStore.deleteIndex('senderIdentityKeyPublic');
+        break;
+      }
+      
+    }
+    
+  }
 
   convertEntryToRaw(entry: StoredMessageBase): StoredMessageBase {return entry;}
   convertRawToEntry(raw: StoredMessageBase): StoredMessageBase {return raw;}
@@ -421,7 +433,7 @@ export class MessageStore extends ObjectStorePromise<string, StoredMessageBase, 
     const transaction = this.db.transaction(this.objStoreName, "readonly");
     const objStore = transaction.objectStore(this.objStoreName);
 
-    let index = idType === 'group' ? objStore.index('groupId') : objStore.index('senderIdentityKeyPublic');
+    let index = idType === 'group' ? objStore.index('groupId') : objStore.index('oneToOneChatId');
 
     let request = index.openCursor(IDBKeyRange.only(id), newestToOldest ? 'prev' : 'next')
 

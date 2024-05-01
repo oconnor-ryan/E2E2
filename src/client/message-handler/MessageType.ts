@@ -7,6 +7,7 @@ export interface StoredMessageBase {
   senderIdentityKeyPublic: string,
   messageDecrypted: boolean,
   groupId: string | undefined,
+  oneToOneChatId: string | undefined,
   payload: EncryptedMessageData 
 }
 

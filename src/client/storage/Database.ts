@@ -1,7 +1,7 @@
 import { AccountStore, FileStore, GroupChatStore, KnownUserStore, KeyExchangeRequestStore, MessageStore } from "./ObjectStore.js";
 
 const DB_NAME = 'e2e2';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 /***** Object Stores *****/
 //Active Stores
@@ -94,14 +94,16 @@ export class Database {
           messageStore.initObjectStore();
           messageRequestStore.initObjectStore();
           fileEntryStore.initObjectStore();
+          break;
         case 1:
+          messageStore.migrateData(event.oldVersion, transaction!);
           //can change individual object stores here
           //accountStore.migrateData(event.oldVersion)
 
           //or write functions that migrate data from one
           //message store to another
           //dataMigrator.grabMigrationData(db);
-
+          break;
           
         default: 
           break;
