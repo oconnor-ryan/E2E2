@@ -1,11 +1,12 @@
 import { ClientPage } from "../router/ClientPage.js";
-import { acceptInvite, inviteUser } from "../../util/Actions.js";
+import { acceptGroupInvite, acceptInvite, addGroup, denyGroupInvite, inviteToGroup, inviteUser } from "../../util/Actions.js";
 import { MessageSenderBuilder } from "../../message-handler/MessageSender.js";
 import { getDatabase, Database } from "../../storage/StorageHandler.js";
 import { getDefaultMessageReceivedHandlerUI } from "../components/Notification.js";
-import { getWebSocketHandler } from "../../websocket/SocketHandler.js";
-import { UserSearchElement } from "../components/AutoComplete.js";
+import { WebSocketHandler, getWebSocketHandler } from "../../websocket/SocketHandler.js";
+import { KnownUserSearchElement, UserSearchElement } from "../components/AutoComplete.js";
 import { ROUTER } from "../router/router.js";
+import { displayError } from "../../util/ClientError.js";
 
 
 
@@ -22,10 +23,19 @@ export class HomePage extends ClientPage {
 
       <h2>Your Group Chats</h2>
       <div id="group-chat-list"></div>
-      <button id="add-group-button">Add Group</button>
+      <h3>Create Group Chat</h3>
+      <form id="group-chat-form" action="">
+        <div id="user-search-root2"></div>
+        <div id="group-member-invite-list"></div>
+        <button id="add-group-button">Add Group</button>
+      </form>
     
       <h2>Invitations</h2>
+      <h3>From Individuals</h3>
       <div id="invitation-list"></div>
+
+      <h3>From Groups</h3>
+      <div id="group-invitation-list"></div>
 
     `;
 
@@ -64,14 +74,45 @@ export class HomePage extends ClientPage {
     };
 
     const userSearch = new UserSearchElement(async (username: string) => {
-      inviteUser(db, username, await websocket.inviteSenderBuilder.buildInviteSender()).catch(e => {
+      inviteUser(db, username, await websocket.inviteSenderBuilder.buildInviteSender(), 'one-to-one-invite').catch(e => {
         console.error(e);
       });
     });
     userSearch.render(document.getElementById('user-search-root')!);
 
+
+    let invitedUsers: string[] = [];
+    const groupMemberInviteList = document.getElementById('group-member-invite-list') as HTMLElement;
+    const userSearchGroup = new KnownUserSearchElement(db, async (username: string) => {
+      invitedUsers.push(username);
+
+      const invitedUserElement = document.createElement('input');
+      invitedUserElement.value = username;
+      invitedUserElement.name = 'username';
+      invitedUserElement.type = 'text';
+      invitedUserElement.readOnly = true;
+      groupMemberInviteList.appendChild(invitedUserElement);
+    });
+    userSearchGroup.render(document.getElementById('user-search-root2')!);
+
+
+    const addGroupForm = document.getElementById('group-chat-form') as HTMLFormElement;
+    addGroupForm.onsubmit = async (e) => {
+      e.preventDefault();
+
+      console.log("here");
+      try {
+        await inviteToGroup(db, websocket.messageSenderBuilder, invitedUsers);
+      } catch(e) {
+        console.error(e);
+        displayError(e as Error);
+      }
+
+    }
+
     await this.renderOneToOneChats(db, oneToOneChatElement);
     await this.renderGroupChats(db, groupChatListElement);
+    await this.renderGroupInvites(db, document.getElementById('group-invitation-list') as HTMLElement, websocket);
     await this.renderInvites(db, invitationList, websocket.messageSenderBuilder);
   }
 
@@ -94,13 +135,53 @@ export class HomePage extends ClientPage {
   
   private async renderGroupChats(db: Database, element: HTMLElement) {
     element.innerHTML = "";
-    let groups = await db.groupChatStore.getAll();
+    let groups = (await db.groupChatStore.getAll()).filter((g) => g.status === 'joined-group');
   
     let unorderedList = document.createElement('ul') as HTMLUListElement;
     unorderedList.append(...groups.map((group) => {
       let listElement = document.createElement('li') as HTMLLIElement;
   
       listElement.textContent = "Id: " + group.groupId + " with members " + group.members.map(m => m.username).toString();
+      return listElement;
+    }));
+  
+    element.appendChild(unorderedList);
+  }
+
+  private async renderGroupInvites(db: Database, element: HTMLElement, websocket: WebSocketHandler) {
+    element.innerHTML = "";
+    let groups = (await db.groupChatStore.getAll()).filter((g) => g.status === 'pending-approval');
+  
+    let unorderedList = document.createElement('ul') as HTMLUListElement;
+    unorderedList.append(...groups.map((group) => {
+      let listElement = document.createElement('li') as HTMLLIElement;
+  
+      listElement.textContent = "Id: " + group.groupId + " with members " + group.members.map(m => m.username).toString();
+
+      const acceptButton = document.createElement('button');
+      acceptButton.textContent = "Accept Invite";
+      acceptButton.onclick = async (ev) => {
+        try {
+          await acceptGroupInvite(group.groupId, db, websocket.messageSenderBuilder, websocket.inviteSenderBuilder);
+        } catch(e) {
+          console.error(e);
+          displayError(e as Error);
+        }
+      }
+
+      const denyButton = document.createElement('button');
+      denyButton.textContent = "Deny Invite";
+      denyButton.onclick = async (ev) => {
+        try {
+          await denyGroupInvite(group.groupId, db);
+        } catch(e) {
+          console.error(e);
+          displayError(e as Error);
+        }
+      }
+      listElement.appendChild(acceptButton);
+      listElement.appendChild(denyButton);
+
       return listElement;
     }));
   

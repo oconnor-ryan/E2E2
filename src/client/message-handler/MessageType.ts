@@ -7,7 +7,7 @@ export interface StoredMessageBase {
   senderIdentityKeyPublic: string,
   messageDecrypted: boolean,
   groupId: string | undefined,
-  payload: EncryptedMessageData | undefined //if the payload is encrypted, it will be a string
+  payload: EncryptedMessageData 
 }
 
 export interface BaseMessage {
@@ -147,9 +147,9 @@ export interface EncryptedMessageGroupInvitePayload extends EncryptedMessageData
   groupId: string,
   data: {
     members: {
-      identityKeyPublic: string,
+      identityKeyPublicString: string,
       server: string,
-      mailboxId: string //include mailboxId so that each member does not have to exchange them
+      username: string,
     }[]
   }
 }

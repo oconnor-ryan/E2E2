@@ -9,15 +9,16 @@ A instant-messaging web application where users can send encrypted messages to e
 > messages.
 
 ## Current Objectives
-1. Implement new chat system that fixes some server-side vulnerabilities as well as perform more client-side features such as signing and verifying messages, more secure group chat that utilizes one-to-one connections rather than sharing a key amoung all members, and ability to receive notifications in real-time.
 
-2. Implement 4 Primary Screens for Web App.
+1. Implement 4 Primary Screens for Web App.
   - Create Account
   - Invite List / Chat List (both One-to-One chats with KnownUsers and Group Chats)
   - Chat Room
   - Call Room
 
   If making SPA, setting innerHTML alone is insecure and does not prevent XSS. To solve this, make sure that any HTML strings passed into innerHTML do not require user-generated content. Use textContent for user-generated content. 
+
+2. For remoteServer, always have users specify their domain in the remoteServer section instead of making it empty. The server can determine if the request is going to a local user by using a ENV variable to store the server's domain OR by checking the initial HTTP request used to connect to a WebSocket and recording the hostname.
 
 3. Add Double Ratchet Algorithm.
 
@@ -28,6 +29,11 @@ A instant-messaging web application where users can send encrypted messages to e
 6. Create device migration for users who want to transfer data to a new device/browser. The old client must not be able to login as that user after the transfer is complete.
 
 ## Current Bugs
+1. If a user opens multiple tabs for the web app, it will try to establish a persistant WebSocket connection for each tab, meaning that all notifications will be sent to each tab. This is fine by itself, but issues may occur when each tab tries to store the message received into IndexedDB: one tab will successfully save it while the other will throw an error stating that there is duplicate data. As a temporary fix, the server will prevent an account from making multiple WebSocket connections, but this can be annoying to the end user since only one tab can send and receive messages.
+
+Solutions:
+- Add better error handling for handling duplicate data. The browser should not display any error when receiving duplicate messages and should render them appropriately on all tabs. 
+- Use a service worker or shared worker to keep one WebSocket connection alive per browser. This would work great, but SharedWorkers only work in Desktop browsers and Firefox does not have support for importing ES Modules in Service Workers(HOWEVER, Typescript can transpile to use UMD modules, which is a valid format that can be imported into a ServiceWorker. Consider converting client-side code to use UMD module system so that the ServiceWorker can import the scripts it needs)
 
 
 ## Objectives to Consider

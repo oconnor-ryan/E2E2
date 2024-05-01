@@ -56,8 +56,11 @@ export function getAuthSocketList() : Readonly<WebSocketConnectionList> {
   return authClientList;
 }
 
+
 //at this point, the user has already been authenticated
 export async function onConnection(ws: WebSocket, req: IncomingMessage) {
+  const SERVER_HOST = req.headers.host!;
+
   let searchParams = new URL(req.url!, 'ws://' + req.headers.host).searchParams;
 
   let {username, password} = getUsernameAndPasswordFromWebSocketQuery(searchParams.get('credential') as string);

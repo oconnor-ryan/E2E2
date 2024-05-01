@@ -1,6 +1,6 @@
 import { AesGcmKey, ECDHPublicKey, ECDSAKeyPair, ECDSAPrivateKey } from "../encryption/encryption.js";
 import { Database } from "../storage/Database.js";
-import { KnownUserEntry } from "../storage/ObjectStore.js";
+import { GroupChatEntry, KnownUserEntry } from "../storage/ObjectStore.js";
 import { LOCAL_STORAGE_HANDLER } from "../storage/StorageHandler.js";
 import { arrayBufferToBase64 } from "../util/Base64.js";
 import { EncryptedAcceptInviteMessageData, EncryptedCallAcceptMessageData, EncryptedCallRequestMessageData, EncryptedCallSignalingMessageData, EncryptedFileMessageData, EncryptedLeaveGroupMessageData, EncryptedMessageGroupInvitePayload, EncryptedKeyExchangeRequestPayload, EncryptedMessageJoinGroupPayload, EncryptedNewMailboxIdMessageData, EncryptedRegularMessageData, Message, KeyExchangeRequest } from "./MessageType.js";
@@ -29,6 +29,18 @@ export class SocketMessageSender {
     this.receivers = receivers;
     this.myIdentityKeyPair = myIdentityKeyPair;
     this.groupId = groupId;
+  }
+
+  public addReceiver(receiver: KnownUserEntry) {
+    this.receivers.push(receiver);
+  }
+
+  public removeReceiver(receiver: KnownUserEntry) {
+    let index = this.receivers.findIndex(r => r.identityKeyPublicString === receiver.identityKeyPublicString);
+    if(index === -1) {
+      return;
+    }
+    this.receivers.splice(index, 1);
   }
 
   private async sendMessage(data: any, dontSaveIfOffline: boolean = false) {
@@ -138,16 +150,18 @@ export class SocketMessageSender {
     await this.sendMessage(data)
   }
 
-  async inviteToGroup() {
+  async inviteToGroup(group: GroupChatEntry) {
     let data: EncryptedMessageGroupInvitePayload = {
       type: 'group-invite',
-      groupId: this.groupId!,
+      groupId: group.groupId,
       data: {
-        members: this.receivers.map((r) => {return {
-          identityKeyPublic: r.identityKeyPublicString,
-          mailboxId: r.mailboxId!,
-          server: r.remoteServer
-        }})
+        members: group.members.map(m => {
+          return {
+            identityKeyPublicString: m.identityKeyPublicString,
+            username: m.username,
+            server: m.remoteServer
+          }
+        })
       }
     }
     await this.sendMessage(data);
@@ -229,13 +243,38 @@ export class MessageSenderBuilder {
     if(type === 'individual-key') {
       receivers = [(await this.db.knownUserStore.get(id))!];
     } else {
-      let members = (await this.db.groupChatStore.get(id))!.members;
+      //dont forget to exclude yourself from receiver list
+      let members = (await this.db.groupChatStore.get(id))!.members
+        .filter(m => m.acceptedInvite === true && m.username !== LOCAL_STORAGE_HANDLER.getUsername())
+      console.log(members);
       receivers = await Promise.all(members.map(m => this.db.knownUserStore.get(m.identityKeyPublicString))) as KnownUserEntry[];
     }
 
     let myIdKey = (await this.db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!.identityKeyPair;
 
     return new SocketMessageSender(this.ws, receivers, myIdKey, type === 'groupId' ? id : undefined);
+  }
+
+  /**
+   * This should only be used when accepting a group invite from a KnownUser
+   * Because not all group members will know each other and have not performed a key
+   * exchange, this method is needed 
+   * @param groupId 
+   * @param idKeys 
+   * @returns 
+   */
+  async buildMessageSenderForKnownGroupMembers(groupId: string, ...idKeys: string[]) {
+    let receivers: KnownUserEntry[];
+    
+    receivers = await Promise.all(idKeys.map(idKey => this.db.knownUserStore.get(idKey))) as KnownUserEntry[];
+
+    //filter out null values (if any)
+    receivers = receivers.filter(user => user !== null);
+
+    let myIdKey = (await this.db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!.identityKeyPair;
+
+    return new SocketMessageSender(this.ws, receivers, myIdKey, groupId);
+
   }
 }
 

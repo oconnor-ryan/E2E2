@@ -16,7 +16,8 @@ class WebSocketHandler {
     ws.binaryType = "arraybuffer"; //use this instead of Blob
     
 
-    //this is used for the callback functions
+    //this is used for the callback functions since the value of "this" is
+    //different in the callback function than from the class 
     //https://stackoverflow.com/questions/16553347/accessing-a-class-property-in-a-callback-function
     var socketHandler = this;
 
@@ -31,6 +32,9 @@ class WebSocketHandler {
     ws.onclose = (ev) => {
       console.log("WebSocket closed for reason:", ev.reason);
     }
+
+    this.messageSenderBuilder = new MessageSenderBuilder(ws, db);
+    this.inviteSenderBuilder = new InviteSenderBuilder(ws, db);
     
     ws.onmessage = (e) => {
       const rawData: string = e.data instanceof ArrayBuffer ? new TextDecoder().decode(e.data) : e.data;
@@ -59,8 +63,7 @@ class WebSocketHandler {
           return messageParseError('invalid-type');
       }
     }
-    this.messageSenderBuilder = new MessageSenderBuilder(ws, db);
-    this.inviteSenderBuilder = new InviteSenderBuilder(ws, db);
+    
   }
 
   setMessageReceiver(messageReceiver: MessageReceivedEventHandler) {
@@ -68,6 +71,7 @@ class WebSocketHandler {
   }
 }
 
+export type {WebSocketHandler};
 //make this syncronous so that messageReceiver events that need to be able to 
 //send data to websocket can easily create callbacks to that websocket without missing 
 //any websocket messages

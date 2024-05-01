@@ -250,6 +250,32 @@ export class KnownUserStore extends ObjectStorePromise<string, KnownUserEntry, K
     objectStore.createIndex('username-domain', ['username', 'remoteServer'])
   }
 
+  async getUserWithUsername(username: string, server: string) {
+    const transaction = this.db.transaction(this.objStoreName, "readonly");
+    const objStore = transaction.objectStore(this.objStoreName);
+
+    let index = objStore.index('username-domain');
+
+    let request = index.openCursor(IDBKeyRange.only([username, server]))
+
+    return new Promise<KnownUserEntry | null>((resolve, reject) => {
+      request.onsuccess = (ev) => {
+        //@ts-ignore
+        const cursor: IDBCursorWithValue | null = ev.target.result;
+
+        if(!cursor) {
+          return resolve(null);
+        }
+
+        return resolve(cursor.value);
+      }
+
+      request.onerror = (ev) => {
+        return reject(request.error);
+      }
+    })
+  }
+
   async migrateData(oldVersion: number) {}
 
   //this can be optimized in future using low-level IndexedDB cursor,
@@ -294,14 +320,15 @@ export class KnownUserStore extends ObjectStorePromise<string, KnownUserEntry, K
 
 
 
-interface GroupChatEntry {
+export interface GroupChatEntry {
   groupId: string,
   status: 'joined-group' | 'pending-approval' | 'denied',
   //contains identity keys of each user in KnownUser
   members: {
     identityKeyPublicString: string,
     username: string,
-    remoteServer: string
+    remoteServer: string,
+    acceptedInvite: boolean,
   }[]
 }
 

@@ -3,7 +3,7 @@ import { x3dh_receiver } from "../signal-protocol/X3DH.js";
 import { Database, LOCAL_STORAGE_HANDLER } from "../storage/StorageHandler.js";
 import { EncryptedMessageData, EncryptedPayloadBase, ErrorMessage, Message, KeyExchangeRequest, QueuedMessagesAndInvitesObj, StoredMessageBase, EncryptedKeyExchangeRequestPayload, EncryptedMessageGroupInvitePayload, StoredKeyExchangeRequest, EncryptedMessageJoinGroupPayload, EncryptedAcceptInviteMessageData } from "./MessageType.js";
 import { UserKeysForExchange, getUserKeysForExchange } from "../util/ApiRepository.js";
-import { addFriend, addGroup, addPendingGroupMember } from "../util/Actions.js";
+import { acceptGroupInvite, addFriend, addGroup, addPendingGroupMember } from "../util/Actions.js";
 import { AesGcmKey } from "../encryption/encryption.js";
 import { InviteSenderBuilder, MessageSenderBuilder, SocketInviteSender } from "./MessageSender.js";
 import { KnownUserEntry } from "../storage/ObjectStore.js";
@@ -25,7 +25,7 @@ export function messageParseError(type: "not-json" | 'invalid-type' | 'wrong-typ
   console.error(type);
 }
 
-export function convertMessageForStorage(message: Message, isVerified: boolean, decryptedPayload?: EncryptedMessageData) : StoredMessageBase{
+export function convertMessageForStorage(message: Message, isVerified: boolean, decryptedPayload: EncryptedMessageData) : StoredMessageBase{
   return {
     id: message.id,
     senderIdentityKeyPublic: message.senderIdentityKeyPublic,
@@ -95,7 +95,9 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
     //the error can only be thrown if the message failed to be decrypted or its
     //payload is not a properly formatted JSON
     await updateLastReadUUID();
-    emitter?.onmessage(convertMessageForStorage(data, false), false, e as Error);
+    //silently ignore this message for now
+    console.warn("Cannot decrypt message: ", e);
+    //emitter?.onmessage(convertMessageForStorage(data, false), false, e as Error);
     return false;
   }
 
@@ -111,9 +113,24 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
       await updateLastReadUUID();
       return true;
     case 'group-invite':
-      await addGroup(decryptedMessageData as EncryptedMessageGroupInvitePayload, db, 'pending-approval');
+      await addGroup(sender, decryptedMessageData as EncryptedMessageGroupInvitePayload, db, 'pending-approval');
       await updateLastReadUUID();
       return true;
+    case 'join-group': {
+      let data = decryptedMessageData as EncryptedMessageJoinGroupPayload;
+      let group = await db.groupChatStore.get(data.groupId);
+      if(group === null) {
+        break;
+      }
+      let memberIndex = group.members.findIndex(m => m.identityKeyPublicString === sender.identityKeyPublicString);
+      if(memberIndex === -1) {
+        break;
+      }
+
+      group.members[memberIndex].acceptedInvite = true;
+      await db.groupChatStore.update(group);
+      break;
+    }
     case 'accept-invite':
       //accept the invite by retrieving the mailbox id
       sender.mailboxId = (decryptedMessageData as EncryptedAcceptInviteMessageData).data.mailboxId;

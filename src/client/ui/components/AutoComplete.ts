@@ -1,4 +1,4 @@
-import { LOCAL_STORAGE_HANDLER } from "../../storage/StorageHandler.js";
+import { Database, LOCAL_STORAGE_HANDLER } from "../../storage/StorageHandler.js";
 import { searchUsers } from "../../util/ApiRepository.js";
 
 
@@ -69,6 +69,28 @@ export class UserSearchElement extends AutoCompleteElement {
   constructor(onSubmit: (username: string) => void) {
     super(async (search) => {
       let res = await searchUsers(search);
+      this.updateChoices(res.map(u => u.username).filter(u => u !== LOCAL_STORAGE_HANDLER.getUsername()));
+    });
+
+    let searchButton = document.createElement('button') as HTMLButtonElement;
+    searchButton.onclick = (e) => {
+      onSubmit(this.getValue())
+    };
+    this.rootElement.onsubmit = e => {
+      e.preventDefault(); //dont submit the form
+    };
+    
+    searchButton.textContent = "Invite User!";
+    this.rootElement.appendChild(searchButton);
+  }
+}
+
+export class KnownUserSearchElement extends AutoCompleteElement {
+  constructor(db: Database, onSubmit: (username: string) => void) {
+    super(async (search) => {
+      let res = await db.knownUserStore.getAllFriends();
+      res = res.filter(u => u.username.startsWith(search));
+      
       this.updateChoices(res.map(u => u.username).filter(u => u !== LOCAL_STORAGE_HANDLER.getUsername()));
     });
 
