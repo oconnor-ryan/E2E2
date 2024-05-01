@@ -36,7 +36,7 @@ export interface AccountIdentityWebSocket extends AccountIdentity {
 
 
 export interface BaseMessage {
-  type: 'message' | 'key-exchange-request'
+  type: 'message' | 'key-exchange-request' | 'get-queued-offline-messages'
 }
 
 //GET RID OF MESSAGE LOCAL since it has the same columns as MESSAGE INCOMING
@@ -269,7 +269,7 @@ export async function getAccountInfo(usernameOrIdentityKey: string) : Promise<Ac
 }
 
 export async function saveMessage(params: Message) : Promise<void> {
-  if(params.receiverServer) {
+  if(!params.receiverServer) {
     await db`insert into message_incoming ${db([{
       id: params.id,
       sender_identity_key_public: params.senderIdentityKeyPublic,

@@ -1,11 +1,17 @@
 import {RawData, WebSocket} from 'ws';
 import {IncomingMessage} from 'http';
-import { AccountIdentityWebSocket, BaseMessage, getIncomingMessages, getIncomingKeyExchangeRequests, KeyExchangeRequestIncoming, Message, saveMessage, saveKeyExchangeRequest, checkIfUserPasswordCorrect, getUserIdentityForWebSocket } from '../util/database-handler.js';
+import { AccountIdentityWebSocket, BaseMessage, getIncomingMessages, getIncomingKeyExchangeRequests, KeyExchangeRequestIncoming, Message, saveMessage, saveKeyExchangeRequest, checkIfUserPasswordCorrect, getUserIdentityForWebSocket, KeyExchangeRequestOutgoing } from '../util/database-handler.js';
 import { getUsernameAndPasswordFromWebSocketQuery } from '../util/auth-parser.js';
 
 interface AuthenticatedSocket {
   ws: WebSocket,
   acc: AccountIdentityWebSocket
+}
+
+interface QueuedOfflineMessagesRequest extends BaseMessage{
+  type: 'get-queued-offline-messages',
+  lastReadMessageUUID: string | undefined,
+  lastReadExchangeUUID: string | undefined
 }
 
 class WebSocketConnectionList {
@@ -81,30 +87,6 @@ export async function onConnection(ws: WebSocket, req: IncomingMessage) {
     return ws.close(undefined, 'You cannot establish multiple websocket connections per account!');
   }
 
-  let lastReadMessageUUID = searchParams.get('lastReadMessageUUID') ?? undefined;
-  let lastReadKeyExchangeUUID = searchParams.get('lastReadKeyExchangeUUID') ?? undefined;
-
-
-  //get pending messages and invites and send them to user
-  Promise.all([getIncomingKeyExchangeRequests(client.username), getIncomingMessages(client.mailboxId, lastReadMessageUUID)])
-   .then(result => {
-    const [invites, messages] : [KeyExchangeRequestIncoming[], Message[]] = result;
-    let response = {
-      type: 'queued-exchanges-and-messages',
-      exchanges: invites,
-      messages: messages
-    };
-
-    ws.send(JSON.stringify(response));
-   })
-   .catch(e => {
-    console.error(e);
-    ws.send(JSON.stringify({
-      type: 'error',
-      error: "CannotGetQueuedMessagesAndExchanges"
-    }));
-   });
-
 
   ws.on('close', (code, reason) => {
     console.log('close event');
@@ -135,15 +117,19 @@ export async function onConnection(ws: WebSocket, req: IncomingMessage) {
     //they should be relayed to the desired server or saved in the outgoing message table
     switch(json.type) {
       case 'message': {
-        handleMessage(ws, json as Message, data);
+        handleMessage(ws, json as Message, data, SERVER_HOST);
         break;
       }
         
       case 'key-exchange-request': {
-        handleKeyExchangeRequest(ws, json as KeyExchangeRequestIncoming, data);
+        handleKeyExchangeRequest(ws, json as KeyExchangeRequestIncoming, data, SERVER_HOST);
         break;
       }
 
+      case 'get-queued-offline-messages': 
+        handleQueuedOfflineMessagesRequest(ws, json as QueuedOfflineMessagesRequest, client);
+        break;
+        
       default:
         ws.send(JSON.stringify({
           type: 'error',
@@ -156,11 +142,15 @@ export async function onConnection(ws: WebSocket, req: IncomingMessage) {
 
 }
 
-function handleMessage(ws: WebSocket, json: Message, data: RawData) {
+function handleMessage(ws: WebSocket, json: Message, data: RawData, senderHost: string) {
   let receiverSocket = authClientList.getSocketByMailboxId((json).receiverMailboxId);
 
   //if receiver of message is not online
   if(!receiverSocket) {
+    //remove receiver server so that this message is sent to local user
+    if(json.receiverServer === senderHost) {
+      json.receiverServer = "";
+    }
     //save message in the database for the receiver to grab when he goes online
     saveMessage(json).catch(e => {
       console.error(e);
@@ -176,9 +166,13 @@ function handleMessage(ws: WebSocket, json: Message, data: RawData) {
   receiverSocket.ws.send(data);
 }
 
-function handleKeyExchangeRequest(ws: WebSocket, json: KeyExchangeRequestIncoming, data: RawData) {
+function handleKeyExchangeRequest(ws: WebSocket, json: KeyExchangeRequestIncoming | KeyExchangeRequestOutgoing, data: RawData, senderHost: string) {
   let receiverSocket = authClientList.getSocketByUsername((json).receiverUsername);
   if(!receiverSocket) {
+    //remove receiver server so that this exchange is sent to local user
+    if((json as KeyExchangeRequestOutgoing).receiverServer === senderHost) {
+      (json as KeyExchangeRequestOutgoing).receiverServer = "";
+    }
     saveKeyExchangeRequest(json).catch(e => {
       console.error(e);
       ws.send(JSON.stringify({
@@ -190,4 +184,26 @@ function handleKeyExchangeRequest(ws: WebSocket, json: KeyExchangeRequestIncomin
   }
 
   receiverSocket.ws.send(data);
+}
+
+function handleQueuedOfflineMessagesRequest(ws: WebSocket, json: QueuedOfflineMessagesRequest, client: AccountIdentityWebSocket) {
+  //get pending messages and invites and send them to user
+  Promise.all([getIncomingKeyExchangeRequests(client.username, json.lastReadExchangeUUID), getIncomingMessages(client.mailboxId, json.lastReadMessageUUID)])
+   .then(result => {
+    const [invites, messages] : [KeyExchangeRequestIncoming[], Message[]] = result;
+    let response = {
+      type: 'queued-offline-messages',
+      exchanges: invites,
+      messages: messages
+    };
+
+    ws.send(JSON.stringify(response));
+   })
+   .catch(e => {
+    console.error(e);
+    ws.send(JSON.stringify({
+      type: 'error',
+      error: "CannotGetQueuedMessagesAndExchanges"
+    }));
+   });
 }

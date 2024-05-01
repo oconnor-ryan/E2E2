@@ -1,5 +1,5 @@
 import { Database, LOCAL_STORAGE_HANDLER, getDatabase } from "../storage/StorageHandler.js";
-import { BaseMessage, ErrorMessage, Message, KeyExchangeRequest, QueuedMessagesAndInvitesObj } from "../message-handler/MessageType.js";
+import { BaseMessage, ErrorMessage, Message, KeyExchangeRequest, QueuedMessagesAndInvitesObj, QueuedOfflineMessagesRequest } from "../message-handler/MessageType.js";
 import { InviteSenderBuilder, MessageSenderBuilder, SocketMessageSender } from "../message-handler/MessageSender.js";
 import { MessageReceivedEventHandler, messageParseError, parseError, parseMessage, parseKeyExchangeRequest, parseQueuedMessagesAndInvites } from "../message-handler/MessageParser.js";
 
@@ -23,6 +23,9 @@ class WebSocketHandler {
 
     ws.onopen = (e) => {
       console.log("WebSocket connected!");
+      this.getOfflineMessagesRequest(ws, db).catch(e => {
+        console.error(e);
+      });
     };
     
     ws.onerror = (e) => {
@@ -53,7 +56,7 @@ class WebSocketHandler {
         case 'key-exchange-request':
           parseKeyExchangeRequest(data as KeyExchangeRequest, db, socketHandler.messageReceiver);
           break;
-        case 'queued-exchanges-and-messages': 
+        case 'queued-offline-messages': 
           parseQueuedMessagesAndInvites(data as QueuedMessagesAndInvitesObj, db, socketHandler.messageReceiver);
           break;
         case 'error':
@@ -64,6 +67,18 @@ class WebSocketHandler {
       }
     }
     
+  }
+
+  async getOfflineMessagesRequest(ws: WebSocket, db: Database) {
+    let myAcc = (await db.accountStore.get(LOCAL_STORAGE_HANDLER.getUsername()!))!;
+
+    let data: QueuedOfflineMessagesRequest = {
+      type: 'get-queued-offline-messages',
+      lastReadMessageUUID: myAcc.lastReadMessageUUID,
+      lastReadExchangeUUID: myAcc.lastReadKeyExchangeRequestUUID
+    };
+
+    ws.send(JSON.stringify(data));
   }
 
   setMessageReceiver(messageReceiver: MessageReceivedEventHandler) {

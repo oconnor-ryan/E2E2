@@ -12,7 +12,7 @@ export interface StoredMessageBase {
 }
 
 export interface BaseMessage {
-  type: 'message' | 'key-exchange-request' | 'queued-exchanges-and-messages' | 'error'
+  type: 'message' | 'key-exchange-request' | 'queued-offline-messages' | 'error'
 }
 
 export interface ErrorMessage extends BaseMessage {
@@ -59,6 +59,12 @@ export interface KeyExchangeRequest extends BaseMessage{
 
 }
 
+export interface QueuedOfflineMessagesRequest {
+  type: 'get-queued-offline-messages',
+  lastReadMessageUUID: string | undefined,
+  lastReadExchangeUUID: string | undefined
+}
+
 export interface EncryptedPayloadBase {
   signed_data: EncryptedMessageData | EncryptedKeyExchangeRequestPayload
   signature: string
@@ -73,7 +79,7 @@ export interface EncryptedKeyExchangeRequestPayload {
 
 
 export interface QueuedMessagesAndInvitesObj extends BaseMessage {
-  type: 'queued-exchanges-and-messages',
+  type: 'queued-offline-messages',
   messages: Message[],
   exchanges: KeyExchangeRequest[]
 }
