@@ -163,6 +163,7 @@ function handleMessage(ws: WebSocket, json: Message, data: RawData) {
   if(!receiverSocket) {
     //save message in the database for the receiver to grab when he goes online
     saveMessage(json).catch(e => {
+      console.error(e);
       ws.send(JSON.stringify({
         type: 'error',
         error: 'MessageSendError'

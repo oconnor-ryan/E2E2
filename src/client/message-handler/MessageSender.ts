@@ -3,7 +3,7 @@ import { Database } from "../storage/Database.js";
 import { GroupChatEntry, KnownUserEntry } from "../storage/ObjectStore.js";
 import { LOCAL_STORAGE_HANDLER } from "../storage/StorageHandler.js";
 import { arrayBufferToBase64 } from "../util/Base64.js";
-import { EncryptedAcceptInviteMessageData, EncryptedCallAcceptMessageData, EncryptedCallRequestMessageData, EncryptedCallSignalingMessageData, EncryptedFileMessageData, EncryptedLeaveGroupMessageData, EncryptedMessageGroupInvitePayload, EncryptedKeyExchangeRequestPayload, EncryptedMessageJoinGroupPayload, EncryptedNewMailboxIdMessageData, EncryptedRegularMessageData, Message, KeyExchangeRequest } from "./MessageType.js";
+import { EncryptedAcceptInviteMessageData, EncryptedCallAcceptMessageData, EncryptedCallRequestMessageData, EncryptedCallSignalingMessageData, EncryptedFileMessageData, EncryptedLeaveGroupMessageData, EncryptedMessageGroupInvitePayload, EncryptedKeyExchangeRequestPayload, EncryptedMessageJoinGroupPayload, EncryptedNewMailboxIdMessageData, EncryptedRegularMessageData, Message, KeyExchangeRequest, StoredMessageBase } from "./MessageType.js";
 
 export async function signAndEncryptData(data: any, encKey: AesGcmKey, signKey: ECDSAPrivateKey) {
   let dataAsString = JSON.stringify(data);
@@ -64,6 +64,17 @@ export class SocketMessageSender {
 
       this.ws.send(JSON.stringify(outgoingData));
     }
+
+    let storedMessage: StoredMessageBase = {
+      senderIdentityKeyPublic: await this.myIdentityKeyPair.publicKey.exportKey(),
+      messageDecrypted: true,
+      payload: data,
+      id: window.crypto.randomUUID(),
+      groupId: this.groupId,
+      isVerified: true
+    }
+
+    return storedMessage;
   }
 
 
@@ -76,8 +87,7 @@ export class SocketMessageSender {
       }
     };
 
-    await this.sendMessage(data);
-    return data;
+    return await this.sendMessage(data);
   }
 
   async sendFileMessage(fileUUID: string, accessToken: string, fileName: string, fileSig: string, fileEncKey: AesGcmKey, message: string) {
@@ -98,8 +108,8 @@ export class SocketMessageSender {
       }
     }
 
-    await this.sendMessage(data);
-    return data;
+    return await this.sendMessage(data);
+
 
   }
 
@@ -114,10 +124,7 @@ export class SocketMessageSender {
       data: undefined
     }
 
-    await this.sendMessage(data, true)
-
-    return data;
-
+    return await this.sendMessage(data);
   }
 
   async acceptCall() {
@@ -130,8 +137,8 @@ export class SocketMessageSender {
       groupId: undefined,
       data: undefined
     }
-    await this.sendMessage(data, true)
-    return data;
+    return await this.sendMessage(data);
+
 
   }
 
@@ -149,8 +156,8 @@ export class SocketMessageSender {
       }
     };
 
-    await this.sendMessage(data, true);
-    return data;
+    return await this.sendMessage(data);
+
 
   }
 
@@ -162,8 +169,7 @@ export class SocketMessageSender {
         mailboxId: myMailboxId
       }
     }
-    await this.sendMessage(data)
-    return data;
+    return await this.sendMessage(data);
 
   }
 
@@ -181,8 +187,7 @@ export class SocketMessageSender {
         })
       }
     }
-    await this.sendMessage(data);
-    return data;
+    return await this.sendMessage(data);
 
   }
 
@@ -194,8 +199,7 @@ export class SocketMessageSender {
         mailboxId: this.myMailboxId
       }
     }
-    await this.sendMessage(data);
-    return data;
+    return await this.sendMessage(data);
 
   }
 
@@ -205,8 +209,7 @@ export class SocketMessageSender {
       groupId: this.groupId!,
       data: undefined
     };
-    await this.sendMessage(data);
-    return data;
+    return await this.sendMessage(data);
 
   }
 
@@ -219,8 +222,7 @@ export class SocketMessageSender {
         mailboxId: mailboxId,
       }
     }
-    await this.sendMessage(data);
-    return data;
+    return await this.sendMessage(data);
 
   }
 }

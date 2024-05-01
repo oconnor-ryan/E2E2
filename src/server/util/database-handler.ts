@@ -272,14 +272,14 @@ export async function saveMessage(params: Message) : Promise<void> {
   if(params.receiverServer) {
     await db`insert into message_incoming ${db([{
       id: params.id,
-      sender_identity_public_key: params.senderIdentityKeyPublic,
+      sender_identity_key_public: params.senderIdentityKeyPublic,
       receiver_mailbox_id: params.receiverMailboxId,
       encrypted_payload: params.encryptedPayload
     }])}`
   } else  {
     await db`insert into message_outgoing ${db([{
       id: params.id,
-      sender_identity_public_key: params.senderIdentityKeyPublic,
+      sender_identity_key_public: params.senderIdentityKeyPublic,
       receiver_mailbox_id: params.receiverMailboxId,
       encrypted_payload: params.encryptedPayload,
       receiver_server: params.receiverServer!

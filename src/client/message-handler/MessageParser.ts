@@ -1,7 +1,7 @@
 import { ECDHPublicKey } from "../encryption/ECDH.js";
 import { x3dh_receiver } from "../signal-protocol/X3DH.js";
 import { Database, LOCAL_STORAGE_HANDLER } from "../storage/StorageHandler.js";
-import { EncryptedMessageData, EncryptedPayloadBase, ErrorMessage, Message, KeyExchangeRequest, QueuedMessagesAndInvitesObj, StoredMessageBase, EncryptedKeyExchangeRequestPayload, EncryptedMessageGroupInvitePayload, StoredKeyExchangeRequest, EncryptedMessageJoinGroupPayload, EncryptedAcceptInviteMessageData } from "./MessageType.js";
+import { EncryptedMessageData, EncryptedPayloadBase, ErrorMessage, Message, KeyExchangeRequest, QueuedMessagesAndInvitesObj, StoredMessageBase, EncryptedKeyExchangeRequestPayload, EncryptedMessageGroupInvitePayload, StoredKeyExchangeRequest, EncryptedMessageJoinGroupPayload, EncryptedAcceptInviteMessageData, EncryptedRegularMessageData, EncryptedFileMessageData } from "./MessageType.js";
 import { UserKeysForExchange, getUserKeysForExchange } from "../util/ApiRepository.js";
 import { acceptGroupInvite, addFriend, addGroup, addPendingGroupMember } from "../util/Actions.js";
 import { AesGcmKey } from "../encryption/encryption.js";
@@ -142,6 +142,10 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
       await db.knownUserStore.update(sender);
       await updateLastReadUUID();
       return true;
+    case 'text-message':
+    case 'file-link':
+      await db.messageStore.add(storedMessageData);
+      break;
     default:
   }
   
@@ -191,7 +195,6 @@ export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Data
       throw new Error("Account not found!")
     }
 
-    console.log("HI THERE")
     //perform X3DH
     let ephemKey = await ECDHPublicKey.importKey(data.ephemeralKeyPublic);
     console.log("Ephem KEy")

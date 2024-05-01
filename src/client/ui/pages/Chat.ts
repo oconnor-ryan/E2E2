@@ -148,7 +148,7 @@ export class ChatPage extends ClientPage {
     };
       
     let messageSender = await websocket.messageSenderBuilder.buildMessageSender(user.identityKeyPublicString, 'individual-key');
-    this.setupMessageSender(messageSender);
+    this.setupMessageSender(messageSender, db);
     
   }
 
@@ -163,6 +163,8 @@ export class ChatPage extends ClientPage {
 
     let messageReceiver = getDefaultMessageReceivedHandlerUI();
     let members = await Promise.all(group.members.map(m => db.knownUserStore.get(m.identityKeyPublicString))) as KnownUserEntry[];
+
+    await this.renderPrevMessagesGroup(db, groupId, members, messageContainer);
 
     messageReceiver.onmessage = async (request, messageSaved, error) => {
       if(error) {
@@ -187,7 +189,7 @@ export class ChatPage extends ClientPage {
     //note that using await will cause a message that is sent around this time to not render on screen.
     let messageSender = await websocketHandler.messageSenderBuilder.buildMessageSender(groupId, 'groupId');
 
-    this.setupMessageSender(messageSender);
+    this.setupMessageSender(messageSender, db);
   }
 
   private async renderPrevMessagesOneToOne(db: Database, user: KnownUserEntry, messageContainer: HTMLElement) {
@@ -216,17 +218,19 @@ export class ChatPage extends ClientPage {
       let sender = otherMembers.find(u => u.identityKeyPublicString === message.senderIdentityKeyPublic);
       if(!sender) {
         username = myIdKey === message.senderIdentityKeyPublic ? LOCAL_STORAGE_HANDLER.getUsername()! : "::::I AM NOT A MEMBER::::";
+      } else {
+        username = sender.username;
       }
 
-      if(message.payload?.type === 'text-message') {
-        let data = message.payload?.data as EncryptedRegularMessageData;
+      if(message.payload.type === 'text-message') {
+        let data = message.payload as EncryptedRegularMessageData;
         this.renderMessage(username, data.data.message, messageContainer);
 
       }
     } 
   }
 
-  private setupMessageSender(messageSender: SocketMessageSender) {
+  private setupMessageSender(messageSender: SocketMessageSender, db: Database) {
     const sendMessageButton = document.getElementById('send-message-button') as HTMLButtonElement;
     const messageInput = document.getElementById('message-input') as HTMLInputElement;
     const messageContainer = document.getElementById('messages') as HTMLElement;
@@ -234,9 +238,10 @@ export class ChatPage extends ClientPage {
 
     const send = async () => {
       try {
-        await messageSender.sendRegularMessage(messageInput.value);
+        let copyOfMessage = await messageSender.sendRegularMessage(messageInput.value);
         this.renderMessage(LOCAL_STORAGE_HANDLER.getUsername()!, messageInput.value, messageContainer);
         messageInput.value = "";
+        await db.messageStore.add(copyOfMessage);
 
       } catch(e) {
         displayError(e as Error);
