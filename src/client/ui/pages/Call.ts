@@ -1,14 +1,16 @@
-import { getDatabase } from "src/client/storage/StorageHandler.js";
+import { getDatabase } from "../../storage/StorageHandler.js";
 import { negotiateP2PConnection } from "../../webrtc/P2P-Connect.js";
 import { SignalingServerMessageHandler } from "../../webrtc/SignalingServerMessageHandler.js";
 import { ClientPage } from "../router/ClientPage.js";
 import { ROUTER } from "../router/router.js";
-import { getWebSocketHandler } from "src/client/websocket/SocketHandler.js";
+import { getWebSocketHandler } from "../../websocket/SocketHandler.js";
 import { displayNotification, getDefaultMessageReceivedHandlerUI } from "../components/Notification.js";
-import { MessageSenderBuilder, SocketMessageSender } from "src/client/message-handler/MessageSender.js";
-import { EncryptedCallSignalingMessageData } from "src/client/message-handler/MessageType.js";
+import { MessageSenderBuilder, SocketMessageSender } from "../../message-handler/MessageSender.js";
+import { EncryptedCallSignalingMessageData, StoredMessageCallBase } from "../../message-handler/MessageType.js";
 
 export class CallPage extends ClientPage {
+  private changePoliteness?: (polite: boolean) => void;
+
   load(rootElement: HTMLElement): void {
     rootElement.innerHTML = `
     <h1>Call Room</h1>
@@ -28,31 +30,40 @@ export class CallPage extends ClientPage {
       ROUTER.goTo('/home');
     };
 
-    const userList = document.getElementById('user-list') as HTMLDivElement;
-    const localVideo = document.getElementById('localCam') as HTMLVideoElement;
-    const remoteVideo = document.getElementById('remoteCam') as HTMLVideoElement; 
+    
 
+    this.loadAsync().catch(e => console.error(e));
 
   }
 
-  private async loadAsync(userListElement: HTMLElement) {
-    const db = await getDatabase();
+  private async loadAsync() {
+    const remoteVideo = document.getElementById('remoteCam') as HTMLVideoElement; 
+    const userList = document.getElementById('user-list') as HTMLDivElement;
 
-    //make an API call to get current list of online friends
-    //along with whether or not they tell you to be polite for P2P Negotation
-    userListElement.innerHTML = "";
+    const db = await getDatabase();
 
 
     const signaler = new Signaler();
 
     let messageReceiver = getDefaultMessageReceivedHandlerUI();
     let oldOnMessage = messageReceiver.onmessage;
+    
+
+    const socketData = getWebSocketHandler(db, messageReceiver);
+
     messageReceiver.onmessage = (message, messageSaved, error) => {
       if(error) {
         return oldOnMessage(message, messageSaved, error);
       }
 
-      switch(message.payload?.type) {
+      //this is not a valid call 
+      if((message as StoredMessageCallBase).bePolite === undefined) {
+        return;
+      }
+
+      let callMessage = message as StoredMessageCallBase;
+
+      switch(callMessage.payload.type) {
         case 'call-request':
           break;
         case 'call-accept': 
@@ -60,6 +71,8 @@ export class CallPage extends ClientPage {
         case 'call-signaling':
           let signalData = message.payload as EncryptedCallSignalingMessageData;
           if(signalData.data.sdp) {
+            this.startCall(message.senderIdentityKeyPublic, signaler, socketData.messageSenderBuilder, callMessage.bePolite)
+
             signaler.onReceiveSessionDescription(signalData.data.sdp);
           } else if(signalData.data.ice) {
             signaler.onReceiveNewIceCandidate(signalData.data.ice);
@@ -69,11 +82,43 @@ export class CallPage extends ClientPage {
           break;
       }
     }
-    const socketData = getWebSocketHandler(db, messageReceiver);
+
+    messageReceiver.oncallinforesponse = (info) => {
+      //render callable users
+      userList.innerHTML = "";
+
+      info.users.forEach(u => {
+        let element = document.createElement('li') as HTMLLIElement;
+        let button = document.createElement('button') as HTMLButtonElement;
+        element.textContent = u.username;
+
+        button.textContent = 'Call';
+        button.onclick = async (ev) => {
+          try {
+            this.startCall(u.identityKeyPublicString, signaler, socketData.messageSenderBuilder, u.bePolite);
+          } catch(e) {
+            console.error(e);
+          }
+        };
+
+        element.appendChild(button);
+        userList.appendChild(element);
+
+      });
+
+    };
+
     
+
+    messageReceiver.onsocketopen = () => {
+      socketData.sendCallInfoRequest(db).catch(e => console.error(e));
+    }
   }
 
-  private async startCall(otherUserIdKey: string, signaler: Signaler, messageSenderBuilder: MessageSenderBuilder, remoteVideo: HTMLVideoElement, isPolite: boolean) {
+  private async startCall(otherUserIdKey: string, signaler: Signaler, messageSenderBuilder: MessageSenderBuilder, isPolite: boolean) {
+    const remoteVideo = document.getElementById('remoteCam') as HTMLVideoElement; 
+    const localVideo = document.getElementById('localCam') as HTMLVideoElement;
+
     const messageSender = await messageSenderBuilder.buildMessageSender(otherUserIdKey, 'individual-key');
     signaler.setSender(messageSender);
 
@@ -85,14 +130,19 @@ export class CallPage extends ClientPage {
         video: true
       });
 
-      //double negation casts to boolean (undefined becomes false)
-      const changePoliteness = negotiateP2PConnection(signaler, remoteVideo, userCamAndMic);
-      changePoliteness(!!isPolite);
+      //if we are already trying to call the other user, change our politeness 
+      if(this.changePoliteness) {
+        this.changePoliteness(!!isPolite);
+      }
+      //start our call 
+      else {
+        this.changePoliteness = negotiateP2PConnection(signaler, remoteVideo, userCamAndMic);
+      }
 
-      return userCamAndMic;
+      localVideo.srcObject = userCamAndMic;
     } catch(e) {
       console.error(e);
-      return null;
+      
     }
   }
 }

@@ -49,7 +49,7 @@ export class SocketMessageSender {
     this.receivers.splice(index, 1);
   }
 
-  private async sendMessage(data: any, dontSaveIfOffline: boolean = false) {
+  private async sendMessage(data: any, isCall: boolean = false, dontSaveIfOffline: boolean = false) {
     let firstReceiver: KnownUserEntry | undefined;
     for(let receiver of this.receivers) {
       firstReceiver = receiver;
@@ -60,7 +60,7 @@ export class SocketMessageSender {
         encryptedPayload: await signAndEncryptData(data, receiver.currentEncryptionKey, this.myIdentityKeyPair.privateKey),
         receiverServer: receiver.remoteServer,
         dontSave: dontSaveIfOffline,
-        type: 'message' //this is the server type
+        type: isCall ? 'call' : 'message'//this is the server type
       }
 
       this.ws.send(JSON.stringify(outgoingData));
@@ -127,7 +127,7 @@ export class SocketMessageSender {
       data: undefined
     }
 
-    return await this.sendMessage(data);
+    return await this.sendMessage(data, true);
   }
 
   async acceptCall() {
@@ -140,7 +140,7 @@ export class SocketMessageSender {
       groupId: undefined,
       data: undefined
     }
-    return await this.sendMessage(data);
+    return await this.sendMessage(data, true);
 
 
   }
@@ -159,7 +159,7 @@ export class SocketMessageSender {
       }
     };
 
-    return await this.sendMessage(data);
+    return await this.sendMessage(data,true);
 
 
   }

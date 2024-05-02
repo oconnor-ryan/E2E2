@@ -3,6 +3,7 @@ import { Page404 } from "../pages/404.js";
 import { AccountPage } from "../pages/Account.js";
 import { ChatPage } from "../pages/Chat.js";
 import { HomePage } from "../pages/Home.js";
+import { CallPage } from "../pages/Call.js";
 
 
 
@@ -16,6 +17,7 @@ const exampleRouterConfig  = {
   '/': new AccountPage(),
   '/home': new HomePage(),
   '/chat': new ChatPage(),
+  '/call': new CallPage(),
   '/404': new Page404()
 }
 

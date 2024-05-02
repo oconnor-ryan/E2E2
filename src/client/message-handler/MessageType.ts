@@ -11,8 +11,12 @@ export interface StoredMessageBase {
   payload: EncryptedMessageData 
 }
 
+export interface StoredMessageCallBase extends StoredMessageBase {
+  bePolite: boolean
+}
+
 export interface BaseMessage {
-  type: 'message' | 'key-exchange-request' | 'queued-offline-messages' | 'error'
+  type: 'message' | 'call' | 'key-exchange-request' | 'queued-offline-messages' | 'get-call-info-of-users' | 'error'
 }
 
 export interface ErrorMessage extends BaseMessage {
@@ -20,14 +24,33 @@ export interface ErrorMessage extends BaseMessage {
   error: string
 }
 
+export interface CalleeInfoRequest extends BaseMessage {
+  type: 'get-call-info-of-users',
+  users: string[]
+}
+
+export interface CalleeInfoResponse extends BaseMessage {
+  type: 'get-call-info-of-users',
+  users: {
+    username: string;
+    identityKeyPublicString: string;
+    bePolite: boolean;
+  }[]
+}
+
 export interface Message extends BaseMessage {
-  type: 'message',
+  type: 'message' | 'call',
   id: string,
   dontSave?: boolean,
   receiverMailboxId: string,
   senderIdentityKeyPublic: string,
   encryptedPayload: string,
   receiverServer: string
+}
+
+export interface CallMessage extends Message {
+  type: 'call',
+  bePolite: boolean
 }
 
 export interface StoredKeyExchangeRequest {
@@ -59,8 +82,8 @@ export interface KeyExchangeRequest extends BaseMessage{
 
 }
 
-export interface QueuedOfflineMessagesRequest {
-  type: 'get-queued-offline-messages',
+export interface QueuedOfflineMessagesRequest extends BaseMessage {
+  type: 'queued-offline-messages',
   lastReadMessageUUID: string | undefined,
   lastReadExchangeUUID: string | undefined
 }

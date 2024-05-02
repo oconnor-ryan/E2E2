@@ -1,7 +1,7 @@
 import { ECDHPublicKey } from "../encryption/ECDH.js";
 import { x3dh_receiver } from "../signal-protocol/X3DH.js";
 import { Database, LOCAL_STORAGE_HANDLER } from "../storage/StorageHandler.js";
-import { EncryptedMessageData, EncryptedPayloadBase, ErrorMessage, Message, KeyExchangeRequest, QueuedMessagesAndInvitesObj, StoredMessageBase, EncryptedKeyExchangeRequestPayload, EncryptedMessageGroupInvitePayload, StoredKeyExchangeRequest, EncryptedMessageJoinGroupPayload, EncryptedAcceptInviteMessageData, EncryptedRegularMessageData, EncryptedFileMessageData } from "./MessageType.js";
+import { EncryptedMessageData, EncryptedPayloadBase, ErrorMessage, Message, KeyExchangeRequest, QueuedMessagesAndInvitesObj, StoredMessageBase, EncryptedKeyExchangeRequestPayload, EncryptedMessageGroupInvitePayload, StoredKeyExchangeRequest, EncryptedMessageJoinGroupPayload, EncryptedAcceptInviteMessageData, EncryptedRegularMessageData, EncryptedFileMessageData, CalleeInfoResponse } from "./MessageType.js";
 import { UserKeysForExchange, getUserKeysForExchange } from "../util/ApiRepository.js";
 import { acceptGroupInvite, addFriend, addGroup, addPendingGroupMember } from "../util/Actions.js";
 import { AesGcmKey } from "../encryption/encryption.js";
@@ -13,7 +13,8 @@ export interface MessageSenderData {
   messageInviteSender: SocketInviteSender
 }
 export class MessageReceivedEventHandler {
-
+  public oncallinforesponse: (info: CalleeInfoResponse) => void = () => {};
+  public onsocketopen: () => void = () => {};
   public onmessage: (message: StoredMessageBase, messageSaved: boolean, error: Error | null) => void = () => {};
   public onkeyexchangerequest: (request: StoredKeyExchangeRequest, error: Error | null) => void = () => {};
   public onerror: (error: ErrorMessage) => void = () => {}
@@ -158,6 +159,7 @@ export async function parseMessage(data: Message, db: Database, emitter: Message
   return true;
 
 }
+
 
 export async function parseKeyExchangeRequest(data: KeyExchangeRequest, db: Database, emitter: MessageReceivedEventHandler | null, updateLastMessageRead: boolean = true) : Promise<boolean> {
   let theirAcc: UserKeysForExchange;

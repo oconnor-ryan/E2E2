@@ -36,17 +36,22 @@ export interface AccountIdentityWebSocket extends AccountIdentity {
 
 
 export interface BaseMessage {
-  type: 'message' | 'key-exchange-request' | 'get-queued-offline-messages'
+  type: 'message' | 'call' | 'key-exchange-request' | 'queued-offline-messages' | 'get-call-info-of-users'
 }
 
 //GET RID OF MESSAGE LOCAL since it has the same columns as MESSAGE INCOMING
 export interface Message extends BaseMessage {
-  type: 'message',
+  type: 'message' | 'call',
   id: string,
   receiverMailboxId: string,
   senderIdentityKeyPublic: string,
   encryptedPayload: string,
   receiverServer: string //if local, use empty string
+}
+
+export interface MessageCall extends Message {
+  type: 'call',
+  bePolite: boolean
 }
 
 interface KeyExchangeRequest extends BaseMessage{

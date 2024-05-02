@@ -21,6 +21,9 @@ export class HomePage extends ClientPage {
       <h2>Invite People</h2>
       <div id="user-search-root"></div>
 
+      <h2>Call Room</h2>
+      <p id="call-room-link">Go To Call Room</p>
+
       <h2>Your Group Chats</h2>
       <div id="group-chat-list"></div>
       <h3>Create Group Chat</h3>
@@ -46,6 +49,11 @@ export class HomePage extends ClientPage {
     const groupChatListElement = document.getElementById('group-chat-list') as HTMLDivElement;
     const addGroupChatButtonElement = document.getElementById('add-group-button') as HTMLButtonElement;
     const invitationList = document.getElementById('invitation-list') as HTMLDivElement;
+
+    const callRoomLink = document.getElementById('call-room-link') as HTMLElement;
+    callRoomLink.onclick = (e) => {
+      ROUTER.goTo('/call');
+    }
 
     this.loadData(oneToOneChatListElement, groupChatListElement, addGroupChatButtonElement, invitationList);
   }
