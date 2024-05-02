@@ -13,7 +13,7 @@ export async function x3dh_sender(
   //let dh2 = await ecdh.deriveBits(myEphemeralKey, theirIdKey); //authenticate with their Id Key
   //let dh3 = await ecdh.deriveBits(myEphemeralKey, theirPreKey); //forward secrecy by using ephemeral/short-term keys
 
-  let dh1 = await myIdKey.deriveBits(theirIdKey);
+  let dh1 = await myIdKey.deriveBits(theirPreKey);
   let dh2 = await myEphemeralKey.deriveBits(theirIdKey);
   let dh3 = await myEphemeralKey.deriveBits(theirPreKey);
 
