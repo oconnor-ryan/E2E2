@@ -393,17 +393,22 @@ This is why I kept these new changes on a separate branch.
 
 ## Other Notes
 
-### Images
+### Sample Images From The Web Application
 
 #### Home Page
+![HomePage](https://github.com/oconnor-ryan/E2E2/assets/128189530/29ec7f3b-117d-4965-9b68-c96fcd05dc14)
 
 #### Account Page
+![AccountPage](https://github.com/oconnor-ryan/E2E2/assets/128189530/06204cc8-8277-4155-87b5-679eaf4449be)
 
 #### Chat List Page
+![ChatListPage](https://github.com/oconnor-ryan/E2E2/assets/128189530/bfb927f4-d535-4215-bfba-1a4aeddd7ee3)
 
 #### Chat Room Page
+![ChatRoom](https://github.com/oconnor-ryan/E2E2/assets/128189530/d09b2fb1-4621-441c-bc9e-d724b605a1e7)
 
 #### Call Room Page
+![CallRoom](https://github.com/oconnor-ryan/E2E2/assets/128189530/d6cd8eeb-bbe1-41e5-9783-8dbaeb339a18)
 
 
 
