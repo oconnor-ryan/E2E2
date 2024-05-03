@@ -20,6 +20,10 @@ A instant-messaging web application where users can send encrypted messages to e
 
 - **dist/** stores the transpiled Javascript from the Typescript inside the src/ folder.
 
+- **database-schema/schema.sql** stores the database schema needed for the project. It was generated for a PostgreSQL database.
+
+- **https-keys/** stores the certificate and keys used to allow the NodeJS server to use HTTPS without relying on a reverse proxy.
+
 ## To Run Project
 To build the database:
 1. Install PostgreSQL
@@ -418,10 +422,11 @@ This is why I kept these new changes on a separate branch.
   - Can link up to 4 devices (including phones) using primary phone temporarily
   - Message History does sync message history, but requires your phone to have the Whatsapp app open and is slow on web client. Primary phone has the greatest priority
   - Has Web Client
+
 * [Wire](https://wire.com/en)
- - Uses Proteus protocol, an implementation of Signal protocol
- - Allows up to 8 devices to be linked, but does not sync conversation history between devices since each device generates its own keypair
- - 1 temporary device can be used to login on a public computer to view and send new messages. This device deletes all messages locally on logout and has limited permissions.
+  - Uses Proteus protocol, an implementation of Signal protocol
+  - Allows up to 8 devices to be linked, but does not sync conversation history between devices since each device generates its own keypair
+  - 1 temporary device can be used to login on a public computer to view and send new messages. This device deletes all messages locally on logout and has limited permissions.
  
 * [Discord](https://discord.com/) 
   - users can talk in private chats or on public "servers"
