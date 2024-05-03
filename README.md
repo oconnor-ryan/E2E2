@@ -56,7 +56,6 @@ In order to build and run the project:
 4. Run `npm run build` to build project.
 5. Run `npm run start` to start web server on port 3000.
 
-
 ## Features
 - Users can create chat rooms and invite other users to join their chat rooms.
 - Chat members can send and receive end-to-end-encrypted messages and files to each other.
@@ -391,6 +390,31 @@ There are many features from the main branch that I did not have the time to por
 - Video Calls
 
 This is why I kept these new changes on a separate branch.
+
+## Other Notes
+
+### Images
+
+#### Home Page
+
+#### Account Page
+
+#### Chat List Page
+
+#### Chat Room Page
+
+#### Call Room Page
+
+
+
+### Note About The Other Chat Types On Home Page
+When visiting the home page of the website, there is a link called "Chat (Public Key)" and a link called "Chat (Shared Key)". These are not part of the protocols I specified above. These are links to 2 small syncronous messangers, one that uses a asymmetric RSA key to encrypt messages, and one that uses a asymmetric RSA key pair to encrypt a symmetric AES-GCM key that is sent to all users for encrypting messages. 
+
+1. The "Public Key" chat is a syncronous global chat where users exchange RSA public keys. They then encrypt their messages using their private keys and send them to each other.
+
+2. The "Shared Key" chat is a syncronous global chat with 3 rooms (labelled 1, 2, and 3). Users exchange RSA public keys, then one of the users generates a AES-GCM key, encrypts it with each user's RSA public key, and sends it to each user. The users then use this AES-GCM key to encrypt/decrypt all other messages.
+
+Both of these chat rooms were made to learn more about the Web Cryptography API and WebSockets and are not intended to be part of this project, but I left them there anyways.
 
 ## Future Goals
 1. Add the Double Ratchet Algorithm from the Signal Protocol so that the X3DH shared secret key generated between 2 users can be altered after each message sent, improving forward secrecy. 
